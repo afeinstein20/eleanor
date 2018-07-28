@@ -13,10 +13,11 @@ def findAllFITS(year, camera, chip, url, dayMin, dayMax):
     calFiles = []
     days = np.arange(dayMin, dayMax+1, 1)
     for d in days:
-        path = url + '/' + year + '/' + d + '/' + camera + '-' + chip + '/'
+        path = url + '/' + year + '/' + str(d) + '/' + camera + '-' + chip + '/'
         for fn in BeautifulSoup(requests.get(path).text, "lxml").find_all('a'):
             if fn.get('href')[-7::] == 'ic.fits':
-                calFiles.append(path + fn)
+                calFiles.append(path + fn.get('href'))
+        print(calFiles)
     return calFiles
         
 # -------------------------- 
@@ -51,6 +52,8 @@ def passInfo():
     year, dayMin, dayMax, camera, chip, url, dir = userInput()
     if os.path.isdir(dir) == False:
         filenames = findAllFITS(year, camera, chip, url, dayMin, dayMax)
-        downloadFiles = (dir, filenames)
+        downloadFiles(dir, filenames)
     filenames = os.listdir(dir)
     return year, camera, chip, np.array(filenames), dir
+
+passInfo()

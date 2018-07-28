@@ -55,13 +55,35 @@ def mastQuery(request):
     return head, content
 
 
+def jsonTable(jsonObj):
+    """
+    Convets json return type object into an astropy Table
+    Parameters
+    ---------- 
+        jsonObj: an object from mastQuery
+    Returns
+    ---------- 
+        table: astropy table for jsonObj
+    """
+    dataTable = Table()
+    for col,atype in [(x['name'],x['type']) for x in jsonObj['fields']]:
+        if atype=='string':
+            atype='str'
+        if atype=='boolean':
+            atype='bool'
+        if atype=='int':
+            atype='float'
+        dataTable[col] = np.array([x.get(col,None) for x in jsonObj['data']],dtype=atype)
+    return dataTable
+
+
 def coneSearch(pos, r, service):
     """
     Completes a cone search in the Gaia DR2 or TIC
     Parameters
     ----------
         pos: [RA,Dec] list
-        r: radius of cone search
+        r: radius of cone search, [deg]
         service: identifies which MAST service to use. Either: 'Mast.Catalogs.GaiaDR2.Cone'
                  or 'Mast.Catalogs.Tic.Cone' are acceptable inputs
     Returns
@@ -70,7 +92,7 @@ def coneSearch(pos, r, service):
         See the Gaia field documentation for information on returned columns
     """
     request = {'service': service,
-               'params': {'ra':pos[0], 'dec':pos[1], 'radius':r},
+               'params': {'ra':pos[0], 'dec':pos[1], 'radius':r},#/3600.},
                'format':'json'}
     headers, outString = mastQuery(request)
     return json.loads(outString)
@@ -95,10 +117,36 @@ def crossmatch(pos, r, service):
                        'data': [{'ra':pos[0], 'dec':pos[1]}]}
     request = {'service':service,
                'data':crossmatchInput,
-               'params': {'raColumn':'ra', 'decColumn':'dec', 'radius':r},
+               'params': {'raColumn':'ra', 'decColumn':'dec', 'radius':r/3600.},
                'format':'json'}
     headers, outString = mastQuery(request)
     return json.loads(outString)['data'][0]
+
+
+def ticSearchByContam(pos, r, contam):
+    """
+    Allows the user to perform a counts only query or get the usual grid of results. When unsure
+    how many results is expected, it is best to first perform a counts query to avoid memory overflow
+    Parameters
+    ---------- 
+        pos: [RA,Dec] pair
+        r: radius of cone search
+        contam: [min,max] list of how much allowed contamination
+    Returns
+    ---------- 
+        json.loads(outString): dictionary of source(s) in radius
+    """
+    request = {'service':'Mast.Catalogs.Filtered.Tic.Position',
+               'format':'json',
+               'params': {'columns':'c.*',
+                          'filters': [{'paramName':'contratio', 
+                                       'values':[{'min':contam[0], 'max':contam[1]}]}],
+                          'ra':pos[0],
+                          'dec':pos[1],
+                          'radius':r
+                          }}
+    headers, outString = mastQuery(request)
+    return json.loads(outString)
 
 
 def gaiaPositionByID(source_id):
@@ -128,11 +176,12 @@ def ticPositionByID(tic_id):
         source_id, ra, dec, tmag
     """
     ticData = Catalogs.query_criteria(catalog='Tic', ID=tic_id)
-    return ticData['objID'].data, [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
+    print(ticData['ID'].data, [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data)
+    return ticData['ID'].data, [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
 
 
-# Creates a table for crossmatching multiple sources between Gaia and TIC catalogs
 def makeTable():
+    """ Creates a table for crossmatching multiple sources between Gaia and TIC catalogs """
     columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'separation', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
     t = Table(np.zeros(10), names=columns)
     t['RA'].unit, t['Dec'].unit, t['separation'].unit = u.arcsec, u.arcsec, u.arcsec
@@ -226,7 +275,7 @@ def findByPosition(filename):
 
 
 #crossmatch([48.00658181793736, 29.008217615212036], 0.01, 'Mast.GaiaDR2.Crossmatch')
-#coneSearch([48.00658181793736, 29.008217615212036], 0.5, 'Mast.Catalogs.GaiaDR2.Cone')
+#coneSearch([48.00658181793736, 29.008217615212036], 800., 'Mast.Catalogs.Tic.Cone')
 #gaiaMultiCrossmatch('testGaia.txt')
 #ticMultiCrossmatch('testTIC.txt')
 #findByPosition('testPosition.csv')
