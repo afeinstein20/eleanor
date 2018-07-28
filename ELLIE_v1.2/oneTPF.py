@@ -26,12 +26,14 @@ def getSourcePos(id, mission, mheader):
 
 def correctXY(x, y, camera, chip):
     pointing = 'pointingModel_{}-{}.txt'.format(camera, chip)
-    pointing = np.loadtxt(pointing, usecols=(3,4))
-    newX, newY = [], []
+    pointing = np.loadtxt(pointing, usecols=(1,2,3,4))
+    new = []
     for i in range(len(pointing)):
-        newX.append(x+pointing[i][0])
-        newY.append(y+pointing[i][1])
-    return newX, newY
+#        if i == 0:
+#            new.append((x+pointing[i][0], y+pointing[i][1]))
+#        else:
+        new.append((x+pointing[i][2], y+pointing[i][3]))
+    return new
 
 
 def main(camera, chip, id):
@@ -42,8 +44,12 @@ def main(camera, chip, id):
     fns = sortByDate(fns, dir)
     mast, mheader = openFITS(dir, fns[0])
     new_id, raDec, xy = getSourcePos(id, 'tic', mheader)
-    x, y = correctXY(xy[0], xy[1], camera, chip)
-    return x, y, [dir+i for i in fns]
+    xy_corr = correctXY(xy[0], xy[1], camera, chip)
+
+    fns = [dir+i for i in fns]
+    tpf = ktpf.from_fits_images(images=fns, position=xy_corr, size=(5,5))
+    tpf.to_fits(output_fn = '{}.fits'.format(id))
+
 
 
 def updateFig(fn):
@@ -62,21 +68,7 @@ def animate(i):
 
 scats = []
 
-id = 229669377
-x, y, fns = main(3, 1, id)
+#id = 229669377
+id = 219870537
+main(4,4, id)
 
-print("Making figure")
-fig = plt.figure()
-ax   = fig.add_subplot(111)
-
-ax.set_xlim([x[0]-5, x[0]+5])
-ax.set_ylim([y[1]-5, y[1]+5])
-ax.set_title(id, color='black', fontweight='bold')
-
-Writer = animation.writers['ffmpeg']
-writer = Writer(fps=8, metadata=dict(artist='Me'), bitrate=1800)
-
-ani = animation.FuncAnimation(fig, animate, frames=len(fns))
-
-
-ani.save('test1.mp4', writer=writer)

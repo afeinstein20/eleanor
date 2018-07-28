@@ -1,54 +1,50 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from pixelCorrection import correctionFactors
-from filesAndConvert import openFITS
-import matplotlib.animation as animation
 import matplotlib
-matplotlib.use("Agg")
-import imageio
-from lightkurve import KeplerTargetPixelFile as ktpf
+import matplotlib.animation as animation
 from astropy.io import fits
-
-def updatePoint(i):
-    center.set_xdata(x[i])
-    center.set_ydata(y[i])
-    return center,
+import os, sys
+import imageio
+matplotlib.use("Agg")
+from scipy import ndimage
 
 def animate(i):
-    global scats
-    print(i)
-    ax.imshow(updateFig(fns[i]), origin = 'lower', vmin = 40, vmax = 100)
-    
+    global scats, text
+    ax.imshow(mast[i][4], origin='lower', vmax=3000)
+ #   com = ndimage.measurements.center_of_mass(mast[i][4])
     for scat in scats:
         scat.remove()
     scats = []
+ #   scats.append(ax.scatter(com[0], com[1], s=16, c='k'))
     scats.append(ax.scatter(x[i], y[i], s=16, c='k'))
-
-def init():
-    center.set_ydata(np.ma.array(x, mask=True))
-    return center,
-
-def updateFig(fn):
-    mast, mheader = fits.getdata(fn, header = True)
-    return mast
-
-x, y, fns = correctionFactors()
+    time_text.set_text('Frame {}'.format(i))
 
 scats = []
 
-print("Making figure")
-fig = plt.figure()
-ax   = fig.add_subplot(111)
 
-ax.set_xlim([x[0]-5, x[0]+5])
-ax.set_ylim([y[1]-5, y[1]+5])
+id = str(sys.argv[1])
+mast, mheader = fits.getdata('{}.fits'.format(id), header=True)
 
-print("Making animation")
+pointing = 'pointingModel_{}-{}.txt'.format(4, 4)
+pointing = np.loadtxt(pointing, usecols=(1,2,3,4))
+x, y = [], []
+for i in range(len(pointing)):
+    x.append(np.abs(pointing[i][2]))
+    y.append(np.abs(pointing[i][3]))
+    
+fig, ax = plt.subplots()
+
+time_text = ax.text(3.4, -0.25, '', color='white', fontweight='bold')
+time_text.set_text('')
 
 Writer = animation.writers['ffmpeg']
-writer = Writer(fps=15, metadata=dict(artist='Me'), bitrate=1800)
+writer = Writer(fps=16, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
 
-ani = animation.FuncAnimation(fig, animate, frames=len(fns))
-print("Showing animation")
+ani = animation.FuncAnimation(fig, animate, frames=len(mast))
+ax.set_title('TIC {}'.format(id), color='black', fontweight='bold')
+
+plt.colorbar(plt.imshow(mast[0][4], vmax=3000), ax=ax)
+
 #plt.show()
-ani.save('test1.mp4', writer=writer)
+
+ani.save('{}.mp4'.format(id), writer=writer)

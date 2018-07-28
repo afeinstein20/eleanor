@@ -1,0 +1,164 @@
+import sys, os
+import numpy as np
+import matplotlib.pyplot as plt
+from lightkurve import KeplerTargetPixelFile as ktpf
+from scipy import ndimage
+import collections
+from astropy.wcs import WCS
+from astropy.io import fits
+from gaiaTIC import coneSearch, jsonTable
+from gaiaTIC import ticSearchByContam as tsbc
+
+def openFITS(dir, fn):
+    """ Opens FITS file to get mast, mheader """
+    return fits.getdata(dir+fn, header=True)
+
+
+def radec2pixel(header, r, contam):
+    """ Completes a cone search around center of FITS file """
+    pos = [header['CRVAL1'], header['CRVAL2']]
+    print("Getting sources")
+    data = tsbc(pos, r, contam)
+    dataTable = jsonTable(data)
+    ra, dec = dataTable['ra'], dataTable['dec']
+    print(dataTable)
+    return WCS(header).all_world2pix(ra, dec, 1), dataTable['ID']
+
+
+def sortByDate(fns, dir):
+    """
+    Sorts FITS files by start date of observation
+    Parameters
+    ---------- 
+        dir: directory the files are in
+    Returns
+    ---------- 
+        fns: sorted filenames by date
+    """
+    dates = []
+    for f in fns:
+        print(f)
+        mast, header = openFITS(dir, f)
+        dates.append(header['DATE-OBS'])
+    dates, fns = np.sort(np.array([dates, fns]))
+    return fns
+
+
+def nearest(x, y, x_list, y_list):
+    """
+    Calculates the distance to the nearest source
+    Parameters
+    ---------- 
+        x: x-coordinate of a source
+        y: y-coordinate of a source
+        x_list: x-coordinates for all sources in file
+        y_list: y-coordinates for all sources in file
+    Returns
+    ---------- 
+        dist: distance to closest source
+        closest: index of closest source
+    """
+    x_list  = np.delete(x_list, np.where(x_list==x))
+    y_list  = np.delete(y_list, np.where(y_list==y))
+    closest = np.sqrt( (x-x_list)**2 + (y-y_list)**2 ).argmin()
+    dist    = np.sqrt( (x-x_list[closest])**2 + (y-y_list[closest])**2 )
+    return dist, closest
+
+
+def findIsolated(x, y):
+    """
+    Finds isolated sources in the image where an isolated source is >= 5 pixels away from
+    any other source
+    Parameters
+    ---------- 
+        x: a list of x-coordinates for all sources in file
+        y: a list of y-coordinates for all sources in file
+    Returns
+    ---------- 
+        isolated: a list of isolated source indices
+    """
+    isolated = []
+    for i in range(len(x)):
+        dist, dist_ind = nearest(x[i], y[i], x, y)
+        if dist >= 4.5:
+            isolated.append(i)
+    return isolated
+
+
+def calcShift(dir, fns, x, y, corrFile):
+    """
+    Calculates the deltaX, deltaY, and rotation for isolated sources in order to 
+    put together a pointing model for the entire chip
+    Parameters
+    ---------- 
+        fns: all FITS file names
+        x: a list of x-coordinates for isolated sources
+        y: a list of y-coordinates for isolated sources 
+        corrFile: name of file to write corrections to for each cadence
+    Returns
+    ---------- 
+    """
+    rand = np.random.randint(0, len(x), size=50)
+    x, y = x[rand], y[rand]
+
+    matrix = np.zeros((len(fns), len(x), 2))
+    fns = [dir+i for i in fns]
+
+    for f in range(len(fns)):
+        print(f)
+        for i in range(len(x)):
+            tpf = ktpf.from_fits_images(images=[fns[f]], position=(x[i], y[i]), size=(5,5))
+            com = ndimage.measurements.center_of_mass(tpf.flux.T-np.median(tpf.flux)) #subtracts background
+#            if f == 0:
+            matrix[f][i][0] = com[0] - 2.5
+            matrix[f][i][1] = com[1] - 2.5
+#            else:
+#                matrix[f][i][0] = com[0] - #matrix[f-1][i][0]
+#                matrix[f][i][1] = com[1] - #matrix[f-1][i][1]
+
+
+    for i in range(len(fns)):
+        delX = np.mean(matrix[i][:,0])
+        delY = np.mean(matrix[i][:,1])
+        medX = np.median(matrix[i][:,0])
+        medY = np.median(matrix[i][:,1])
+        row = [i, delX, delY, medX, medY]
+        with open(corrFile, 'a') as tf:
+            tf.write('{}\n'.format(' '.join(str(e) for e in row)))
+    return
+
+
+def correctionFactors(camera, chip, dir):
+    """
+    Creates a pointing model for a given camera and chip
+    Parameters
+    ---------- 
+        camera: which camera to create a pointing model for
+        chip: which chip on said camera to create a pointing model for
+        dir: directory in which the FITS files can be found
+    Returns 
+    ---------- 
+    """
+    filenames = np.array(os.listdir(dir))
+    fitsInds = np.array([i for i,item in enumerate(filenames) if "fits" in item])
+    filenames = filenames[fitsInds]
+    filenames = sortByDate(filenames, dir)
+
+    mast, header = openFITS(dir, filenames[0])
+
+    xy, id = radec2pixel(header, 6*np.sqrt(2), [0.0, 0.01])
+    x, y = xy[0], xy[1]
+
+    inds = np.where((x>=50.) & (x<len(mast)) & (y>=0.) & (y<len(mast[0])-100))[0]
+    x, y = x[inds], y[inds]
+    
+    plt.imshow(mast, origin='lower', interpolation='nearest', vmin=40, vmax=100)
+    plt.plot(x, y, 'ko', alpha=0.3, ms=3)
+    plt.show()
+    plt.close()
+
+    print(len(inds))
+    calcShift(dir, filenames, x, y, 'pointingModel_{}-{}.txt'.format(camera, chip))
+
+#correctionFactors(3, 1, './calFITS_2019_3-1/')
+#correctionFactors(4, 4, './calFITS_2019_4-4/')
