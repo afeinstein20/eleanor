@@ -9,9 +9,11 @@ matplotlib.use("Agg")
 from scipy import ndimage
 from gaiaTIC import ticPositionByID  as ticID
 import math
+from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import KeplerTargetPixelFile as ktpf
 import matplotlib.gridspec as gridspec
-
+import matplotlib.patches as patches
+from matplotlib.collections import PatchCollection
 
 # --------------------------
 # Functions that create apertures
@@ -33,27 +35,48 @@ def plotAper(ax1, aperture, lc, tpf, color):
 # --------------------------              
 # Extracts lightcurve from custom aperture
 # --------------------------              
-def customLC(fns, aperture, tpf):
+def customLC(aperture, tpf):
     lc = []
-    for f in range(len(fns)):
-        lc.append(aperture_photometry(tpf.flux[f], aperture)['aperture_sum'].data[0])
+    for f in range(len(tpf.flux)):
+        mask = np.zeros_like(tpf.flux[f], dtype=bool)
+        for i in range(len(tpf.flux[f])):
+            for j in range(len(tpf.flux[f][0])):
+                if tpf.flux[f][i][j] <= 0.35 * tpf.flux[f][3][4]:
+                    mask[i,j] = True
+                else:
+                    mask[i,j] = False
+        lc.append(aperture_photometry(tpf.flux[f], aperture, mask=mask)['aperture_sum'].data[0])
     return np.array(lc / np.nanmedian(lc))
 
-
-
+# ----------------------
+#   CREATES ANIMATION   
+# ----------------------
 def animate(i):
-    global scats, text, lines, lc
-    ax1.imshow(tpf.flux[i], origin='lower', vmin=40, vmax=150)#vmax=3000)
+    global scats, text, lines, lc, custLCC, custLCR, ps
+
+    ax1.imshow(tpf.flux[i], origin='lower', vmin=40, vmax=150)
     for scat in scats:
         scat.remove()
     for line in lines:
         line.remove()
-    scats = []
+    for c in ps:
+        c.remove()
+    scats, lines, ps= [], [], []
     scats.append(ax1.scatter(x[i], y[i], s=16, c='k'))
     time_text.set_text('Frame {}'.format(i))
-    lines = []
-    lcNorm = lc.flux / np.nanmedian(lc.flux)
-    lines.append(ax.scatter(lc.time[i], lcNorm[i], s=20, c='r'))
+
+#    lcNorm = lc.flux / np.nanmedian(lc.flux)
+    lines.append(ax.scatter(lc.time[i], custLCC[i], s=20, c='r'))
+    lines.append(ax.scatter(lc.time[i], custLCR[i], s=20, c='k'))
+
+    circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
+    rectanShape = patches.Rectangle((x[i]-1.5,y[i]-1.5), 3.0, 3.0, fill=False)
+    p = PatchCollection([rectanShape, circleShape], alpha=0.4)
+    colors = np.linspace(0,1,2)
+    p.set_array(np.array(colors))
+    p.set_edgecolor('face')
+    ps.append(ax1.add_collection(p))
+
 
 id = str(sys.argv[1])
 tpf = ktpf.from_fits('{}.fits'.format(id))
@@ -65,14 +88,10 @@ pointing = np.loadtxt(pointing, usecols=(1,2,3,4))
 
 new_id, pos, tmag = ticID(int(id))
 x, y, scats, lines = [], [], [], []
-
+ps = []
 for i in range(len(tpf.flux)):
-    x.append(5+pointing[i][2])
-    y.append(5+pointing[i][3])
-#for i in range(len(tpf.flux)):
-#    com = ndimage.measurements.center_of_mass(tpf.flux[i].T-np.median(tpf.flux[i]))
-#    x.append(com[0])
-#    y.append(com[1])
+    x.append(5.55+pointing[i][2])
+    y.append(4.85+pointing[i][3])
 
 fig = plt.figure(figsize=(18,5))
 spec = gridspec.GridSpec(ncols=3, nrows=1)
@@ -88,7 +107,17 @@ writer = Writer(fps=6, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
 
 ani = animation.FuncAnimation(fig, animate, frames=len(tpf.flux))
 plt.title('TIC {}'.format(id), color='black', fontweight='bold', loc='center')
-lc.plot(ax=ax)
+
+apertureC = circle([x,y], 1.5)
+apertureR = square([x,y], 3.0, 3.0, 0.0)
+#apertureC.plot(color='red', alpha=0.2, fill=0.0, ax=ax1)
+#apertureR.plot(color='black', alpha=0.2, fill=0.0, ax=ax1)
+custLCC = customLC(apertureC, tpf)
+custLCR = customLC(apertureR, tpf)
+custLCC = custLCC / np.nanmedian(custLCC)
+custLCR = custLCR / np.nanmedian(custLCR)
+ax.plot(lc.time, custLCC, 'r')
+ax.plot(lc.time, custLCR, 'k')
 
 x_cen = math.ceil(pos[0])
 y_cen = math.ceil(pos[1])
@@ -102,4 +131,4 @@ plt.colorbar(plt.imshow(tpf.flux[0], vmin=40, vmax=150), ax=ax1)
 plt.tight_layout()
 #plt.show()
 
-ani.save('{}.mp4'.format(id), writer=writer)
+ani.save('{}_customAp.mp4'.format(id), writer=writer)

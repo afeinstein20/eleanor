@@ -109,12 +109,9 @@ def calcShift(dir, fns, x, y, corrFile):
         for i in range(len(x)):
             tpf = ktpf.from_fits_images(images=[fns[f]], position=(x[i], y[i]), size=(5,5))
             com = ndimage.measurements.center_of_mass(tpf.flux.T-np.median(tpf.flux)) #subtracts background
-#            if f == 0:
             matrix[f][i][0] = com[0] - 2.5
             matrix[f][i][1] = com[1] - 2.5
-#            else:
-#                matrix[f][i][0] = com[0] - #matrix[f-1][i][0]
-#                matrix[f][i][1] = com[1] - #matrix[f-1][i][1]
+
 
 
     for i in range(len(fns)):

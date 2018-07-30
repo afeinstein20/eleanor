@@ -17,7 +17,7 @@ except ImportError: # Python 2.x
     from urllib import urlretrieve
     import httplib
 
-
+# This is something used by both
 def mastQuery(request):
     """
     Sends a request to the MAST server
@@ -55,6 +55,7 @@ def mastQuery(request):
     return head, content
 
 
+# This is something used by the user
 def jsonTable(jsonObj):
     """
     Convets json return type object into an astropy Table
@@ -77,6 +78,7 @@ def jsonTable(jsonObj):
     return dataTable
 
 
+# This is something used by the whole FFI
 def coneSearch(pos, r, service):
     """
     Completes a cone search in the Gaia DR2 or TIC
@@ -98,6 +100,7 @@ def coneSearch(pos, r, service):
     return json.loads(outString)
 
 
+# This is something used by a user
 def crossmatch(pos, r, service):
     """
     Crossmatches [RA,Dec] position to a source in the Gaia DR2 catalog or TIC catalog
@@ -123,6 +126,8 @@ def crossmatch(pos, r, service):
     return json.loads(outString)['data'][0]
 
 
+
+# This is something used by the whole FFI
 def ticSearchByContam(pos, r, contam):
     """
     Allows the user to perform a counts only query or get the usual grid of results. When unsure
@@ -149,6 +154,7 @@ def ticSearchByContam(pos, r, contam):
     return json.loads(outString)
 
 
+# This is something used by the user
 def gaiaPositionByID(source_id):
     """
     Finds the RA,Dec for a given Gaia source_id
@@ -165,6 +171,7 @@ def gaiaPositionByID(source_id):
     return table['source_id'].data, [table['ra'].data[0], table['dec'].data[0]], table['phot_g_mean_mag'].data, table['pmra'].data[0], table['pmdec'].data[0], table['parallax'].data[0]
 
 
+# This is something used by the user
 def ticPositionByID(tic_id):
     """
     Finds the RA,Dec for a given TIC source_id
@@ -180,6 +187,7 @@ def ticPositionByID(tic_id):
     return ticData['ID'].data, [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
 
 
+
 def makeTable():
     """ Creates a table for crossmatching multiple sources between Gaia and TIC catalogs """
     columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'separation', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
@@ -189,6 +197,7 @@ def makeTable():
     return t
 
 
+# This is something used by the user
 def gaiaMultiCrossmatch(filename):
     """
     Allows the user to pass in a file of Gaia source_IDs to be crossmatched with TIC
@@ -216,6 +225,7 @@ def gaiaMultiCrossmatch(filename):
     return t
 
 
+# This is something used by the user
 def ticMultiCrossmatch(filename):
     """
     Allows the user to pass in a file of TIC IDs to be crossmatched with Gaia
@@ -243,7 +253,7 @@ def ticMultiCrossmatch(filename):
     print(t)
     return t
 
-
+# This is something used by the user
 def findByPosition(filename):
     """
     Allows the user to pass in a file of RA, Dec to be matched with Gaia & TIC IDs
