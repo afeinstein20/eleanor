@@ -29,9 +29,6 @@ def correctXY(x, y, camera, chip):
     pointing = np.loadtxt(pointing, usecols=(1,2,3,4))
     new = []
     for i in range(len(pointing)):
-#        if i == 0:
-#            new.append((x+pointing[i][0], y+pointing[i][1]))
-#        else:
         new.append((x+pointing[i][2], y+pointing[i][3]))
     return new
 
@@ -47,7 +44,7 @@ def main(camera, chip, id):
     xy_corr = correctXY(xy[0], xy[1], camera, chip)
 
     fns = [dir+i for i in fns]
-    tpf = ktpf.from_fits_images(images=fns, position=xy_corr, size=(5,5))
+    tpf = ktpf.from_fits_images(images=fns, position=xy_corr, size=(9,9))
     tpf.to_fits(output_fn = '{}.fits'.format(id))
 
 
@@ -67,8 +64,8 @@ def animate(i):
     ax.text(x[0]+3, y[0]-4, 'Frame {}'.format(i), color='white', fontweight='bold')
 
 scats = []
-
-#id = 229669377
+id = 229669377
+main(3, 1, id)
 id = 219870537
 main(4,4, id)
 
