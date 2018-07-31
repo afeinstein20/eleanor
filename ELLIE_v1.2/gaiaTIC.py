@@ -18,6 +18,9 @@ except ImportError: # Python 2.x
     import httplib
 
 # This is something used by both
+#################
+##### ADDED #####
+#################
 def mastQuery(request):
     """
     Sends a request to the MAST server
@@ -56,8 +59,11 @@ def mastQuery(request):
 
 
 # This is something used by the user
+#################
+##### ADDED #####
+#################
 def jsonTable(jsonObj):
-    """
+
     Convets json return type object into an astropy Table
     Parameters
     ---------- 
@@ -65,7 +71,7 @@ def jsonTable(jsonObj):
     Returns
     ---------- 
         table: astropy table for jsonObj
-    """
+
     dataTable = Table()
     for col,atype in [(x['name'],x['type']) for x in jsonObj['fields']]:
         if atype=='string':
@@ -101,6 +107,9 @@ def coneSearch(pos, r, service):
 
 
 # This is something used by a user
+#################
+##### ADDED #####
+#################
 def crossmatch(pos, r, service):
     """
     Crossmatches [RA,Dec] position to a source in the Gaia DR2 catalog or TIC catalog
@@ -155,6 +164,9 @@ def ticSearchByContam(pos, r, contam):
 
 
 # This is something used by the user
+#################
+##### ADDED #####
+#################
 def gaiaPositionByID(source_id):
     """
     Finds the RA,Dec for a given Gaia source_id
@@ -172,6 +184,9 @@ def gaiaPositionByID(source_id):
 
 
 # This is something used by the user
+#################
+##### ADDED #####
+#################
 def ticPositionByID(tic_id):
     """
     Finds the RA,Dec for a given TIC source_id
@@ -198,6 +213,9 @@ def makeTable():
 
 
 # This is something used by the user
+#################
+##### ADDED #####
+#################
 def gaiaMultiCrossmatch(filename):
     """
     Allows the user to pass in a file of Gaia source_IDs to be crossmatched with TIC
@@ -225,6 +243,9 @@ def gaiaMultiCrossmatch(filename):
     return t
 
 
+################# 
+##### ADDED ##### 
+################# 
 # This is something used by the user
 def ticMultiCrossmatch(filename):
     """
