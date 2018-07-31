@@ -293,15 +293,30 @@ class custom_tpf:
         ----------  
         Returns 
         ----------  
-            table: table of gaia_id, tic_id, ra, dec, delta_pos, gmag, tmag, pmra, pmdec, parallax
+            table: table of gaia_id, tic_id, ra, dec, delta_pos_gaia, delta_pos_tic, gmag, tmag, pmra, pmdec, parallax
         """
         if self.multiFile[-3::] == 'csv':
             data = np.loadtxt(self.multiFile, delimiter=',')
         else:
             data = np.loadtxt(self.multiFile)
-        t = self.initialize_table()
+
+        columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'Gaia_sep', 'TIC_sep', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
+        t = Table(np.zeros(10), names=columns)
+        t['RA'].unit, t['Dec'].unit, t['separation'].unit = u.arcsec, u.arcsec, u.arcsec
+        t['pmra'].unit, t['pmdec'].unit = u.mas/u.year, u.mas/u.year
+
         for i in range(len(data)):
             pos = data[i]
-            gaia = self.cone_search(0.001, 'Mast.Catalogs.GaiaDR2.Cone', pos)['data'][0]
-            tess = self.cone_search(0.01 , 'Mast.Catalogs.Tic.Cone', pos)['data'][0]
-            gaiaPos = 
+            gaia = self.crossmatch_by_position(0.1, 'Mast.GaiaDR2.Crossmatch', pos)
+            tess = self.crossmatch_by_position(0.5, 'Mast.Tic.Crossmatch', pos)
+            pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
+            gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
+            sepGaia = self.crossmatch_distance(pos, gaiaPos)
+            tessPos = [tess['MatchRA'], tess['MatchDEC']]
+            sepTess = self.crossmatch_distance(pos, tessPos)
+            
+            t.add_row([gaia['source_id'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'], 
+                       tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
+
+        t.remove_row(0)
+        return t
