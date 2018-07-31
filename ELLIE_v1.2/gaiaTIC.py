@@ -63,15 +63,15 @@ def mastQuery(request):
 ##### ADDED #####
 #################
 def jsonTable(jsonObj):
-
-    Convets json return type object into an astropy Table
+    """
+    Converts json return type object into an astropy Table
     Parameters
     ---------- 
         jsonObj: an object from mastQuery
     Returns
     ---------- 
         table: astropy table for jsonObj
-
+    """
     dataTable = Table()
     for col,atype in [(x['name'],x['type']) for x in jsonObj['fields']]:
         if atype=='string':
@@ -132,7 +132,7 @@ def crossmatch(pos, r, service):
                'params': {'raColumn':'ra', 'decColumn':'dec', 'radius':r/3600.},
                'format':'json'}
     headers, outString = mastQuery(request)
-    return json.loads(outString)['data'][0]
+    return jsonTable(json.loads(outString))
 
 
 
@@ -275,6 +275,9 @@ def ticMultiCrossmatch(filename):
     return t
 
 # This is something used by the user
+#################
+##### ADDED #####
+#################
 def findByPosition(filename):
     """
     Allows the user to pass in a file of RA, Dec to be matched with Gaia & TIC IDs
@@ -294,8 +297,10 @@ def findByPosition(filename):
     t = makeTable()    
     for i in range(len(data)):
         pos = data[i]
-        gaia = coneSearch(pos, 0.001, 'Mast.Catalogs.GaiaDR2.Cone')['data'][0]
-        tess = crossmatch(pos, 0.01, 'Mast.Tic.Crossmatch')
+        gaia = crossmatch(pos, 0.1, 'Mast.GaiaDR2.Crossmatch')
+        tess = crossmatch(pos, 0.5, 'Mast.Tic.Crossmatch')
+        print(gaia)
+        print(tess)
         pos[0] = (pos[0]*u.deg).to(u.arcsec)
         pos[1] = (pos[1]*u.deg).to(u.arcsec)
         t.add_row([gaia['source_id'], tess['MatchID'], pos[0], pos[1], pos[0]-tess['MatchRA'], pos[1]-tess['MatchDEC'], gaia['phot_g_mean_mag'],
@@ -309,4 +314,4 @@ def findByPosition(filename):
 #coneSearch([48.00658181793736, 29.008217615212036], 800., 'Mast.Catalogs.Tic.Cone')
 #gaiaMultiCrossmatch('testGaia.txt')
 #ticMultiCrossmatch('testTIC.txt')
-#findByPosition('testPosition.csv')
+findByPosition('testPosition.csv')
