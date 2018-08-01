@@ -284,7 +284,6 @@ class custom_tpf:
         t.remove_row(0)
         return t
 
-
     
     def find_by_position(self):
         """
@@ -320,3 +319,62 @@ class custom_tpf:
 
         t.remove_row(0)
         return t
+
+    
+    def pointing_model(self):
+        
+        def sortByDate(fns, dir):
+            """
+            Sort FITS files by start date of observation
+            Parameters
+            ---------- 
+                dir: directory where the FITS files are
+            Returns
+            ---------- 
+                fns: sorted filenames by date
+            """
+            dates = []
+            for f in fns:
+                header = fits.getheader(dir+f)
+                dates.append(header['DATE-OBS'])
+                dates, fns = np.sort(np.array([dates, fns]))
+            return fns
+
+
+        def nearest(x, y, x_list, y_list):
+            """
+            Calculates the distance to the nearest source
+            Parameters
+            ---------- 
+                x: x-coord of source
+                y: y-coord of source
+                x_list: x-coords of all sources 
+                y_list: y-coords of all sources
+            Returns
+            ---------- 
+                dist: distance to closest source
+            """
+            x_list = np.delete(x_list, np.where(x_list==x))
+            y_list = np.delete(y_list, np.where(y_list==y))
+            dist   = np.sqrt( (x-x_list)**2 + (y-y_list)**2 )
+            return np.min(dist)
+
+
+        def findIsolated(x, y):
+            """
+            Find isolated sources in the image where an isolated source is 
+            >= 5.5 pixels away from any other source
+            Parameters
+            ---------- 
+                x: a list of x-coords for all sources
+                y: a list of y-coords for all sources
+            Returns
+            ---------- 
+                isolated: a list of isolated source indices
+            """
+            isolated = []
+            for i in range(len(x)):
+                dist = nearest(x[i], y[i], x, y)
+                if dist >= 5.5:
+                    isolated.append(i)
+            return isolated

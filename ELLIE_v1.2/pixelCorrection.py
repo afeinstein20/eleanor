@@ -24,7 +24,9 @@ def radec2pixel(header, r, contam):
     print(dataTable)
     return WCS(header).all_world2pix(ra, dec, 1), dataTable['ID']
 
-
+#################
+##### ADDED #####
+#################
 def sortByDate(fns, dir):
     """
     Sorts FITS files by start date of observation
@@ -43,7 +45,9 @@ def sortByDate(fns, dir):
     dates, fns = np.sort(np.array([dates, fns]))
     return fns
 
-
+#################
+##### ADDED #####
+#################
 def nearest(x, y, x_list, y_list):
     """
     Calculates the distance to the nearest source
@@ -64,7 +68,9 @@ def nearest(x, y, x_list, y_list):
     dist    = np.sqrt( (x-x_list[closest])**2 + (y-y_list[closest])**2 )
     return dist, closest
 
-
+#################
+##### ADDED #####
+#################
 def findIsolated(x, y):
     """
     Finds isolated sources in the image where an isolated source is >= 5 pixels away from
@@ -83,6 +89,7 @@ def findIsolated(x, y):
         if dist >= 4.5:
             isolated.append(i)
     return isolated
+
 
 
 def calcShift(dir, fns, x, y, corrFile):
