@@ -18,6 +18,10 @@ x = np.linspace(0, len(mast), 4, dtype=int)
 y = np.linspace(0, len(mast[0]), 4, dtype=int)
 x_cens, y_cens = [], []
 
+cat = 'postcard_catalog.txt'
+with open(cat, 'w') as tf:
+    tf.write('filename ra_center dec_center ra_low ra_up dec_low dec_up')
+
 for i in range(len(x)-1):
     for j in range(len(y)-1):
         fn = 'postcard_{}-{}.fits'.format(i, j)
@@ -30,11 +34,9 @@ for i in range(len(x)-1):
         tpf = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(350,350))
         tpf.to_fits(output_fn=fn)
         
-        fits.setval(fn, 'LOC_C_X' , value=np.round(x_cen,5))
-        fits.setval(fn, 'LOC_C_Y' , value=np.round(y_cen,5))
-        fits.setval(fn, 'LOC_C_RA', value=float(radec[0]))
-        fits.setval(fn, 'LOC_C_DE', value=float(radec[1]))
+        fits.setval(fn, 'CENTER_X' , value=np.round(x_cen,5))
+        fits.setval(fn, 'CENTER_Y' , value=np.round(y_cen,5))
+        fits.setval(fn, 'CENTER_RA', value=float(radec[0]))
+        fits.setval(fn, 'CENTER_DEC', value=float(radec[1]))
 
-
-
-
+        
