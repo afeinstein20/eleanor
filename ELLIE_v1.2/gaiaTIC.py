@@ -314,4 +314,4 @@ def findByPosition(filename):
 #coneSearch([48.00658181793736, 29.008217615212036], 800., 'Mast.Catalogs.Tic.Cone')
 #gaiaMultiCrossmatch('testGaia.txt')
 #ticMultiCrossmatch('testTIC.txt')
-findByPosition('testPosition.csv')
+#findByPosition('testPosition.csv')
