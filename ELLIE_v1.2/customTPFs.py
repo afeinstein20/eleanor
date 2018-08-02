@@ -428,7 +428,7 @@ class visualize:
             return
         
 
-    def tpf_movie(self, output_fn=None, cmap='viridis', cbar=True, aperture=False, com=True, plot_lc=False):
+    def tpf_movie(self, output_fn=None, cmap='viridis', cbar=True, aperture=False, com=False, plot_lc=False):
         """
         This function allows the user to create a TPF movie
         Parameters
@@ -440,7 +440,7 @@ class visualize:
             aperture: Allows the user to decide if they want the aperture on
                       their movie (Defaults to False)
             com: Allows the user to decide if they want to see the center of
-                 mass of the target (Defaults to True)
+                 mass of the target (Defaults to False)
             lc: Allows the user to plot the light curve and movement along light curve
                 with TPF movie (Defaults to False)
         Returns
@@ -448,15 +448,14 @@ class visualize:
             Creates an MP4 file
         """
         tp = ktpf.from_fits(self.tpf)
-        lc  = fits.getdata(self.lcf)
-        time, lc = lc[0], lc[1]
-        
+        lc = fits.getdata(self.lcf)
+        time, lc = lc[0], lc[1]/np.nanmedian(lc[1])
+
         cbmax = np.max(tp.flux[0])
         cbmin = np.min(tp.flux[0])
-        print(cbmin, cbmax)
 
         def animate(i):
-            line, scats = [], []
+            nonlocal line
 
             ax.imshow(tp.flux[i], origin='lower', cmap=cmap, vmin=cbmin, vmax=cbmax)
             
@@ -488,20 +487,25 @@ class visualize:
             time_text.set_text('Frame {}'.format(i))
 
         
-
+        line, scats = [],[]
         if plot_lc==True:
             fig  = plt.figure(figsize=(18,5))
             spec = gridspec.GridSpec(ncols=3, nrows=1)
             ax   = fig.add_subplot(spec[0,2])
             ax1  = fig.add_subplot(spec[0, 0:2])
             ax1.plot(time, lc, 'k')
+            ax1.set_ylabel('Normalized Flux')
+            ax1.set_xlabel('Time - 2454833 (Days)')
+            ax1.set_xlim([np.min(time)-0.01, np.max(time)+0.01])
+            ax1.set_ylim([np.min(lc)-0.01, np.max(lc)+0.01])
+
         elif plot_lc==False:
             fig  = plt.figure()
             spec = gridspec.GridSpec(ncols=1, nrows=1)
             ax   = fig.add_subplot(spec[0,0])
 
         # Writes frame number on TPF movie
-        time_text = ax.text(6.0, -0.25, '', color='white', fontweight='bold')
+        time_text = ax.text(5.5, -0.25, '', color='white', fontweight='bold')
         time_text.set_text('')
 
         # Allows TPF movie to be saved as mp4
@@ -509,11 +513,14 @@ class visualize:
         writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
 
         ani = animation.FuncAnimation(fig, animate, frames=len(tp.flux))
-        
+
         if cbar==True:
             plt.colorbar(plt.imshow(tp.flux[0], cmap=cmap, vmin=cbmin, vmax=cbmax), ax=ax)
 
         if output_fn == None:
             output_fn = '{}.mp4'.format(self.id)        
             
-        plt.show()
+        plt.tight_layout()
+        ax.set_title('{}'.format(self.id), fontweight='bold')
+#        plt.show()
+        return ani
