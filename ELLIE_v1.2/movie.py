@@ -110,12 +110,18 @@ plt.title('TIC {}'.format(id), color='black', fontweight='bold', loc='center')
 
 apertureC = circle([x,y], 1.5)
 apertureR = square([x,y], 3.0, 3.0, 0.0)
-#apertureC.plot(color='red', alpha=0.2, fill=0.0, ax=ax1)
-#apertureR.plot(color='black', alpha=0.2, fill=0.0, ax=ax1)
 custLCC = customLC(apertureC, tpf)
 custLCR = customLC(apertureR, tpf)
 custLCC = custLCC / np.nanmedian(custLCC)
 custLCR = custLCR / np.nanmedian(custLCR)
+
+
+# Writes light curve to FITS file
+lcFile  = '{}_lc.fits'.format(id)
+fits.writeto(lcFile, np.array([lc.time, custLCC]))
+
+
+"""
 ax.plot(lc.time, custLCC, 'r')
 ax.plot(lc.time, custLCR, 'k')
 
@@ -132,3 +138,4 @@ plt.tight_layout()
 #plt.show()
 
 ani.save('{}_customAp.mp4'.format(id), writer=writer)
+"""
