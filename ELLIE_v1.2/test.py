@@ -10,5 +10,5 @@ ex.multiFile='testTIC.txt'
 #multi = ex.crossmatch_multi_to_gaia()
 #print(multi)
 
-test = vis(219870537)
-lc = test.tpf_movie(cmap='inferno')
+test = vis(219870537, dir='./2019/2019_1_3-1/tic_tpf/')
+lc = test.tpf_movie(cmap='Greys', com=False)

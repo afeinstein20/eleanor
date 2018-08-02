@@ -13,9 +13,11 @@ from astropy.io import fits
 from astropy.table import Table
 from astropy.wcs import WCS
 import matplotlib.pyplot as plt
+
 import matplotlib.animation as animation
 import matplotlib.patches as patches
 from matplotlib.collections import PatchCollection
+import matplotlib.gridspec as gridspec
 
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import KeplerTargetPixelFile as ktpf
@@ -412,27 +414,21 @@ class visualize:
     def __init__(self, id, dir=None):
         """ USER INPUT """
         self.id  = id
-        self.tpf = '{}.fits'.format(id)
-        self.lcf = '{}_lc.fits'.format(id)
-        self.dir = dir
+        if dir==None:
+            self.tpf = '{}.fits'.format(self.id)
+            self.lcf = '{}_lc.fits'.format(self.id)
+        else:
+            self.tpf = dir+'{}.fits'.format(self.id)
+            self.lcf = dir+'{}_lc.fits'.format(self.id)
 
         try:
             fits.getdata(self.lcf)
         except IOError:
             print('Please input directory FITS files are in.')
-
+            return
         
 
-    def animate(self, i, aperture=False, com=True, lc=False):
-        """
-        This function creates an animation
-        Can work for creating just TPF animation or TPF + LC animation
-        """
-        return
-
-
-
-    def tpf_movie(self, output_fn=None, cmap='viridis', cbar=True, aperture=False, com=True):
+    def tpf_movie(self, output_fn=None, cmap='viridis', cbar=True, aperture=False, com=True, plot_lc=False):
         """
         This function allows the user to create a TPF movie
         Parameters
@@ -445,23 +441,79 @@ class visualize:
                       their movie (Defaults to False)
             com: Allows the user to decide if they want to see the center of
                  mass of the target (Defaults to True)
+            lc: Allows the user to plot the light curve and movement along light curve
+                with TPF movie (Defaults to False)
         Returns
         ----------
             Creates an MP4 file
         """
         tp = ktpf.from_fits(self.tpf)
         lc  = fits.getdata(self.lcf)
+        time, lc = lc[0], lc[1]
+        
+        cbmax = np.max(tp.flux[0])
+        cbmin = np.min(tp.flux[0])
+        print(cbmin, cbmax)
 
-        fig = plt.figure()
+        def animate(i):
+            line, scats = [], []
 
+            ax.imshow(tp.flux[i], origin='lower', cmap=cmap, vmin=cbmin, vmax=cbmax)
+            
+            # Plots motion of COM when the user wants
+            if com==True:
+                for scat in scats:
+                    scat.remove()
+                scats = []
+                scats.append(ax.scatter(x[i], y[i], s=16, c='k'))
+            
+            # Plots aperture around source when the user wants
+            if aperture==True:
+                for c in ps:
+                    c.remove()
+                circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
+                p = PatchCollection([circleShape], alpha=0.4)
+                p.set_array(np.array([0]))
+                p.set_edgecolor('face')
+                ps.append(ax.add_collection(p))
+
+            # Plots moving point along light curve when the user wants
+            if plot_lc==True:
+                for l in line:
+                    l.remove()
+                line = []
+                line.append(ax1.scatter(time[i], lc[i], s=20, c='r'))
+
+            # Updates the frame number
+            time_text.set_text('Frame {}'.format(i))
+
+        
+
+        if plot_lc==True:
+            fig  = plt.figure(figsize=(18,5))
+            spec = gridspec.GridSpec(ncols=3, nrows=1)
+            ax   = fig.add_subplot(spec[0,2])
+            ax1  = fig.add_subplot(spec[0, 0:2])
+            ax1.plot(time, lc, 'k')
+        elif plot_lc==False:
+            fig  = plt.figure()
+            spec = gridspec.GridSpec(ncols=1, nrows=1)
+            ax   = fig.add_subplot(spec[0,0])
+
+        # Writes frame number on TPF movie
+        time_text = ax.text(6.0, -0.25, '', color='white', fontweight='bold')
+        time_text.set_text('')
+
+        # Allows TPF movie to be saved as mp4
         Writer = animation.writers['ffmpeg']
         writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
 
-        ani = animation.FuncAnimation(fig, self.animate, frames=len(tp.flux))
+        ani = animation.FuncAnimation(fig, animate, frames=len(tp.flux))
         
-        if output_fn == None:
-            output_fn = '{}.mp4'.format(self.id)
-        print(cmap)
+        if cbar==True:
+            plt.colorbar(plt.imshow(tp.flux[0], cmap=cmap, vmin=cbmin, vmax=cbmax), ax=ax)
 
- #       ani.save(
-        
+        if output_fn == None:
+            output_fn = '{}.mp4'.format(self.id)        
+            
+        plt.show()
