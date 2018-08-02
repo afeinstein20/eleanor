@@ -62,6 +62,7 @@ class custom_tpf:
             self.multiFile = multiFile
 
 
+
     def mastQuery(self, request):
         """
         Sends a request to the MAST server
@@ -378,3 +379,89 @@ class custom_tpf:
                 if dist >= 5.5:
                     isolated.append(i)
             return isolated
+
+
+        
+    def download_tic_tpf(self, custom=False):
+        """
+        This function finds the sector, camera, and chip a target is located in
+        Downloads the already created stacked cadence FITS file (TPF) and associated
+            light curve FITS file
+        Downloads the postcard a target is located in if the target is not in the TIC
+        Parameters
+        ----------
+            custom: Allows the user to ask to create TPF & light curve FITS files
+                    for sources not in the TIC
+        Returns
+        ----------
+            Downloads TPF & light curve FITS files
+        """
+        return
+
+
+
+class visualize:
+    """
+    The main interface for creating figures, movies, and interactive plots
+    Allows the user to have a grand ole time playing with their data!
+        
+    Args:
+        tpf: A FITS file that contains stacked cadences for a single source
+    """
+
+    def __init__(self, id, dir=None):
+        """ USER INPUT """
+        self.id  = id
+        self.tpf = '{}.fits'.format(id)
+        self.lcf = '{}_lc.fits'.format(id)
+        self.dir = dir
+
+        try:
+            fits.getdata(self.lcf)
+        except IOError:
+            print('Please input directory FITS files are in.')
+
+        
+
+    def animate(self, i, aperture=False, com=True, lc=False):
+        """
+        This function creates an animation
+        Can work for creating just TPF animation or TPF + LC animation
+        """
+        return
+
+
+
+    def tpf_movie(self, output_fn=None, cmap='viridis', cbar=True, aperture=False, com=True):
+        """
+        This function allows the user to create a TPF movie
+        Parameters
+        ----------
+            cmap: Allows the user to choose the color map for their movie
+                  (Defaults to the only acceptable colormap)
+            cbar: Allows the user to decide if they want a colorbar for scale
+                  (Defaults to True)
+            aperture: Allows the user to decide if they want the aperture on
+                      their movie (Defaults to False)
+            com: Allows the user to decide if they want to see the center of
+                 mass of the target (Defaults to True)
+        Returns
+        ----------
+            Creates an MP4 file
+        """
+        tp = ktpf.from_fits(self.tpf)
+        lc  = fits.getdata(self.lcf)
+
+        fig = plt.figure()
+
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
+
+        ani = animation.FuncAnimation(fig, self.animate, frames=len(tp.flux))
+        
+        if output_fn == None:
+            output_fn = '{}.mp4'.format(self.id)
+        print(cmap)
+
+ #       ani.save(
+        
