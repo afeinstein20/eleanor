@@ -8,6 +8,7 @@ from astropy.wcs import WCS
 from astropy.io import fits
 from gaiaTIC import coneSearch, jsonTable
 from gaiaTIC import ticSearchByContam as tsbc
+from scipy.optimize import minimize
 
 def openFITS(dir, fn):
     """ Opens FITS file to get mast, mheader """
@@ -21,7 +22,6 @@ def radec2pixel(header, r, contam):
     data = tsbc(pos, r, contam)
     dataTable = jsonTable(data)
     ra, dec = dataTable['ra'], dataTable['dec']
-    print(dataTable)
     return WCS(header).all_world2pix(ra, dec, 1), dataTable['ID']
 
 #################
@@ -86,7 +86,7 @@ def findIsolated(x, y):
     isolated = []
     for i in range(len(x)):
         dist, dist_ind = nearest(x[i], y[i], x, y)
-        if dist >= 4.5:
+        if dist >= 5.0:
             isolated.append(i)
     return isolated
 
@@ -105,10 +105,24 @@ def calcShift(dir, fns, x, y, corrFile):
     Returns
     ---------- 
     """
+
+    def roll(theta, pos0, com0):
+        rot = np.zeros((2,2))
+        rot[1,0] = np.cos(theta)
+        rot[1,1] = -1. * np.sin(theta)
+        rot[0,0] = np.sin(theta)
+        rot[0,1] = np.cos(theta)
+
+        newPos = np.dot(pos0, rot)
+
+        dist = np.sqrt( (newPos[0]-com0[0])**2 + (newPos[1]-com0[1])**2 ) 
+        print(dist)
+        return dist
+
     rand = np.random.randint(0, len(x), size=50)
     x, y = x[rand], y[rand]
 
-    matrix = np.zeros((len(fns), len(x), 2))
+    matrix = np.zeros((len(fns), len(x), 3))
     fns = [dir+i for i in fns]
 
     for f in range(len(fns)):
@@ -118,15 +132,20 @@ def calcShift(dir, fns, x, y, corrFile):
             com = ndimage.measurements.center_of_mass(tpf.flux.T-np.median(tpf.flux)) #subtracts background
             matrix[f][i][0] = com[0] - 2.5
             matrix[f][i][1] = com[1] - 2.5
-
-
+            pos = [2.5, 2.5]
+            theta = minimize(roll, 0.1, (np.array(pos), com))
+            print(theta)
+            matrix[f][i][2] = theta.x[0]
+            
 
     for i in range(len(fns)):
         delX = np.mean(matrix[i][:,0])
         delY = np.mean(matrix[i][:,1])
+        delT = np.mean(matrix[i][:,2])
         medX = np.median(matrix[i][:,0])
         medY = np.median(matrix[i][:,1])
-        row = [i, delX, delY, medX, medY]
+        medT = np.median(matrix[i][:,2])
+        row = [i, delX, delY, delT, medX, medY, medT]
         with open(corrFile, 'a') as tf:
             tf.write('{}\n'.format(' '.join(str(e) for e in row)))
     return
@@ -158,11 +177,11 @@ def correctionFactors(camera, chip, dir):
     
     plt.imshow(mast, origin='lower', interpolation='nearest', vmin=40, vmax=100)
     plt.plot(x, y, 'ko', alpha=0.3, ms=3)
-    plt.show()
+#    plt.show()
     plt.close()
 
     print(len(inds))
     calcShift(dir, filenames, x, y, 'pointingModel_{}-{}.txt'.format(camera, chip))
 
 #correctionFactors(3, 1, './calFITS_2019_3-1/')
-#correctionFactors(4, 4, './calFITS_2019_4-4/')
+correctionFactors(1, 3, './2019/2019_1_1-3/')
