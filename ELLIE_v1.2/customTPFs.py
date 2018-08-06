@@ -24,11 +24,11 @@ from lightkurve import KeplerTargetPixelFile as ktpf
 from scipy import ndimage
 import collections
 
-try: # Python 3.x                                                                                                                 
+try: # Python 3.x
     from urllib.parse import quote as urlencode
     from urllib.request import urlretrieve
     import http.client as httplib
-except ImportError: # Python 2.x                                                                                                  
+except ImportError: # Python 2.x
     from urllib import pathname2url as urlencode
     from urllib import urlretrieve
     import httplib
@@ -415,10 +415,10 @@ class visualize:
         """ USER INPUT """
         self.id  = id
         if dir==None:
-            self.tpf = '{}.fits'.format(self.id)
+            self.tpf = '{}_tpf.fits'.format(self.id)
             self.lcf = '{}_lc.fits'.format(self.id)
         else:
-            self.tpf = dir+'{}.fits'.format(self.id)
+            self.tpf = dir+'{}_tpf.fits'.format(self.id)
             self.lcf = dir+'{}_lc.fits'.format(self.id)
 
         try:
@@ -448,8 +448,9 @@ class visualize:
             Creates an MP4 file
         """
         tp = ktpf.from_fits(self.tpf)
-        lc = fits.getdata(self.lcf)
-        time, lc = lc[0], lc[1]/np.nanmedian(lc[1])
+        lc = tp.to_lightcurve()
+#        lc = fits.getdata(self.lcf)
+        time, lc = lc.time, lc.flux/np.nanmedian(lc.flux)
 
         cbmax = np.max(tp.flux[0])
         cbmin = np.min(tp.flux[0])
@@ -496,8 +497,8 @@ class visualize:
             ax1.plot(time, lc, 'k')
             ax1.set_ylabel('Normalized Flux')
             ax1.set_xlabel('Time - 2454833 (Days)')
-            ax1.set_xlim([np.min(time)-0.01, np.max(time)+0.01])
-            ax1.set_ylim([np.min(lc)-0.01, np.max(lc)+0.01])
+            ax1.set_xlim([np.min(time)-0.05, np.max(time)+0.05])
+            ax1.set_ylim([np.min(lc)-0.05, np.max(lc)+0.05])
 
         elif plot_lc==False:
             fig  = plt.figure()
