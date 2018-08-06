@@ -12,7 +12,7 @@ from scipy.misc import imread
 
 def animate(i):
     global scats, lines, lc
-    ax1.imshow(tpf.flux[i], origin='lower', vmax=2500)
+    ax1.imshow(tpf.flux[i], origin='lower', vmin=cbmin, vmax=cbmax)
     for line in lines:
         line.remove()
     lines = []
@@ -24,15 +24,18 @@ tpf  = ktpf.from_fits(file)
 lc   = tpf.to_lightcurve()
 lcNorm   = lc.flux / np.nanmedian(lc.flux)
 
+cbmin = np.max(tpf.flux[0])*0.05
+cbmax = np.max(tpf.flux[0])*0.85
+
 lines = []
-img = imread('KeynoteEllie.png')
+img = imread('ellie_logo.png')
 fig = plt.figure(figsize=(10,5))
 
 plt.imshow(img)
 plt.axis('off')
 plt.tight_layout()
 
-ax = fig.add_axes([0.685, 0.11, 0.17, 0.185])
+ax = fig.add_axes([0.685, 0.1335, 0.165, 0.176])
 ax.plot(lc.time, lcNorm, 'k')
 ax.get_xaxis().set_ticks([])
 ax.get_xaxis().set_visible(False)
@@ -41,7 +44,7 @@ ax.get_yaxis().set_visible(False)
 ax.set_ylim([np.min(lcNorm)-0.05, np.max(lcNorm)+0.05])
 ax.set_xlim([np.min(lc.time)-0.005, np.max(lc.time)+0.005])
 
-ax1 = fig.add_axes([0.87, 0.11, 0.089, 0.185])
+ax1 = fig.add_axes([0.862, 0.1325, 0.0883, 0.1842])
 ax1.get_xaxis().set_ticks([])
 ax1.get_yaxis().set_ticks([])
 

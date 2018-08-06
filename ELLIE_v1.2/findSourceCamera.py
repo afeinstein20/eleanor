@@ -22,20 +22,15 @@ def findCameraChip(id, mission):
     return_id, pos, tmag = ticID(int(id))
     for i in np.arange(1,5,1):
         for j in np.arange(1,5,1):
-            dir  = './calFITS_2019_{}-{}/'.format(i, j)
+            dir  = './2019/2019_1_{}-{}/ffis/'.format(i, j)
             file = 'tess2019132000826-{}-{}-0016-s_ffic.fits'.format(i, j)
             if i == 3 and (j == 2 or j == 3):
                 file = 'tess2019130000826-{}-{}-0016-s_ffic.fits'.format(i, j)
             mast, mheader = fits.getdata(dir+file, header=True)
             xy = WCS(mheader).all_world2pix(pos[0], pos[1], 1, quiet=True)
             if xy[0] >= 0. and xy[0] <= len(mast) and xy[1] >= 0. and xy[1] <= len(mast[0]):
-                print(i, j)
-#                plt.imshow(mast, interpolation='nearest', origin='lower', vmin=40, vmax=100)
-#                plt.plot(xy[0], xy[1], 'ko', ms=6, alpha=0.3)
-#                plt.show()
-#                plt.close()
-
                 return i, j
+
 
 
 def findSource():
@@ -44,8 +39,7 @@ def findSource():
     """
     sources = np.loadtxt('sourcesToMovies.txt', dtype=str)
     for i in range(len(sources)):
-        print(sources[i][0])
         findCameraChip(sources[i][0], sources[i][1])
 
 
-findSource()
+#findSource()

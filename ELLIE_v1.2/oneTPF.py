@@ -24,29 +24,33 @@ def getSourcePos(id, mission, mheader):
     return id, pos, xy
 
 
-def correctXY(x, y, camera, chip):
+def correctXY(x_s, y_s, camera, chip):
     pointing = 'pointingModel_{}-{}.txt'.format(camera, chip)
-    pointing = np.loadtxt(pointing, usecols=(1,2,3,4))
+    delX, delY, delT = np.loadtxt(pointing, skiprows=1, usecols=(1,2,3), unpack=True)
+    print(delX)
+    delT = np.radians(delT)
     new = []
     for i in range(len(pointing)):
-        new.append((x+pointing[i][2], y+pointing[i][3]))
+        x = (x_s*np.cos(delT[i]) - y_s*np.sin(delT[i])) + delX[i]
+        y = (x_s*np.sin(delT[i]) + y_s*np.cos(delT[i])) + delY[i]
+        new.append((x, y))
     return new
 
 
 def main(camera, chip, id):
     """ Temporary Main Function """
-    dir = './calFITS_2019_{}-{}/'.format(camera, chip)
+    dir = './2019/2019_1_{}-{}/ffis/'.format(camera, chip)
     fns = np.array(os.listdir(dir))
     fns = fns[np.array([i for i,item in enumerate(fns) if "fits" in item])]
     fns = sortByDate(fns, dir)
     mast, mheader = openFITS(dir, fns[0])
     new_id, raDec, xy = getSourcePos(id, 'tic', mheader)
+    print(xy)
     xy_corr = correctXY(xy[0], xy[1], camera, chip)
-
+    print(xy_corr)
     fns = [dir+i for i in fns]
     tpf = ktpf.from_fits_images(images=fns, position=xy_corr, size=(9,9))
-    tpf.to_fits(output_fn = '{}.fits'.format(id))
-
+    tpf.to_fits(output_fn = '{}_rotation.fits'.format(id))
 
 
 def updateFig(fn):
@@ -66,6 +70,6 @@ def animate(i):
 scats = []
 id = 229669377
 main(3, 1, id)
-id = 219870537
-main(4,4, id)
+#id = 219870537
+#main(4,4, id)
 

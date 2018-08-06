@@ -198,7 +198,6 @@ def ticPositionByID(tic_id):
         source_id, ra, dec, tmag
     """
     ticData = Catalogs.query_criteria(catalog='Tic', ID=tic_id)
-    print(ticData['ID'].data, [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data)
     return ticData['ID'].data, [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
 
 
@@ -235,11 +234,10 @@ def gaiaMultiCrossmatch(filename):
         pos[0], pos[1] = (pos[0]*u.deg), (pos[1]*u.deg)
         c1 = SkyCoord(pos[0], pos[1], frame='icrs')
         c2 = SkyCoord(tic['MatchRA']*u.deg, tic['MatchDEC']*u.deg, frame='icrs')
-        print(c1.separation(c2))
         separation = c1.separation(c2).to(u.arcsec)
         t.add_row([i, tic['MatchID'], (pos[0]).to(u.arcsec), (pos[1]).to(u.arcsec), separation, gmag, tic['Tmag'], pmra, pmdec, parallax])
     t.remove_row(0)
-    print(t)
+
     return t
 
 
@@ -271,7 +269,6 @@ def ticMultiCrossmatch(filename):
                    tmag, gaia['pmra'], gaia['pmdec'], gaia['parallax']])
     
     t.remove_row(0)
-    print(t)
     return t
 
 # This is something used by the user
@@ -299,8 +296,6 @@ def findByPosition(filename):
         pos = data[i]
         gaia = crossmatch(pos, 0.1, 'Mast.GaiaDR2.Crossmatch')
         tess = crossmatch(pos, 0.5, 'Mast.Tic.Crossmatch')
-        print(gaia)
-        print(tess)
         pos[0] = (pos[0]*u.deg).to(u.arcsec)
         pos[1] = (pos[1]*u.deg).to(u.arcsec)
         t.add_row([gaia['source_id'], tess['MatchID'], pos[0], pos[1], pos[0]-tess['MatchRA'], pos[1]-tess['MatchDEC'], gaia['phot_g_mean_mag'],

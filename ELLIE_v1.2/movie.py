@@ -45,7 +45,9 @@ def customLC(aperture, tpf):
                     mask[i,j] = True
                 else:
                     mask[i,j] = False
+
         lc.append(aperture_photometry(tpf.flux[f], aperture, mask=mask)['aperture_sum'].data[0])
+
     return np.array(lc / np.nanmedian(lc))
 
 # ----------------------
@@ -54,7 +56,7 @@ def customLC(aperture, tpf):
 def animate(i):
     global scats, text, lines, lc, custLCC, custLCR, ps
 
-    ax1.imshow(tpf.flux[i], origin='lower', vmin=40, vmax=150)
+    ax1.imshow(tpf.flux[i], origin='lower')#, vmin=40, vmax=150)
     for scat in scats:
         scat.remove()
     for line in lines:
@@ -65,7 +67,7 @@ def animate(i):
     scats.append(ax1.scatter(x[i], y[i], s=16, c='k'))
     time_text.set_text('Frame {}'.format(i))
 
-#    lcNorm = lc.flux / np.nanmedian(lc.flux)
+    lcNorm = lc.flux / np.nanmedian(lc.flux)
     lines.append(ax.scatter(lc.time[i], custLCC[i], s=20, c='r'))
     lines.append(ax.scatter(lc.time[i], custLCR[i], s=20, c='k'))
 
@@ -79,19 +81,23 @@ def animate(i):
 
 
 id = str(sys.argv[1])
-tpf = ktpf.from_fits('{}.fits'.format(id))
+tpf = ktpf.from_fits('{}_tpf.fits'.format(id))
 lc = tpf.to_lightcurve()
 
-pointing = 'pointingModel_{}-{}.txt'.format(4, 4)
-pointing = np.loadtxt(pointing, usecols=(1,2,3,4))
-
+pointing = 'pointingModel_{}-{}.txt'.format(3,3)
+pointing = np.loadtxt(pointing, usecols=(0,1), skiprows=1)
+for p in range(len(pointing)):
+    pointing[p][0] = pointing[p][0]-201.0-1.0
+    pointing[p][1] = pointing[p][1]-199.0-1.0
 
 new_id, pos, tmag = ticID(int(id))
 x, y, scats, lines = [], [], [], []
 ps = []
+
 for i in range(len(tpf.flux)):
-    x.append(5.55+pointing[i][2])
-    y.append(4.85+pointing[i][3])
+    x.append(4.5+pointing[i][0])
+    y.append(4.5+pointing[i][1])
+
 
 fig = plt.figure(figsize=(18,5))
 spec = gridspec.GridSpec(ncols=3, nrows=1)
@@ -103,7 +109,7 @@ time_text = ax1.text(6.0, -0.25, '', color='white', fontweight='bold')
 time_text.set_text('')
 
 Writer = animation.writers['ffmpeg']
-writer = Writer(fps=6, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
+writer = Writer(fps=16, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
 
 ani = animation.FuncAnimation(fig, animate, frames=len(tpf.flux))
 plt.title('TIC {}'.format(id), color='black', fontweight='bold', loc='center')
@@ -117,13 +123,14 @@ custLCR = custLCR / np.nanmedian(custLCR)
 
 
 # Writes light curve to FITS file
-lcFile  = '{}_lc.fits'.format(id)
-fits.writeto(lcFile, np.array([lc.time, custLCC]))
+#lcFile  = '{}_lc.fits'.format(id)
+#fits.writeto(lcFile, np.array([lc.time, custLCC]))
 
 
-"""
+
 ax.plot(lc.time, custLCC, 'r')
 ax.plot(lc.time, custLCR, 'k')
+ax.plot(lc.time, lc.flux/np.nanmedian(lc.flux))
 
 x_cen = math.ceil(pos[0])
 y_cen = math.ceil(pos[1])
@@ -133,9 +140,9 @@ y_ticks = np.arange(y_cen-5, y_cen+4, 1)
 
 plt.xticks(np.arange(0,10,1), x_ticks)
 plt.yticks(np.arange(0,10,1), y_ticks)
-plt.colorbar(plt.imshow(tpf.flux[0], vmin=40, vmax=150), ax=ax1)
+plt.colorbar(plt.imshow(tpf.flux[0]), ax=ax1)#, vmin=40, vmax=150), ax=ax1)
 plt.tight_layout()
 #plt.show()
 
 ani.save('{}_customAp.mp4'.format(id), writer=writer)
-"""
+

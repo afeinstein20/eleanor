@@ -39,8 +39,7 @@ def sortByDate(fns, dir):
     """
     dates = []
     for f in fns:
-        print(f)
-        mast, header = openFITS(dir, f)
+        mast, header = fits.getdata(dir+f, header=True)
         dates.append(header['DATE-OBS'])
     dates, fns = np.sort(np.array([dates, fns]))
     return fns
@@ -86,13 +85,13 @@ def findIsolated(x, y):
     isolated = []
     for i in range(len(x)):
         dist, dist_ind = nearest(x[i], y[i], x, y)
-        if dist >= 5.0:
+        if dist >= 7.0:
             isolated.append(i)
     return isolated
 
 
 
-def calcShift(dir, fns, x, y, corrFile):
+def calcShift(dir, fns, x, y, corrFile, mast):
     """
     Calculates the deltaX, deltaY, and rotation for isolated sources in order to 
     put together a pointing model for the entire chip
@@ -106,48 +105,63 @@ def calcShift(dir, fns, x, y, corrFile):
     ---------- 
     """
 
-    def roll(theta, pos0, com0):
-        rot = np.zeros((2,2))
-        rot[1,0] = np.cos(theta)
-        rot[1,1] = -1. * np.sin(theta)
-        rot[0,0] = np.sin(theta)
-        rot[0,1] = np.cos(theta)
+    def model(params):
+#        nonlocal xy, centroids
+        theta, xT, yT = params
+        theta = np.radians(theta)
 
-        newPos = np.dot(pos0, rot)
+        xRot = xy[:,0]*np.cos(theta) - xy[:,1]*np.sin(theta)
+        yRot = xy[:,0]*np.sin(theta) + xy[:,1]*np.cos(theta)
 
-        dist = np.sqrt( (newPos[0]-com0[0])**2 + (newPos[1]-com0[1])**2 ) 
-        print(dist)
-        return dist
+        xRot += xT
+        yRot += yT
+
+        dist = np.sqrt((xRot-centroids[:,0])**2 + (yRot-centroids[:,1]))
+        dist = np.square(dist)
+        return np.sum(dist)
 
     rand = np.random.randint(0, len(x), size=50)
     x, y = x[rand], y[rand]
 
-    matrix = np.zeros((len(fns), len(x), 3))
+    matrix = np.zeros((len(fns), len(x), 2))
     fns = [dir+i for i in fns]
 
-    for f in range(len(fns)):
-        print(f)
-        for i in range(len(x)):
-            tpf = ktpf.from_fits_images(images=[fns[f]], position=(x[i], y[i]), size=(5,5))
-            com = ndimage.measurements.center_of_mass(tpf.flux.T-np.median(tpf.flux)) #subtracts background
-            matrix[f][i][0] = com[0] - 2.5
-            matrix[f][i][1] = com[1] - 2.5
-            pos = [2.5, 2.5]
-            theta = minimize(roll, 0.1, (np.array(pos), com))
-            print(theta)
-            matrix[f][i][2] = theta.x[0]
-            
+    x_cen, y_cen = len(mast)/2, len(mast[0])/2
 
-    for i in range(len(fns)):
-        delX = np.mean(matrix[i][:,0])
-        delY = np.mean(matrix[i][:,1])
-        delT = np.mean(matrix[i][:,2])
-        medX = np.median(matrix[i][:,0])
-        medY = np.median(matrix[i][:,1])
-        medT = np.median(matrix[i][:,2])
-        row = [i, delX, delY, delT, medX, medY, medT]
+    for f in range(len(fns)):
+        for i in range(len(x)):
+            tpf = ktpf.from_fits_images(images=[fns[f]], position=(x[i], y[i]), size=(6,6))
+            com = ndimage.measurements.center_of_mass(tpf.flux.T-np.median(tpf.flux)) #subtracts background
+            matrix[f][i][0] = com[0]+x[i]-x_cen
+            matrix[f][i][1] = com[1]+y[i]-y_cen
+
+    xy = np.zeros((len(x),2))
+    
+
+    for i in range(len(x)):
+        xy[i][0] = x[i] - x_cen
+        xy[i][1] = y[i] - y_cen
+
+    with open(corrFile, 'w') as tf:
+        tf.write('cadence medX medY medT\n')
+
+    for f in range(len(fns)):
+        medX, medY = np.median(matrix[f][:,0]), np.median(matrix[f][:,1])
+        medX, medY = str(medX), str(medY)
         with open(corrFile, 'a') as tf:
-            tf.write('{}\n'.format(' '.join(str(e) for e in row)))
+            tf.write('{}\n'.format(medX + ' ' + medY))
+#        centroids = matrix[f]
+
+#        initGuess = [0.001, 0.1, -0.1]
+#        bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
+#        solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-13, 
+#                                                                                       'gtol':5e-05})
+#        solution = minimize(model, initGuess, bounds=bnds)
+#        print(solution)
+#        if solution.success == True:
+#            with open(corrFile, 'a') as tf:
+#                tf.write('{}\n'.format(str(f) + ' ' + ' '.join(str(e) for e in solution.x)))
+
     return
 
 
@@ -169,19 +183,24 @@ def correctionFactors(camera, chip, dir):
 
     mast, header = openFITS(dir, filenames[0])
 
-    xy, id = radec2pixel(header, 6*np.sqrt(2), [0.0, 0.01])
+    xy, id = radec2pixel(header, 6*np.sqrt(2), [0.0, 0.005])
     x, y = xy[0], xy[1]
 
-    inds = np.where((x>=50.) & (x<len(mast)) & (y>=0.) & (y<len(mast[0])-100))[0]
+    inds = np.where((x>=48.) & (x<len(mast)-48.) & (y>=0.) & (y<len(mast[0])-100))[0]
     x, y = x[inds], y[inds]
-    
+ 
+    isolated = findIsolated(x, y)
+    print(len(isolated))
+    x, y = x[isolated], y[isolated]
+   
     plt.imshow(mast, origin='lower', interpolation='nearest', vmin=40, vmax=100)
     plt.plot(x, y, 'ko', alpha=0.3, ms=3)
 #    plt.show()
     plt.close()
 
-    print(len(inds))
-    calcShift(dir, filenames, x, y, 'pointingModel_{}-{}.txt'.format(camera, chip))
+    calcShift(dir, filenames, x, y, 'pointingModel_{}-{}.txt'.format(camera, chip), mast)
 
-#correctionFactors(3, 1, './calFITS_2019_3-1/')
-correctionFactors(1, 3, './2019/2019_1_1-3/')
+
+#correctionFactors(3, 1, './2019/2019_1_3-1/ffis/')
+#correctionFactors(4, 4, './2019/2019_1_4-4/ffis/')
+#correctionFactors(3, 3, './2019/2019_1_3-3/ffis/')
