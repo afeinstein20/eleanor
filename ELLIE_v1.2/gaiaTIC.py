@@ -255,10 +255,12 @@ def ticMultiCrossmatch(filename):
     ----------
         table: Table of gaia_ID, TIC_ID, RA, Dec, delta_RA, delta_Dec, Gmag, Tmag, pmra, pmdec, parallax
     """
-    sources = np.loadtxt(filename, dtype=int)
+    sources = np.array(np.loadtxt(filename))
     service = 'Mast.GaiaDR2.Crossmatch'
     t = makeTable()
+    print(filename)
     for i in sources:
+        i = int(i)
         tID, pos, tmag = ticPositionByID(i)
         gaia = crossmatch(pos, 0.01, service)
         pos[0],pos[1] = (pos[0]*u.deg), (pos[1]*u.deg)
@@ -294,10 +296,12 @@ def findByPosition(filename):
     t = makeTable()    
     for i in range(len(data)):
         pos = data[i]
+        print(pos)
         gaia = crossmatch(pos, 0.1, 'Mast.GaiaDR2.Crossmatch')
         tess = crossmatch(pos, 0.5, 'Mast.Tic.Crossmatch')
-        pos[0] = (pos[0]*u.deg).to(u.arcsec)
-        pos[1] = (pos[1]*u.deg).to(u.arcsec)
+        pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
+        pos[0] = (pos[0]).to(u.arcsec)
+        pos[1] = (pos[1]).to(u.arcsec)
         t.add_row([gaia['source_id'], tess['MatchID'], pos[0], pos[1], pos[0]-tess['MatchRA'], pos[1]-tess['MatchDEC'], gaia['phot_g_mean_mag'],
                    tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
     t.remove_row(0)

@@ -31,13 +31,13 @@ for i in range(len(x)-1):
         y_cens.append(y_cen)
 
         radec = WCS(mheader).all_pix2world(x_cen, y_cen, 1)
-#        tpf = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(350,350))
-#        tpf.to_fits(output_fn=fn)
+        tpf = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(350,350))
+        tpf.to_fits(output_fn=fn)
         
-#        fits.setval(fn, 'CENTER_X' , value=np.round(x_cen,5))
-#        fits.setval(fn, 'CENTER_Y' , value=np.round(y_cen,5))
-#        fits.setval(fn, 'CENTER_RA', value=float(radec[0]))
-#        fits.setval(fn, 'CENTER_DEC', value=float(radec[1]))
+        fits.setval(fn, 'CEN_X' , value=np.round(x_cen,5))
+        fits.setval(fn, 'CEN_Y' , value=np.round(y_cen,5))
+        fits.setval(fn, 'CEN_RA', value=float(radec[0]))
+        fits.setval(fn, 'CEN_DEC', value=float(radec[1]))
 
         lower = WCS(mheader).all_pix2world(x_cen-350, y_cen-350, 1)
         upper = WCS(mheader).all_pix2world(x_cen+350, y_cen+350, 1)

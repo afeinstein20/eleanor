@@ -41,7 +41,7 @@ def userInput():
     camera = str(sys.argv[4])
     chip   = str(sys.argv[5])
     url    = str(sys.argv[6])
-    dir    = './calFits_{}_{}-{}/'.format(year, camera, chip)
+    dir    = './{}/{}_1_{}-{}/ffis/'.format(year, year, camera, chip)
     return year, dayMin, dayMax, camera, chip, url, dir
 
 # -------------------------- 
@@ -50,9 +50,9 @@ def userInput():
 # -------------------------- 
 def passInfo():
     year, dayMin, dayMax, camera, chip, url, dir = userInput()
-    if os.path.isdir(dir) == False:
-        filenames = findAllFITS(year, camera, chip, url, dayMin, dayMax)
-        downloadFiles(dir, filenames)
+#    if os.path.isdir(dir) == False:
+    filenames = findAllFITS(year, camera, chip, url, dayMin, dayMax)
+    downloadFiles(dir, filenames)
     filenames = os.listdir(dir)
     return year, camera, chip, np.array(filenames), dir
 

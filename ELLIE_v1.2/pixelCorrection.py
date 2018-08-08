@@ -106,7 +106,7 @@ def calcShift(dir, fns, x, y, corrFile, mast):
     """
 
     def model(params):
-#        nonlocal xy, centroids
+        nonlocal xy, centroids
         theta, xT, yT = params
         theta = np.radians(theta)
 
@@ -116,27 +116,18 @@ def calcShift(dir, fns, x, y, corrFile, mast):
         xRot += xT
         yRot += yT
 
-        dist = np.sqrt((xRot-centroids[:,0])**2 + (yRot-centroids[:,1]))
+        dist = np.sqrt((xRot-centroids[:,0])**2 + (yRot-centroids[:,1])**2)
         dist = np.square(dist)
         return np.sum(dist)
 
-    rand = np.random.randint(0, len(x), size=50)
+    rand = np.random.randint(0, len(x), size=100)
     x, y = x[rand], y[rand]
 
     matrix = np.zeros((len(fns), len(x), 2))
     fns = [dir+i for i in fns]
 
     x_cen, y_cen = len(mast)/2, len(mast[0])/2
-
-    for f in range(len(fns)):
-        for i in range(len(x)):
-            tpf = ktpf.from_fits_images(images=[fns[f]], position=(x[i], y[i]), size=(6,6))
-            com = ndimage.measurements.center_of_mass(tpf.flux.T-np.median(tpf.flux)) #subtracts background
-            matrix[f][i][0] = com[0]+x[i]-x_cen
-            matrix[f][i][1] = com[1]+y[i]-y_cen
-
     xy = np.zeros((len(x),2))
-    
 
     for i in range(len(x)):
         xy[i][0] = x[i] - x_cen
@@ -146,21 +137,26 @@ def calcShift(dir, fns, x, y, corrFile, mast):
         tf.write('cadence medX medY medT\n')
 
     for f in range(len(fns)):
-        medX, medY = np.median(matrix[f][:,0]), np.median(matrix[f][:,1])
-        medX, medY = str(medX), str(medY)
-        with open(corrFile, 'a') as tf:
-            tf.write('{}\n'.format(medX + ' ' + medY))
-#        centroids = matrix[f]
+        for i in range(len(x)):
+            tpf = ktpf.from_fits_images(images=[fns[f]], position=(x[i], y[i]), size=(6,6))
+            com = ndimage.measurements.center_of_mass(tpf.flux.T-np.median(tpf.flux)) #subtracts background
+            matrix[f][i][0] = com[0]+x[i]-x_cen
+            matrix[f][i][1] = com[1]+y[i]-y_cen
+    
+        centroids = matrix[f]
 
-#        initGuess = [0.001, 0.1, -0.1]
-#        bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
-#        solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-13, 
-#                                                                                       'gtol':5e-05})
-#        solution = minimize(model, initGuess, bounds=bnds)
-#        print(solution)
-#        if solution.success == True:
-#            with open(corrFile, 'a') as tf:
-#                tf.write('{}\n'.format(str(f) + ' ' + ' '.join(str(e) for e in solution.x)))
+        initGuess = [0.001, 0.1, -0.1]
+        bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
+        solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-11, 
+                                                                                       'gtol':5e-05})
+        print(solution)
+        if solution.success == True:
+            with open(corrFile, 'a') as tf:
+                tf.write('{}\n'.format(str(f) + ' ' + ' '.join(str(e) for e in solution.x)))
+
+    plt.imshow(mast, origin='lower', vmin=40, vmax=200)
+    plt.plot(x, y, 'ko', alpha=0.3, ms=2)
+    plt.show()
 
     return
 
@@ -204,3 +200,4 @@ def correctionFactors(camera, chip, dir):
 #correctionFactors(3, 1, './2019/2019_1_3-1/ffis/')
 #correctionFactors(4, 4, './2019/2019_1_4-4/ffis/')
 #correctionFactors(3, 3, './2019/2019_1_3-3/ffis/')
+#correctionFactors(1, 3, './2019/2019_1_1-3/ffis/')
