@@ -68,35 +68,33 @@ def animate(i):
     time_text.set_text('Frame {}'.format(i))
 
     lcNorm = lc.flux / np.nanmedian(lc.flux)
-    lines.append(ax.scatter(lc.time[i], custLCC[i], s=20, c='r'))
-    lines.append(ax.scatter(lc.time[i], custLCR[i], s=20, c='k'))
+#    lines.append(ax.scatter(lc.time[i], custLCC[i], s=20, c='r'))
+#    lines.append(ax.scatter(lc.time[i], custLCR[i], s=20, c='k'))
 
-    circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
-    rectanShape = patches.Rectangle((x[i]-1.5,y[i]-1.5), 3.0, 3.0, fill=False)
-    p = PatchCollection([rectanShape, circleShape], alpha=0.4)
-    colors = np.linspace(0,1,2)
-    p.set_array(np.array(colors))
-    p.set_edgecolor('face')
-    ps.append(ax1.add_collection(p))
+#    circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
+#    rectanShape = patches.Rectangle((x[i]-1.5,y[i]-1.5), 3.0, 3.0, fill=False)
+#    p = PatchCollection([rectanShape, circleShape], alpha=0.4)
+#    colors = np.linspace(0,1,2)
+#    p.set_array(np.array(colors))
+#    p.set_edgecolor('face')
+#    ps.append(ax1.add_collection(p))
 
 
 id = str(sys.argv[1])
 tpf = ktpf.from_fits('{}_tpf.fits'.format(id))
 lc = tpf.to_lightcurve()
 
-pointing = 'pointingModel_{}-{}.txt'.format(3,3)
-pointing = np.loadtxt(pointing, usecols=(0,1), skiprows=1)
-for p in range(len(pointing)):
-    pointing[p][0] = pointing[p][0]-201.0-1.0
-    pointing[p][1] = pointing[p][1]-199.0-1.0
+pointing = 'pointingModel_{}-{}.txt'.format(4,4)
+
+pointing = np.loadtxt(pointing, usecols=(2,3), skiprows=1)
 
 new_id, pos, tmag = ticID(int(id))
 x, y, scats, lines = [], [], [], []
 ps = []
 
 for i in range(len(tpf.flux)):
-    x.append(4.5+pointing[i][0])
-    y.append(4.5+pointing[i][1])
+    x.append(4.5-pointing[i][0])
+    y.append(4.5-pointing[i][1])
 
 
 fig = plt.figure(figsize=(18,5))
@@ -114,12 +112,12 @@ writer = Writer(fps=16, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
 ani = animation.FuncAnimation(fig, animate, frames=len(tpf.flux))
 plt.title('TIC {}'.format(id), color='black', fontweight='bold', loc='center')
 
-apertureC = circle([x,y], 1.5)
-apertureR = square([x,y], 3.0, 3.0, 0.0)
-custLCC = customLC(apertureC, tpf)
-custLCR = customLC(apertureR, tpf)
-custLCC = custLCC / np.nanmedian(custLCC)
-custLCR = custLCR / np.nanmedian(custLCR)
+#apertureC = circle([x,y], 1.5)
+#apertureR = square([x,y], 3.0, 3.0, 0.0)
+#custLCC = customLC(apertureC, tpf)
+#custLCR = customLC(apertureR, tpf)
+#custLCC = custLCC / np.nanmedian(custLCC)
+#custLCR = custLCR / np.nanmedian(custLCR)
 
 
 # Writes light curve to FITS file
@@ -128,8 +126,8 @@ custLCR = custLCR / np.nanmedian(custLCR)
 
 
 
-ax.plot(lc.time, custLCC, 'r')
-ax.plot(lc.time, custLCR, 'k')
+#ax.plot(lc.time, custLCC, 'r')
+#ax.plot(lc.time, custLCR, 'k')
 ax.plot(lc.time, lc.flux/np.nanmedian(lc.flux))
 
 x_cen = math.ceil(pos[0])

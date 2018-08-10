@@ -68,8 +68,8 @@ def animate(i):
     ax.text(x[0]+3, y[0]-4, 'Frame {}'.format(i), color='white', fontweight='bold')
 
 scats = []
-id = 229669377
-main(3, 1, id)
+#id = 229669377
+#main(3, 1, id)
 #id = 219870537
 #main(4,4, id)
 
