@@ -4,7 +4,7 @@ import astropy.units as u
 from astroquery.simbad import Simbad
 from astropy.coordinates import SkyCoord
 from astroquery.vizier import Vizier
-from astroquery.gaia import Gaia
+#from astroquery.gaia import Gaia
 from astropy.table import Table
 from astroquery.mast import Catalogs
 
@@ -177,6 +177,7 @@ def gaiaPositionByID(source_id):
     ---------- 
         source_id, ra, dec, gmag, pmra, pmdec, parallax
     """
+    from astroquery.gaia import Gaia
     adql = 'SELECT gaia.source_id, gaia.ra, gaia.dec, gaia.phot_g_mean_mag, gaia.pmra, gaia.pmdec, gaia.parallax FROM gaiadr2.gaia_source AS gaia WHERE gaia.source_id={0}'.format(source_id)
     job = Gaia.launch_job(adql)
     table = job.get_results()

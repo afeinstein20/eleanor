@@ -12,10 +12,11 @@ from lightkurve import SFFCorrector
 
 ###################
 # Loads  all data #
+#     ADDED       #  
 ################### 
 def load_data(camera, chip):
-    file = './198593129_tpf.fits'
-
+#    file = './198593129_tpf.fits'
+    file = './219870537_tpf.fits'
     theta, delx, dely = np.loadtxt('pointingModel_{}-{}.txt'.format(camera, chip), skiprows=1,
                                    usecols=(1,2,3), unpack=True)
     tpf  = ktpf.from_fits(file)
@@ -26,7 +27,10 @@ def load_data(camera, chip):
     # Creates estimated center location taking the pointing model into account            
     x_point = cen_x * np.cos(np.radians(theta)) - cen_y * np.sin(np.radians(theta)) - delx
     y_point = cen_x * np.sin(np.radians(theta)) + cen_y * np.cos(np.radians(theta)) - dely
-
+    plt.imshow(tpf.flux[0], origin='lower')
+    plt.plot(x_point[0], y_point[0], 'ko', ms=5)
+    plt.show()
+    plt.close()
      # Creates the light curve given different center locations per cadence
     lc = []
     for f in range(len(tpf.flux)):
@@ -40,6 +44,7 @@ def load_data(camera, chip):
 
 ###################
 # Minimize Jitter #
+#     ADDED       #
 ###################
 def parabola(params, x, y, f_obs, y_err):
     c1, c2, c3, c4, c5 = params
@@ -49,10 +54,11 @@ def parabola(params, x, y, f_obs, y_err):
 
 ###################
 # Corrects Jitter #
+#     ADDED       #  
 ###################
 def jitter_correction(camera, chip):
     lc, x_point, y_point = load_data(camera, chip)
-
+    print(len(lc), len(x_point), len(y_point))
     # Masks out anything >= 3 sigma above the mean
     mask = np.ones(len(lc), dtype=bool)
     for i in range(5):
@@ -77,7 +83,7 @@ def jitter_correction(camera, chip):
 
         c1, c2, c3, c4, c5 = test.x
         lc_new = lc * (c1 + c2*(x_point-2.5) + c3*(x_point-2.5)**2 + c4*(y_point-2.5) + c5*(y_point-2.5)**2)
-
+        print(np.std(lc[mask]), np.std(lc_new[mask]))
         plt.plot(np.arange(0,len(lc[mask]),1), lc[mask], 'k', linewidth=3)
         plt.plot(np.arange(0,len(lc_new[mask]),1), lc_new[mask], 'r-')
         plt.show()
@@ -102,11 +108,6 @@ def roll_correction(camera, chip):
     plt.show()
     plt.close()
 
-    sff._plot_normflux_arclength()
-    plt.show()
-    plt.close()
-    sff._plot_rotated_centroids()
-    plt.show()
 
-#jitter_correction(3,3)
-#roll_correction(3,3)
+jitter_correction(4,4)
+roll_correction(4,4)

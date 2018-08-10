@@ -31,6 +31,7 @@ def findCameraChip(id, pos):
             mast, mheader = fits.getdata(dir+file, header=True)
             xy = WCS(mheader).all_world2pix(pos[0], pos[1], 1, quiet=True)
             if xy[0] >= 0. and xy[0] <= len(mast) and xy[1] >= 0. and xy[1] <= len(mast[0]):
+                print(dir)
                 return dir, xy
 
 
@@ -68,4 +69,4 @@ def createTPF(id, mission):
         fits.setval(output_fn, str(names[i]), value=values[i])
 
 #createTPF(198593129, 'tic')
-
+#createTPF(219870537, 'tic')

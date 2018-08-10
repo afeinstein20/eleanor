@@ -85,7 +85,7 @@ def findIsolated(x, y):
     isolated = []
     for i in range(len(x)):
         dist, dist_ind = nearest(x[i], y[i], x, y)
-        if dist >= 7.0:
+        if dist >= 8.0:
             isolated.append(i)
     return isolated
 
@@ -120,39 +120,47 @@ def calcShift(dir, fns, x, y, corrFile, mast):
         dist = np.square(dist)
         return np.sum(dist)
 
-    rand = np.random.randint(0, len(x), size=100)
+    rand = np.random.randint(0, len(x), size=200)
     x, y = x[rand], y[rand]
 
-    matrix = np.zeros((len(fns), len(x), 2))
     fns = [dir+i for i in fns]
 
     x_cen, y_cen = len(mast)/2, len(mast[0])/2
     xy = np.zeros((len(x),2))
 
+
     for i in range(len(x)):
-        xy[i][0] = x[i] - x_cen
-        xy[i][1] = y[i] - y_cen
+        xy[i][0] = x[i]-x_cen
+        xy[i][1] = y[i]-y_cen
 
     with open(corrFile, 'w') as tf:
-        tf.write('cadence medX medY medT\n')
+        tf.write('cadence medT medX medY\n')
 
-    for f in range(len(fns)):
-        for i in range(len(x)):
-            tpf = ktpf.from_fits_images(images=[fns[f]], position=(x[i], y[i]), size=(6,6))
-            com = ndimage.measurements.center_of_mass(tpf.flux.T-np.median(tpf.flux)) #subtracts background
-            matrix[f][i][0] = com[0]+x[i]-x_cen
-            matrix[f][i][1] = com[1]+y[i]-y_cen
-    
-        centroids = matrix[f]
+    matrix = np.zeros((len(x), len(fns), 2))
 
-        initGuess = [0.001, 0.1, -0.1]
+    for i in range(len(x)):
+        print(x[i], y[i])
+        tpf = ktpf.from_fits_images(images=fns, position=(x[i], y[i]), size=(6,6))
+        #tpf.to_fits(output_fn='test{}.fits'.format(i))
+        for j in range(len(fns)):
+            com = ndimage.measurements.center_of_mass(tpf.flux[j].T-np.median(tpf.flux[j])) # subtracts background
+            matrix[i][j][0] = com[0]+x[i]-x_cen
+            matrix[i][j][1] = com[1]+y[i]-y_cen
+
+    for i in range(len(x)):
+        centroids = matrix[:,i]
+
+        if i == 0:
+            initGuess = [0.001, 0.1, -0.1]
+        else:
+            initGuess = solution.x
+
         bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
         solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-11, 
                                                                                        'gtol':5e-05})
-        print(solution)
-        if solution.success == True:
-            with open(corrFile, 'a') as tf:
-                tf.write('{}\n'.format(str(f) + ' ' + ' '.join(str(e) for e in solution.x)))
+        print(solution.success)
+        with open(corrFile, 'a') as tf:
+            tf.write('{}\n'.format(str(i) + ' ' + ' '.join(str(e) for e in solution.x)))
 
     plt.imshow(mast, origin='lower', vmin=40, vmax=200)
     plt.plot(x, y, 'ko', alpha=0.3, ms=2)
@@ -179,21 +187,16 @@ def correctionFactors(camera, chip, dir):
 
     mast, header = openFITS(dir, filenames[0])
 
-    xy, id = radec2pixel(header, 6*np.sqrt(2), [0.0, 0.005])
+    xy, id = radec2pixel(header, 6*np.sqrt(2), [0.0, 5e-4])
     x, y = xy[0], xy[1]
 
-    inds = np.where((x>=48.) & (x<len(mast)-48.) & (y>=0.) & (y<len(mast[0])-100))[0]
+    inds = np.where((y>=44.) & (y<len(mast)-45.) & (x>=0.) & (x<len(mast[0])-41.))[0]
     x, y = x[inds], y[inds]
  
     isolated = findIsolated(x, y)
     print(len(isolated))
     x, y = x[isolated], y[isolated]
    
-    plt.imshow(mast, origin='lower', interpolation='nearest', vmin=40, vmax=100)
-    plt.plot(x, y, 'ko', alpha=0.3, ms=3)
-#    plt.show()
-    plt.close()
-
     calcShift(dir, filenames, x, y, 'pointingModel_{}-{}.txt'.format(camera, chip), mast)
 
 
