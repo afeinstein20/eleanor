@@ -120,10 +120,11 @@ def calcShift(dir, fns, x, y, corrFile, mast):
         dist = np.square(dist)
         return np.sum(dist)
 
-    rand = np.random.randint(0, len(x), size=200)
-    x, y = x[rand], y[rand]
-
+#    rand = np.random.randint(0, len(x), size=200)
+#    x, y = x[rand], y[rand]
+    print(len(x))
     fns = [dir+i for i in fns]
+
 
     x_cen, y_cen = len(mast)/2, len(mast[0])/2
     xy = np.zeros((len(x),2))
@@ -157,19 +158,17 @@ def calcShift(dir, fns, x, y, corrFile, mast):
         bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
         solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-11, 
                                                                                        'gtol':5e-05})
-        if i == 0:
-            initSolution = solution.x
-        else:
-            sol = solution.x
+        sol = solution.x
 
         with open(corrFile, 'a') as tf:
             if i == 0:
-                theta, delX, delY = initSolution[0], initSolution[1], initSolution[2]
+                theta, delX, delY = sol[0], sol[1], sol[2]
             else:
-                theta = initSolution[0] - sol[0]
-                delX  = initSolution[1] - sol[1]
-                delY  = initSolution[2] - sol[2]
+                theta = oldSol[0] - sol[0]
+                delX  = oldSol[1] - sol[1]
+                delY  = oldSol[2] - sol[2]
             tf.write('{}\n'.format(str(i) + ' ' + str(theta) + ' ' + str(delX) + ' ' + str(delY)))
+            oldSol = sol
     return
 
 
@@ -191,7 +190,7 @@ def correctionFactors(camera, chip, dir):
 
     mast, header = openFITS(dir, filenames[0])
 
-    xy, id = radec2pixel(header, 6*np.sqrt(2), [0.0, 5e-4])
+    xy, id = radec2pixel(header, 6*np.sqrt(2), [0.0, 5e-5])
     x, y = xy[0], xy[1]
 
     inds = np.where((y>=44.) & (y<len(mast)-45.) & (x>=0.) & (x<len(mast[0])-41.))[0]
