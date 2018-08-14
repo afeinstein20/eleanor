@@ -81,20 +81,24 @@ def animate(i):
 
 
 id = str(sys.argv[1])
-tpf = ktpf.from_fits('{}_tpf.fits'.format(id))
+tpf = ktpf.from_fits('./figures/{}_tpf.fits'.format(id))
 lc = tpf.to_lightcurve()
 
-pointing = 'pointingModel_{}-{}.txt'.format(4,4)
+pointing = 'pointingModel_{}-{}.txt'.format(3,3)
 
-pointing = np.loadtxt(pointing, usecols=(2,3), skiprows=1)
+theta, delX, delY = np.loadtxt(pointing, usecols=(1,2,3), skiprows=1, unpack=True)
 
 new_id, pos, tmag = ticID(int(id))
 x, y, scats, lines = [], [], [], []
 ps = []
 
-for i in range(len(tpf.flux)):
-    x.append(4.5-pointing[i][0])
-    y.append(4.5-pointing[i][1])
+for i in range(len(tpf.flux)-1):
+    if i == 0:
+        x.append( 3.0*np.cos(theta[i+1]) - 4.0*np.sin(theta[i+1]) + delX[i+1] )
+        y.append( 3.0*np.sin(theta[i+1]) + 4.0*np.cos(theta[i+1]) + delY[i+1] )
+    else:
+        x.append( x[i-1]*np.cos(theta[i+1]) - y[i-1]*np.sin(theta[i+1]) + delX[i+1] )
+        y.append( x[i-1]*np.sin(theta[i+1]) + y[i-1]*np.cos(theta[i+1]) + delY[i+1] )
 
 
 fig = plt.figure(figsize=(18,5))
