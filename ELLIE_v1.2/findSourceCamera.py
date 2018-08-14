@@ -8,6 +8,7 @@ from gaiaTIC import crossmatch
 from astropy.wcs import WCS
 from lightkurve import KeplerTargetPixelFile as ktpf
 from pixelCorrection import sortByDate
+from scipy import ndimage
 
 def findCameraChip(id, pos):
     """
@@ -50,14 +51,13 @@ def createTPF(id, mission):
         return_id, pos, gmag, pmra, pmdec, plx = gaiaID(int(id))
 
     dir, xy, camera, chip = findCameraChip(id, pos)
-
     pointing = 'pointingModel_{}-{}.txt'.format(camera, chip)
     initPos  = np.loadtxt(pointing, skiprows=1, usecols=(1,2,3))[0]
 
-    x = xy[0]*np.cos(initPos[0]) - xy[1]*np.sin(initPos[0]) + initPos[1]
-    y = xy[0]*np.sin(initPos[0]) + xy[1]*np.cos(initPos[0]) + initPos[2]
-    
-    xy = [x,y]
+    initPos[0] = np.radians(initPos[0])
+    x = xy[0]*np.cos(initPos[0]) - xy[1]*np.sin(initPos[0]) - initPos[1]
+    y = xy[0]*np.sin(initPos[0]) + xy[1]*np.cos(initPos[0]) - initPos[2]# + 1.0
+    xy_new = [x,y]
 
     fns = np.array(os.listdir(dir))
     fns = fns[np.array([i for i,item in enumerate(fns) if "fits" in item])]
@@ -66,7 +66,13 @@ def createTPF(id, mission):
 
     gaia = crossmatch(pos, 1, 'Mast.GaiaDR2.Crossmatch')
     gaia_id = gaia['MatchID']
-    tpf = ktpf.from_fits_images(images=fns, position=xy, size=(9,9))
+    print(xy, xy_new)
+
+    tpf  =  ktpf.from_fits_images(images=fns, position=xy_new, size=(9,9))
+
+    plt.imshow(tpf.flux[0], origin='lower')
+    plt.show()
+
     output_fn = '{}_tpf.fits'.format(id)
     tpf.to_fits(output_fn=output_fn)
     
