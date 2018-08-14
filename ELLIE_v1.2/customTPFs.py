@@ -676,7 +676,7 @@ class create_lightcurve:
 
         
 
-class visualize:
+class visualize:#(object):
     """
     The main interface for creating figures, movies, and interactive plots
     Allows the user to have a grand ole time playing with their data!
@@ -685,7 +685,7 @@ class visualize:
         tpf: A FITS file that contains stacked cadences for a single source
     """
 
-    def __init__(self, id, dir=None):
+    def __init__(self, id, dir=None, **kwargs):
         """ USER INPUT """
         self.id  = id
         if dir==None:
@@ -694,6 +694,7 @@ class visualize:
         else:
             self.tpf = dir+'{}_tpf.fits'.format(self.id)
             self.lcf = dir+'{}_lc.fits'.format(self.id)
+            
 
         try:
             fits.getdata(self.lcf)
@@ -702,7 +703,7 @@ class visualize:
             return
         
 
-    def tpf_movie(self, output_fn=None, cmap='viridis', cbar=True, aperture=False, com=False, plot_lc=False):
+    def tpf_movie(self, output_fn=None, cbar=True, aperture=False, com=False, plot_lc=False, **kwargs):
         """
         This function allows the user to create a TPF movie
         Parameters
@@ -726,14 +727,16 @@ class visualize:
 #        lc = fits.getdata(self.lcf)
         time, lc = lc.time, lc.flux/np.nanmedian(lc.flux)
 
-        cbmax = np.max(tp.flux[0])
-        cbmin = np.min(tp.flux[0])
+        if 'vmax' not in kwargs:
+            kwargs['vmax'] = np.max(tp.flux[0])
+        if 'vmin' not in kwargs:
+            kwargs['vmin'] = np.min(tp.flux[0])
 
+        print(kwargs)
         def animate(i):
             nonlocal line
 
-            ax.imshow(tp.flux[i], origin='lower', cmap=cmap, vmin=cbmin, vmax=cbmax)
-            
+            ax.imshow(tp.flux[i], origin='lower', **kwargs)
             # Plots motion of COM when the user wants
             if com==True:
                 for scat in scats:
@@ -779,6 +782,7 @@ class visualize:
             spec = gridspec.GridSpec(ncols=1, nrows=1)
             ax   = fig.add_subplot(spec[0,0])
 
+
         # Writes frame number on TPF movie
         time_text = ax.text(5.5, -0.25, '', color='white', fontweight='bold')
         time_text.set_text('')
@@ -790,7 +794,7 @@ class visualize:
         ani = animation.FuncAnimation(fig, animate, frames=len(tp.flux))
 
         if cbar==True:
-            plt.colorbar(plt.imshow(tp.flux[0], cmap=cmap, vmin=cbmin, vmax=cbmax), ax=ax)
+            plt.colorbar(plt.imshow(tp.flux[0], **kwargs), ax=ax)
 
         if output_fn == None:
             output_fn = '{}.mp4'.format(self.id)        
