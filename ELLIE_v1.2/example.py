@@ -2,8 +2,12 @@ import matplotlib.pyplot as plt
 from customTPFs import visualize as vis
 
 source = 219870537
-dir = './2019/2019_1_3-1/tic_tpf/'
+dir = './figures/'
+
+kwargs = {
+    'vmin':100,
+    }
 
 test = vis(source, dir=dir)
-tpf = test.tpf_movie(cmap='Greys') # for Geert
+tpf = test.tpf_movie(**kwargs)
 plt.show()
