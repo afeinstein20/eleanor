@@ -11,26 +11,6 @@ from lightkurve import SFFCorrector
 
 
 ###################
-# Loads  all data #
-#     ADDED       #  
-################### 
-def load_data(id, camera, chip):
-    file = './figures/{}_tpf.fits'.format(id)
-    theta, delx, dely = np.loadtxt('pointingModel_{}-{}.txt'.format(camera, chip), skiprows=1,
-                                   usecols=(1,2,3), unpack=True)
-    tpf  = ktpf.from_fits(file)
-    hdu = fits.open(file)
-
-    cen_x, cen_y = len(tpf.flux[0])/2., len(tpf.flux[0])/2.
-
-    # Creates estimated center location taking the pointing model into account            
-    x_point = cen_x * np.cos(np.radians(theta)) - cen_y * np.sin(np.radians(theta)) - delx
-    y_point = cen_x * np.sin(np.radians(theta)) + cen_y * np.cos(np.radians(theta)) - dely
-
-    return x_point, y_point
-    
-
-###################
 # Minimize Jitter #
 #     ADDED       #
 ###################
@@ -45,8 +25,6 @@ def parabola(params, x, y, f_obs, y_err):
 #     ADDED       #  
 ###################
 def jitter_correction(lc, x_point, y_point): #id, camera, chip, lc):
-#    lc, x_point, y_point = load_data(camera, chip)
-#    x_point, y_point = load_data(id, camera, chip)
 
     # Masks out anything >= 3 sigma above the mean
     mask = np.ones(len(lc), dtype=bool)
@@ -87,10 +65,4 @@ def roll_correction(lc, x_point, y_point):
                                windows=1, polyorder=5)
 
     return lc_corrected.flux
-#    long_term_trend = sff.trend
 
-#    plt.plot(time, lc, 'ko', ms=4)
-#    plt.plot(time, lc, 'o', color='#3498db', ms=3)
-#    plt.plot(time, lc_corrected.flux*long_term_trend, 'o', color='pink', ms=3)
-#    plt.show()
-#    plt.close()
