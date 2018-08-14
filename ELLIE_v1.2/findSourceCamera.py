@@ -31,8 +31,7 @@ def findCameraChip(id, pos):
             mast, mheader = fits.getdata(dir+file, header=True)
             xy = WCS(mheader).all_world2pix(pos[0], pos[1], 1, quiet=True)
             if xy[0] >= 0. and xy[0] <= len(mast) and xy[1] >= 0. and xy[1] <= len(mast[0]):
-                print(dir)
-                return dir, xy
+                return dir, xy, i, j
 
 
 def findSource():
@@ -49,7 +48,17 @@ def createTPF(id, mission):
         return_id, pos, tmag = ticID(int(id))
     elif mission == 'gaia':
         return_id, pos, gmag, pmra, pmdec, plx = gaiaID(int(id))
-    dir, xy = findCameraChip(id, pos)
+
+    dir, xy, camera, chip = findCameraChip(id, pos)
+
+    pointing = 'pointingModel_{}-{}.txt'.format(camera, chip)
+    initPos  = np.loadtxt(pointing, skiprows=1, usecols=(1,2,3))[0]
+
+    x = xy[0]*np.cos(initPos[0]) - xy[1]*np.sin(initPos[0]) + initPos[1]
+    y = xy[0]*np.sin(initPos[0]) + xy[1]*np.cos(initPos[0]) + initPos[2]
+    
+    xy = [x,y]
+
     fns = np.array(os.listdir(dir))
     fns = fns[np.array([i for i,item in enumerate(fns) if "fits" in item])]
     fns = sortByDate(fns, dir)
@@ -68,5 +77,8 @@ def createTPF(id, mission):
         print(names[i], values[i])
         fits.setval(output_fn, str(names[i]), value=values[i])
 
-#createTPF(198593129, 'tic')
+
+
+createTPF(198593129, 'tic')
 #createTPF(219870537, 'tic')
+#createTPF(420888018, 'tic')

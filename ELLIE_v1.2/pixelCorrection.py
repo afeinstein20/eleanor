@@ -132,7 +132,6 @@ def calcShift(dir, fns, x, y, corrFile, mast):
     for i in range(len(x)):
         xy[i][0] = x[i]-x_cen
         xy[i][1] = y[i]-y_cen
-
     with open(corrFile, 'w') as tf:
         tf.write('cadence medT medX medY\n')
 
@@ -144,12 +143,12 @@ def calcShift(dir, fns, x, y, corrFile, mast):
         #tpf.to_fits(output_fn='test{}.fits'.format(i))
         for j in range(len(fns)):
             com = ndimage.measurements.center_of_mass(tpf.flux[j].T-np.median(tpf.flux[j])) # subtracts background
-            matrix[i][j][0] = com[0]+x[i]-x_cen
-            matrix[i][j][1] = com[1]+y[i]-y_cen
+            matrix[i][j][0] = com[0]+xy[i][0]
+            matrix[i][j][1] = com[1]+xy[i][1]
 
-    for i in range(len(x)):
+
+    for i in range(len(fns)):
         centroids = matrix[:,i]
-
         if i == 0:
             initGuess = [0.001, 0.1, -0.1]
         else:
@@ -158,14 +157,19 @@ def calcShift(dir, fns, x, y, corrFile, mast):
         bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
         solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-11, 
                                                                                        'gtol':5e-05})
-        print(solution.success)
+        if i == 0:
+            initSolution = solution.x
+        else:
+            sol = solution.x
+
         with open(corrFile, 'a') as tf:
-            tf.write('{}\n'.format(str(i) + ' ' + ' '.join(str(e) for e in solution.x)))
-
-    plt.imshow(mast, origin='lower', vmin=40, vmax=200)
-    plt.plot(x, y, 'ko', alpha=0.3, ms=2)
-    plt.show()
-
+            if i == 0:
+                theta, delX, delY = initSolution[0], initSolution[1], initSolution[2]
+            else:
+                theta = initSolution[0] - sol[0]
+                delX  = initSolution[1] - sol[1]
+                delY  = initSolution[2] - sol[2]
+            tf.write('{}\n'.format(str(i) + ' ' + str(theta) + ' ' + str(delX) + ' ' + str(delY)))
     return
 
 
