@@ -56,7 +56,7 @@ def createTPF(id, mission):
 
     initPos[0] = np.radians(initPos[0])
     x = xy[0]*np.cos(initPos[0]) - xy[1]*np.sin(initPos[0]) - initPos[1]
-    y = xy[0]*np.sin(initPos[0]) + xy[1]*np.cos(initPos[0]) - initPos[2]# + 1.0
+    y = xy[0]*np.sin(initPos[0]) + xy[1]*np.cos(initPos[0]) - initPos[2]
     xy_new = [x,y]
 
     fns = np.array(os.listdir(dir))
@@ -66,13 +66,23 @@ def createTPF(id, mission):
 
     gaia = crossmatch(pos, 1, 'Mast.GaiaDR2.Crossmatch')
     gaia_id = gaia['MatchID']
-    print(xy, xy_new)
 
     tpf  =  ktpf.from_fits_images(images=fns, position=xy_new, size=(9,9))
 
-    plt.imshow(tpf.flux[0], origin='lower')
-    plt.show()
+    tpf_init = tpf.flux[0]
+    tpf_com  = tpf_init[2:8, 2:8]
+    com = ndimage.measurements.center_of_mass(tpf_com.T - np.median(tpf_com))
+    x_cen, y_cen = com[1]-len(tpf_com)/2., com[0]-len(tpf_com[0])/2.
+    print(com, x_cen, y_cen)
 
+    # use ndimage.label to find regions >= 2 sigma above the background
+    # calculate center of mass around the largest object in the ndimage.label
+
+    plt.imshow(tpf.flux[0], origin='lower')
+    plt.plot(4, 4, 'ko')
+    plt.plot(4-x_cen, 4-y_cen, 'ro')
+    plt.show()
+"""
     output_fn = '{}_tpf.fits'.format(id)
     tpf.to_fits(output_fn=output_fn)
     
@@ -82,9 +92,9 @@ def createTPF(id, mission):
     for i in range(len(values)):
         print(names[i], values[i])
         fits.setval(output_fn, str(names[i]), value=values[i])
-
+"""
 
 
 createTPF(198593129, 'tic')
-#createTPF(219870537, 'tic')
+createTPF(219870537, 'tic')
 #createTPF(420888018, 'tic')

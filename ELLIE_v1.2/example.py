@@ -6,6 +6,7 @@ dir = './figures/'
 
 kwargs = {
     'vmin':100,
+    'cmap':'jet'
     }
 
 test = vis(source, dir=dir)
