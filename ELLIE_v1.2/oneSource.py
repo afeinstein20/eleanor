@@ -59,22 +59,12 @@ def edit_header(output_fn, tic_id, gaia_id, pos, xy):
     """ Adds extra comments to each TPF header """
     """                Returns                 """
     names = ['TIC_ID', 'GAIA_ID', 'CEN_RA', 'CEN_DEC', 'CEN_X', 'CEN_Y']
-    values = [return_id[0], gaia['MatchID'][0], pos[0], pos[1], float(xy[0]), float(xy[1])]
+    values = [tic_id, gaia_id, pos[0], pos[1], float(xy[0]), float(xy[1])]
     for i in range(len(values)):
         fits.setval(output_fn, str(names[i]), value=values[i])
     return
 
 
-def plot(flux, point):
-    """ Plots image of flux and any additional points """
-    """                   Returns                     """
-    plt.imshow(flux, origin='lower')
-    shape = ['ko', 'ro', 'bo', 'go', 'yo']
-    for i in range(len(point)):
-        plt.plot(point[i][0], point[i][1], shape[i])
-    plt.show()
-    plt.close()
-    return
 
 
 def from_class(id, mission):
@@ -109,35 +99,38 @@ def add_shift(tpf):
 def main(id, mission):
     """ Temporary main function """
     info = from_class(id, mission)
+
     pos = [info['RA'].data[0], info['Dec'].data[0]]
     files, xy, camera, chip = find_camera_chip(id, pos)
 
+    # Shifts (x,y) coordinates based on pointing model
     initShift = np.loadtxt('pointingModel_{}-{}.txt'.format(camera, chip), skiprows=1,
                            usecols=(1,2,3))[0]
     initShift[0] = np.radians(initShift[0])
     x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
     y = xy[0]*np.sin(initShift[0]) + xy[1]*np.cos(initShift[0]) - initShift[2]
-    xy_start = [x,y]
 
-    tpf = ktpf.from_fits_images(images=files, position=xy_start, size=(9,9))
+    # Creates first TPF 
+    tpf = ktpf.from_fits_images(images=files, position=[x,y], size=(9,9))
+
+    # Shifts (x,y) coordinates to center on centroid
     xy_new = add_shift(tpf)
-
     xy_new_start = [x+xy_new[0]-4.0, y+xy_new[1]-4.0]
     new_tpf = ktpf.from_fits_images(images=files, position=xy_new_start, size=(9,9))
 
-    fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2)
-    ax1.imshow(tpf.flux[0], origin='lower')
-    ax1.plot(4,4,'ko')
-    ax1.plot(xy_new[0], xy_new[1], 'ro')
-    ax2.imshow(new_tpf.flux[0], origin='lower')
-    ax2.plot(4, 4)
-    plt.show()
+    # Converts new (x,y) center to world coordinates
+    flux, header = fits.getdata(files[0], header=True)
+    pos = WCS(header).all_pix2world(xy_new_start[0], xy_new_start[1], 1)
+    pos = [float(pos[0]), float(pos[1])]
 
-#    output_fn = 'TIC{}_tpf.fits'.format(id)
-#    tpf_new.to_fits(output_fn=output_fn)
+    # Saves TPF to FITS file and edits header
+    output_fn = 'TIC{}_tpf.fits'.format(id)
+    new_tpf.to_fits(output_fn=output_fn)
+    edit_header(output_fn, int(info['TIC_ID'].data), int(info['Gaia_ID'].data), pos, xy_new_start)
 
 
-main(219870537, 'tic')
-main(229669377, 'tic')
-main(420888018, 'tic')
-main(198593129, 'tic') 
+
+#main(219870537, 'tic')
+#main(229669377, 'tic')
+#main(420888018, 'tic')
+#main(198593129, 'tic') 
