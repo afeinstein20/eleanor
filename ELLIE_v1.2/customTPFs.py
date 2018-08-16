@@ -203,7 +203,7 @@ class custom_tpf:
         ---------- 
         Returns 
         ---------- 
-            source_id, ra, dec, gmag, pmra, pmdec, parallax
+            source_id, pos [RA,Dec], gmag, pmra, pmdec, parallax
         """
         from astroquery.gaia import Gaia
 
@@ -228,7 +228,7 @@ class custom_tpf:
             multiSource: used when user passes in a file of TIC IDs to crossmatch
         Returns
         ----------
-            source_id, ra, dec, tmag 
+            source_id, pos [RA,Dec], tmag 
         """
         if multiSource != None:
             source = multiSource
@@ -313,27 +313,31 @@ class custom_tpf:
         ----------  
             table: table of gaia_id, tic_id, ra, dec, delta_pos_gaia, delta_pos_tic, gmag, tmag, pmra, pmdec, parallax
         """
-        if self.multiFile[-3::] == 'csv':
-            data = np.loadtxt(self.multiFile, delimiter=',')
+        if self.pos == None:
+            if self.multiFile[-3::] == 'csv':
+                data = np.loadtxt(self.multiFile, delimiter=',')
+            else:
+                data = np.loadtxt(self.multiFile)
+            
         else:
-            data = np.loadtxt(self.multiFile)
+            data = [self.pos]
 
         columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'Gaia_sep', 'TIC_sep', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
-        t = Table(np.zeros(10), names=columns)
-        t['RA'].unit, t['Dec'].unit, t['separation'].unit = u.arcsec, u.arcsec, u.arcsec
+        t = Table(np.zeros(11), names=columns)
+        t['RA'].unit, t['Dec'].unit, t['Gaia_sep'].unit, t['TIC_sep'].unit = u.arcsec, u.arcsec, u.arcsec, u.arcsec
         t['pmra'].unit, t['pmdec'].unit = u.mas/u.year, u.mas/u.year
 
         for i in range(len(data)):
             pos = data[i]
-            gaia = self.crossmatch_by_position(0.1, 'Mast.GaiaDR2.Crossmatch', pos)
-            tess = self.crossmatch_by_position(0.5, 'Mast.Tic.Crossmatch', pos)
+            gaia = self.crossmatch_by_position(0.005, 'Mast.GaiaDR2.Crossmatch', pos)[0]
+            tess = self.crossmatch_by_position(0.5, 'Mast.Tic.Crossmatch', pos)[0]
             pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
             gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
             sepGaia = self.crossmatch_distance(pos, gaiaPos)
             tessPos = [tess['MatchRA'], tess['MatchDEC']]
             sepTess = self.crossmatch_distance(pos, tessPos)
-            
-            t.add_row([gaia['source_id'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'], 
+
+            t.add_row([gaia['MatchID'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'], 
                        tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
 
         t.remove_row(0)
