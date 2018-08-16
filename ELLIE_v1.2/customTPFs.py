@@ -268,7 +268,7 @@ class custom_tpf:
         filename = self.multiFile
         sources  = np.loadtxt(filename, dtype=int)
         service  = 'Mast.GaiaDR2.Crossmatch'
-        r = 0.001
+        r = 0.01
         t = self.initialize_table()
         for s in sources:
             tID, pos, tmag = self.tic_pos_by_ID(s)
@@ -296,10 +296,10 @@ class custom_tpf:
         t = self.initialize_table()
         for s in sources:
             sID, pos, gmag, pmra, pmdec, parallax = self.gaia_pos_by_ID(s)
-            tic = self.crossmatch_by_position(r, serice, pos)
+            tic = self.crossmatch_by_position(r, service, pos)[0]
             pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
             separation = self.crossmatch_distance(pos, [tic['MatchRA'], tic['MatchDEC']])
-            t.add_row([s, tic['MatchID'], (pos[0]).to(u.arcsec), (pos[1]).to(u.arcsec), separation, gmag, tic['Tmag'], pmra, pmdec, parallax])
+            t.add_row([sID, tic['MatchID'], (pos[0]).to(u.arcsec), (pos[1]).to(u.arcsec), separation, gmag, tic['Tmag'], pmra, pmdec, parallax])
         t.remove_row(0)
         return t
 
