@@ -17,6 +17,8 @@ import matplotlib.animation as animation
 import matplotlib.patches as patches
 from matplotlib.collections import PatchCollection
 import matplotlib.gridspec as gridspec
+from matplotlib.patches import Rectangle
+from matplotlib.widgets import RadioButtons
 
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import KeplerTargetPixelFile as ktpf
@@ -592,6 +594,10 @@ class data_products(find_sources):
         return
 
 
+    def aperture_fitting(self):
+        return
+
+
     def system_corr(self, lc, x_pos, y_pos, jitter=False, roll=None):
         """ 
         Allows for systematics correction of a given light curve 
@@ -667,10 +673,8 @@ class visualize:
         self.id  = id
         if dir==None:
             self.tpf = '{}_tpf.fits'.format(self.id)
-            self.lcf = '{}_lc.fits'.format(self.id)
         else:
             self.tpf = dir+'{}_tpf.fits'.format(self.id)
-            self.lcf = dir+'{}_lc.fits'.format(self.id)
             
 
         try:
@@ -778,5 +782,85 @@ class visualize:
             
         plt.tight_layout()
         ax.set_title('{}'.format(self.id), fontweight='bold')
-#        plt.show()
         return ani
+
+
+    def click_aperture(self):
+        """
+        Allows the user to click specific pixels they want to create
+        a lightcurve for
+        """
+        def click_pixels():
+            nonlocal tpf
+            """ Creates a rectangle over a pixel when that pixel is clicked """
+            coords, rectList = [], []
+
+            fig, ax = plt.subplots()
+            ax.imshow(tpf.flux[0], origin='lower')
+            
+            def onclick(event):
+                """ Update figure canvas """
+                nonlocal coords, rectList
+                x, y = int(np.round(event.xdata,0)), int(np.round(event.ydata,0))
+                # Highlights pixel
+                rect = Rectangle((x-0.5, y-0.5), 1.0, 1.0)
+                rect.set_color('white')
+                rect.set_alpha(0.4)
+                # Adds pixel if not previously clicked
+                if [x,y] not in coords:
+                    coords.append([x,y])
+                    rectList.append(rect)
+                    ax.add_patch(rect)
+                fig.canvas.draw()
+            cid = fig.canvas.mpl_connect('button_press_event', onclick)
+            plt.show()
+            plt.close()
+            return coords, rectList
+
+        def check_pixels():
+            nonlocal tpf, coords, rectList
+            """ Presents a figure for the user to approve of selected pixels """
+            fig, ax = plt.subplots(1)
+            ax.imshow(tpf.flux[0], origin='lower')
+            
+            # Recreates patches for confirmation
+            for i in range(len(coords)):
+                x, y = coords[i][0], coords[i][1]
+                rect = Rectangle((x-0.5, y-0.5), 1.0, 1.0)
+                rect.set_color('red')
+                rect.set_alpha(0.4)
+                ax.add_patch(rect)
+            
+            # Make Buttons
+            plt.text(-3.5, 5.5, 'Are you happy\nwith this\naperture?', fontsize=8)
+            axRadio  = plt.axes([0.05, 0.45, 0.10, 0.15])
+            butRadio = RadioButtons(axRadio, ('Yes', 'No'), activecolor='red')
+            good=True
+            
+            # Checks if user is happy with custom aperture
+            def get_status(val):
+                nonlocal good
+                if value == 'Yes':
+                    good=True
+                else:
+                    good=False
+
+            butRadio.on_clicked(get_status)
+            plt.show()
+            return good
+
+        tpf = ktpf.from_fits(self.tpf)
+        coords, rectList = click_pixels()
+        check = check_pixels()
+        if check==True:
+            lc = []
+            for f in range(len(tpf.flux)):
+                cadence = []
+                for i in range(len(coords)):
+                    cadence.append(tpf.flux[f][coords[i][0], coords[i][1]])
+                lc.append(np.sum(cadence))
+            lc = np.array(lc) / np.nanmedian(lc)
+        else:
+            self.click_aperture()
+
+    return lc
