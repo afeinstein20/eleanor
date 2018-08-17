@@ -65,12 +65,11 @@ def edit_header(output_fn, tic_id, gaia_id, pos, xy):
     return
 
 
-
-
 def from_class(id, mission):
     """ Get crossmatching information  """
     """        Returns: table          """
     if mission == 'tic':
+        
         locate = ctpf(tic=id)
         tic_id, pos, tmag = locate.tic_pos_by_ID()
         locate = ctpf(tic=id, pos=pos)
@@ -94,6 +93,28 @@ def add_shift(tpf):
     shift = [com[0]-2, com[1]-2]
     shift = [np.round(shift[0]+4.0,0), np.round(shift[1]+4.0,0)]
     return shift
+
+
+def find_source_of_mag(files):
+    mast, header = fits.getdata(files[0], header=True)
+    pos = [header['CRVAL1'], header['CRVAL2']]
+    print(pos)
+    find = ctpf(pos=pos)
+    sources = find.cone_search(3*np.sqrt(2), 'Mast.Catalogs.Tic.Cone')
+    inds = np.where(sources['Tmag'].data <= 9.0)
+    sources = sources[inds]
+
+    xy = WCS(header).all_world2pix(sources['ra'].data, sources['dec'].data, 1)
+    close = []
+    for i in range(len(sources)):
+        x, y = xy[0][i], xy[1][i]
+        tempX = np.delete(xy[0], np.where(xy[0]==x))
+        tempY = np.delete(xy[1], np.where(xy[1]==y))
+        closest = np.sqrt( (x-tempX)**2 + (y-tempY)**2 ).argmin()
+        if np.sqrt( (x-tempX[closest])**2 + (y-tempY[closest])**2 ) <= 3.0:
+            close.append(i)
+    close = np.array(close)
+    return sources[close[0]], [xy[0][close[0]], xy[1][close[0]]]
 
 
 def main(id, mission):
@@ -126,7 +147,8 @@ def main(id, mission):
     # Saves TPF to FITS file and edits header
     output_fn = 'TIC{}_tpf.fits'.format(id)
     new_tpf.to_fits(output_fn=output_fn)
-    edit_header(output_fn, int(info['TIC_ID'].data), int(info['Gaia_ID'].data), pos, xy_new_start)
+    print(info)
+    edit_header(output_fn, int(info['TIC_ID']), int(info['Gaia_ID']), pos, xy_new_start)
 
 
 
