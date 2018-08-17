@@ -6,20 +6,27 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from oneSource import files_in_dir
 import mplcursors
+from astroquery.mast import Catalogs
 
 def find_center(file):
     """ Finds the true center of the TPF """
     hdu = fits.open(file)
     header = hdu[0].header
-    return (header['CEN_RA'], header['CEN_DEC']), (header['CEN_X'], header['CEN_Y'])
+    # Finds center (RA,Dec) and (x,y) of TPF
+    return (header['CEN_RA'], header['CEN_DEC']), (header['CEN_X'], header['CEN_Y']), header
 
 
-def cone_search_sources(pos, header):
+def cone_search_sources(cen_ra, cen_dec):#gaia_id):
     """ Completes a cone search for sources """
-    locate  = ctpf(pos=pos)
-    sources = locate.cone_search(r=0.05, service='Mast.Catalogs.GaiaDR2.Cone')
-    xy_gaia = WCS(header).all_world2pix(sources['ra'].data, sources['dec'].data, 1)
-    return xy_gaia, sources['source_id'], sources['phot_g_mean_mag']
+#    locate  = ctpf(gaia=gaia_id)
+#    table = locate.gaia_pos_by_ID()
+    # Gets (RA,Dec) position of the associated Gaia ID
+#    pos = [table['ra'].data[0], table['dec'].data[0]]
+    pos = [cen_ra, cen_dec]
+    # Finds Gaia sources around associated Gaia ID
+    newlocate = ctpf(pos=pos)
+    sources = newlocate.cone_search(0.05, 'Mast.Catalogs.GaiaDR2.Cone')
+    return sources['ra'], sources['dec'], sources['source_id'], sources['phot_g_mean_mag']
 
 
 def pointingCorr(xy, camera, chip):
@@ -32,7 +39,8 @@ def pointingCorr(xy, camera, chip):
     
 
 def in_tpf(xy, gaiaXY, gaiaID, gaiaMAG):
-    gaiaX, gaiaY = xy[0]-gaiaXY[0]+4, xy[1]-gaiaXY[1]+4
+    """ Pushes the Gaia sources to the appropriate place in the TPF """
+    gaiaX, gaiaY = gaiaXY[0]-xy[0]+4, gaiaXY[1]-xy[1]+5
     inds = np.where( (gaiaX > -0.5) & (gaiaX < 8.5) &
                      (gaiaY > -0.5) & (gaiaY < 8.5) )
     return [gaiaX[inds], gaiaY[inds]], gaiaID[inds], gaiaMAG[inds]
@@ -62,29 +70,31 @@ def main(id, camera, chip):
     file = './figures/TIC{}_tpf.fits'.format(id)
     dir  = './2019/2019_1_{}-{}/ffis/'.format(camera, chip)
     fns  = files_in_dir(dir)
-
+    
     flux, header = fits.getdata(fns[0], header=True)
-    pos, xy = find_center(file)
-    gaiaXY, gaiaID, gaiaMAG = cone_search_sources(pos, header)
-    gaiaXY = pointingCorr(gaiaXY, camera, chip)
+    pos, xy, hdu1 = find_center(file)
 
+    gaiaRA, gaiaDEC, gaiaID, gaiaMAG = cone_search_sources(pos[0], pos[1])#hdu1['GAIA_ID'])
+
+    gaiaXY = WCS(header).all_world2pix(gaiaRA, gaiaDEC, 1)
+    gaiaXY = pointingCorr(gaiaXY, camera, chip)
     gaiaXY, gaiaID, gaiaMAG = in_tpf(xy, gaiaXY, gaiaID, gaiaMAG)
 
-    cross = ctpf(multiFile='crossmatch.txt')
-    in_tic = cross.crossmatch_multi_to_tic()
+    crossmatch = ctpf()
+    crossTable = crossmatch.crossmatch_multi_to_tic(list=gaiaID.data)
 
-    inds = np.where(in_tic['separation'].data <= 1.0)
-    ticLabel, tmagLabel = np.zeros(len(gaiaID), dtype=str), np.zeros(len(gaiaID), dtype=str)
-
-    for i in range(len(ticLabel)):
-        if i in inds[0]:
-            print(i)
-            ticLabel[i]  = str(in_tic['TIC_ID'].data[i])
-            tmagLabel[i] = str(in_tic['Tmag'].data[i])
-    print(tmagLabel)
+    ticLabel, tmagLabel = np.zeros(len(gaiaID.data)), np.zeros(len(gaiaID.data))
+    for i in range(len(gaiaID.data)):
+        row = crossTable[i]
+#        print(row['separation'])
+        if row['separation'] <= 1.0 and row['Gmag'] <= 16.5:
+            ticLabel[i]  = row['TIC_ID']
+            tmagLabel[i] = row['Tmag']
 
     tpf = ktpf.from_fits(file)
     plot_with_hover(tpf, gaiaXY, gaiaID, gaiaMAG, ticLabel, tmagLabel)
 
-main(198593129, 3, 3)
 
+main(198593129, 3, 3)
+#main(356149601, 3, 3)
+#main(219870537, 4, 4)
