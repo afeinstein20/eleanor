@@ -657,7 +657,7 @@ class data_products(find_sources):
         return
 
 
-    def aperture_fitting(self, sources):
+    def aperture_fitting(self):
         """ 
         Finds the "best" (i.e. the smallest std) light curve for a range of 
         sizes and shapes
@@ -665,6 +665,70 @@ class data_products(find_sources):
         ---------- 
             sources: list of sources to find apertures for
         """
+
+        def centroidOffset():
+            nonlocal file_cen, initParams, tpf
+            """ Finds offset between center of TPF and centroid of first cadence """
+            tpf_init = tpf.flux[0]
+            tpf_com = tpf_init[2:6, 2:6]
+            com = ndimage.measurements.center_of_mass(tpf_com.T - np.median(tpf_com))
+            return com[0]-len(tpf_com)/2., com[1]-len(tpf_com[0])/2.
+
+        def aperture(r, pos):
+            """ Creates circular & rectangular apertures of given size """
+            circ = CircularAperture(pos, r)
+            rect = RectangularAperture(pos, r, r, 0.0)
+            return circ, rect
+
+        def findLC():
+            nonlocal tpf, x, y
+            """ Finds the lightcurve with the least noise by minimizing std """
+            r_list = np.arange(1.5, 3.5, 0.5)
+            matrix = np.zeros( (len(r_list), 2, len(tpf.flux)) )
+            sigma  = np.zeros( (len(r_list), 2) )
+            
+            for i in range(len(r_list)):
+                for j in range(len(tpf.flux)):
+                    pos = (x[j], y[j])
+                    circ, rect = aperture(r_list[i], pos)
+                    # Completes aperture sums for each tpf.flux and each aperture shape
+                     matrix[i][0][j] = aperture_photometry(tpf.flux[j], circ)['aperture_sum'].data[0]
+                     matrix[i][1][j] = aperture_photometry(tpf.flux[j], rect)['aperture_sum'].data[0]
+                matrix[i][0] = matrix[i][0] / np.nanmedian(matrix[i][0])
+                matrix[i][1] = matrix[i][1] / np.nanmedian(matrix[i][1])
+
+            # Creates a complete, systematics corrected light curve for each aperture
+            for i in range(len(r_list)):
+                lc_circ = self.system_corr(matrix[i][0], x, y, jitter=True, roll=True)
+                sigma[i][0] = np.std(lc_circ)
+                lc_rect = self.system_corr(matrix[i][1], x, y, jitter=True, roll=True)
+                sigma[i][1] = np.std(lc_rect)
+            best = np.where(sigma==np.min(sigma))
+            r_ind, s_ind = best[0][0], best[1][0]
+            lc_best = matrix[r_ind][s_ind]
+            return r_list[r_ind], s_ind, lc_best
+
+        file = 'TIC{}.fits'.format(self.id) 
+        tpf  = ktpf.from_fits(file)
+        file_cen = len(tpf.flux[0])/2.
+        
+        initParams = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))[0]
+        theta, delX, delY = np.loadtxt(self.corrFile, skiprows=2, usecols=(1,2,3))[0]
+        
+        startX, startY = centroidOffset()
+        startX, startY = file_cen+startX, file_cen+startY
+        x, y = [startX], [startY]
+        
+        for i in range(len(theta)):
+            if i == 0:
+                x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) - delX[i] )
+                y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) - delY[i] )
+            else:
+                x.append( x[i-1]*np.cos(theta[i]) - y[i-1]*np.sin(theta[i]) - delX[i] )
+                y.append( x[i-1]*np.sin(theta[i]) + y[i-1]*np.cos(theta[i]) - delY[i] )
+
+        radius, shape, lc = findLC
+
         return
 
 
