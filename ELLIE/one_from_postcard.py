@@ -9,7 +9,7 @@ import astropy.units as u
 from scipy       import ndimage
 from ellie  import find_sources as fs
 from astropy.table import Table
-
+from astropy.nddata import Cutout2D
 
 
 def find_postcard(id, pos):
@@ -32,7 +32,6 @@ def find_postcard(id, pos):
 
         x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
         y = xy[0]*np.sin(initShift[0]) + xy[1]*np.cos(initShift[0]) - initShift[2]
-#        xy = [x+45,y]
 
         x_cen, y_cen, l, w = t['POST_CENX'][i], t['POST_CENY'][i], t['POST_SIZE1'][i]/2., t['POST_SIZE2'][i]/2.
        # Checks to see if xy coordinates of source falls in postcard
@@ -100,22 +99,20 @@ def main(id, mission):
     initShift[0] = np.radians(initShift[0])
     x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
     y = xy[0]*np.sin(initShift[0]) + xy[1]*np.cos(initShift[0]) - initShift[2]
-#    xy = [x+45,y]
 
-    print(xy)
     post_fits = ktpf.from_fits(postcard)
 
     # Extracts camera & chip from postcard name
     camera, chip = postcard[11:12], postcard[13:14]
     xy = init_shift(xy, camera, chip)
     delY, delX = xy[0]-card_info['POST_CENX'], xy[1]-card_info['POST_CENY']
-    print(delX, delY, card_info['POST_CENY'], card_info['POST_CENX'])
+
     newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
-    print(newX, newY)
-    newX, newY = int(newX), int(newY)
+
+    newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
     tpf = post_fits.flux[:,newX-4:newX+5, newY-4:newY+5]
 
-    plt.imshow(post_fits.flux[0], origin='lower', vmin=50, vmax=200)
+    plt.imshow(tpf[0], origin='lower')#, vmin=50, vmax=200)
     plt.show()
     
 
