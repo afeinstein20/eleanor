@@ -642,7 +642,7 @@ class data_products(find_sources):
         """
         
         def init_shift():
-#            nonlocal xy
+            nonlocal xy
             """ Offsets (x,y) coords of source by pointing model """
             pm = np.loadtxt('pointingModel_{}-{}.txt'.format(self.camera, self.chip), skiprows=1,
                             usecols=(1,2,3))[0]
@@ -692,8 +692,8 @@ class data_products(find_sources):
                     pos = (x[j], y[j])
                     circ, rect = aperture(r_list[i], pos)
                     # Completes aperture sums for each tpf.flux and each aperture shape
-                    matrix[i][0][j] = aperture_photometry(tpf.flux[j], circ)['aperture_sum'].data[0]
-                    matrix[i][1][j] = aperture_photometry(tpf.flux[j], rect)['aperture_sum'].data[0]
+                     matrix[i][0][j] = aperture_photometry(tpf.flux[j], circ)['aperture_sum'].data[0]
+                     matrix[i][1][j] = aperture_photometry(tpf.flux[j], rect)['aperture_sum'].data[0]
                 matrix[i][0] = matrix[i][0] / np.nanmedian(matrix[i][0])
                 matrix[i][1] = matrix[i][1] / np.nanmedian(matrix[i][1])
 

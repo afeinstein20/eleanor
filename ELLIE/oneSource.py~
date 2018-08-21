@@ -147,7 +147,7 @@ def main(id, mission):
     output_fn = 'TIC{}_tpf.fits'.format(id)
 #    new_tpf.to_fits(output_fn=output_fn)
     print(xy_new_start)
-    mast = fits.getdata(files[0])
+    mast = fits.getdata(files[0]
     plt.imshow(mast, vmin=50, vmax=200, origin='lower')
     plt.show()
 
