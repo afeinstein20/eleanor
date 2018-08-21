@@ -18,10 +18,6 @@ def find_center(file):
 
 def cone_search_sources(cen_ra, cen_dec):#gaia_id):
     """ Completes a cone search for sources """
-#    locate  = ctpf(gaia=gaia_id)
-#    table = locate.gaia_pos_by_ID()
-    # Gets (RA,Dec) position of the associated Gaia ID
-#    pos = [table['ra'].data[0], table['dec'].data[0]]
     pos = [cen_ra, cen_dec]
     # Finds Gaia sources around associated Gaia ID
     newlocate = ctpf(pos=pos)
@@ -96,5 +92,4 @@ def main(id, camera, chip):
 
 
 main(198593129, 3, 3)
-#main(356149601, 3, 3)
-#main(219870537, 4, 4)
+

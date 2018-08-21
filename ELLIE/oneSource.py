@@ -6,7 +6,7 @@ from lightkurve  import KeplerTargetPixelFile as ktpf
 from astropy.wcs import WCS
 from astropy.io  import fits
 import astropy.units as u
-from customTPFs  import custom_tpf as ctpf
+from customTPFs  import find_sources as ctpf
 
 
 def files_in_dir(dir):
@@ -66,20 +66,19 @@ def edit_header(output_fn, tic_id, gaia_id, pos, xy):
 
 
 def from_class(id, mission):
-    """ Get crossmatching information  """
-    """        Returns: table          """
-    if mission == 'tic':
-        
+#    """ Get crossmatching information  """
+#    """        Returns: table          """
+    if mission == 'tic':        
         locate = ctpf(tic=id)
         tic_id, pos, tmag = locate.tic_pos_by_ID()
         locate = ctpf(tic=id, pos=pos)
         table  = locate.find_by_position()
 
-    elif mission == 'gaia':
-        locate = ctpf(gaia=id)
-        gaia_id, pos, gmag, pmra, pmdec, plx = locate.gaia_pos_by_ID()
-        locate = ctpf(gaia=id, pos=pos)
-        table = locate.find_by_position()
+#    elif mission == 'gaia':
+#        locate = ctpf(gaia=id)
+#        gaia_id, pos, gmag, pmra, pmdec, plx = locate.gaia_pos_by_ID()
+#        locate = ctpf(gaia=id, pos=pos)
+#        table = locate.find_by_position()
 
     return table
 
@@ -146,13 +145,16 @@ def main(id, mission):
 
     # Saves TPF to FITS file and edits header
     output_fn = 'TIC{}_tpf.fits'.format(id)
-    new_tpf.to_fits(output_fn=output_fn)
-    print(info)
-    edit_header(output_fn, int(info['TIC_ID']), int(info['Gaia_ID']), pos, xy_new_start)
+#    new_tpf.to_fits(output_fn=output_fn)
+    plt.imshow(tpf.flux[0], vmin=50, vmax=200, origin='lower')
+    plt.show()
+
+#    print(info)
+#    edit_header(output_fn, int(info['TIC_ID']), int(info['Gaia_ID']), pos, xy_new_start)
 
 
 
 #main(219870537, 'tic')
 #main(229669377, 'tic')
 #main(420888018, 'tic')
-#main(198593129, 'tic') 
+main(198593129, 'tic') 

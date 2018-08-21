@@ -9,16 +9,19 @@ from astropy.coordinates import SkyCoord
 from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs
 from astropy.io import fits
-from astropy.table import Table
+from astropy.io import ascii
+from astropy.table import Table, Column
 from astropy.wcs import WCS
-import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.patches as patches
 from matplotlib.collections import PatchCollection
 import matplotlib.gridspec as gridspec
 from matplotlib.patches import Rectangle
 from matplotlib.widgets import RadioButtons
+
+import mplcursors
 
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import KeplerTargetPixelFile as ktpf
@@ -548,42 +551,88 @@ class data_products(find_sources):
 
     def make_postcard(self):
         """
-        Creates 350 x 350 x n postcards, where n is the number of cadences for a given observing run
-        Creates a catalog of the (RA_lower, Dec_lower) & (RA_upper, Dec_upper) corners of each postcard
-            to allow for easier creation of smaller individual source TPFs
+        Creates 300 x 300 x n postcards, where n is the number of cadences for a given observing run
+        Creates a catalog of the associated header with each postcard for use later
         """
         fns = self.sort_by_date()
         fns = [self.dir+i for i in fns]
         mast, mheader = fits.getdata(fns[0], header=True)
-        x, y = np.linspace(0, len(mast), 4, dtype=int), np.linspace(0, len(mast[0]), 4, dtype=int)
+        x, y = np.linspace(45, 2093, 8, dtype=int), np.linspace(0, 2048, 8, dtype=int)
         x_cens, y_cens = [], []
         cat = 'postcard_catalog.txt'
-        
+        # Creating a table for the headers of each file
+        colnames = list(mheader.keys())
+        add  = ['POST_FILE', 'POST_SIZE1', 'POST_SIZE2', 'POST_CENX', 'POST_CENY', 'POST_CEN_RA', 'POST_CEN_DEC']
+        for a in add:
+            colnames.append(a)
+
+        typeList = np.full(len(colnames), 'S30', dtype='S30')
+        t = Table(names=colnames, dtype=typeList)
+
         for i in range(len(x)-1):
             for j in range(len(y)-1):
                 fn = 'postcard_{}_{}-{}_{}-{}.fits'.format(self.sector, self.camera, self.chip, i, j)
                 x_cen = (x[i]+x[i+1]) / 2.
                 y_cen = (y[j]+y[j+1]) / 2.
-                
-                radec = WCS(mheader).all_pix2world(x_cen, y_cen, 1)
-                tpf   = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(350,350))
-                tpf.to_fits(output_fn=fn)
-                
-                # Edits header of FITS files
-                fits.setval(fn, 'CEN_X' , value=np.round(x_cen,5))
-                fits.setval(fn, 'CEN_Y' , value=np.round(y_cen,5))
-                fits.setval(fn, 'CEN_RA', value=float(radec[0]))
-                fits.setval(fn, 'CEN_DEC', value=float(radec[1]))
 
-                # Finds world coordinates for lower & upper corners of postcard
-                lower = WCS(mheader).all_pix2world(x_cen-350, y_cen-350, 1)
-                upper = WCS(mheader).all_pix2world(x_cen+350, y_cen+350, 1)
-                row = [fn, lower[0], lower[1], upper[0], upper[1]]
-                with open(cat, 'a') as tf:
-                    tf.write('{}\n'.format(' '.join(str(e) for e in row)))
+                radec = WCS(mheader).all_pix2world(x_cen, y_cen, 1)
+                s = 300
+                tpf   = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(s,s))
+                tpf.to_fits(output_fn=fn)
+
+                # Edits header of FITS files
+#                fits.setval(fn, 'CEN_X' , value=np.round(x_cen,5))
+#                fits.setval(fn, 'CEN_Y' , value=np.round(y_cen,5))
+#                fits.setval(fn, 'CEN_RA', value=float(radec[0]))
+#                fits.setval(fn, 'CEN_DEC', value=float(radec[1]))
+                
+                tempVals = list(mheader.values())
+                moreData = [fn, s, s, x_cen, y_cen, float(radec[0]), float(radec[1])]
+                for m in moreData:
+                    tempVals.append(m)
+                t.add_row(vals=tempVals)
+        ascii.write(t, output='postcard.cat')
         return
 
-    
+
+    def find_postcard(self):
+        """ 
+        Finds what postcard a source is located in
+        Returns
+        ----------
+            postcard filename, header of the postcard
+        """
+        t = Table.read('postcard.cat', format='ascii.basic')
+        in_file=[None]
+        # Searches through rows of the table
+        for i in range(len(t)):
+            data=[]
+            # Creates a list of the data in a row
+            for j in range(146):
+                data.append(t[i][j])
+            d = dict(zip(t.colnames[0:146], data))
+            hdr = fits.Header(cards=d)
+            xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
+            x_cen, y_cen, l, w = t['POST_CENX'][i], t['POST_CENY'][i], t['POST_SIZE1'][i]/2., t['POST_SIZE2'][i]/2.
+            # Checks to see if xy coordinates of source falls within postcard
+            if (xy[1] >= x_cen-l) & (xy[1] <= x_cen+l) & (xy[0] >= y_cen-w) & (xy[0] <= y_cen+w):
+                if in_file[0]==None:
+                    in_file[0]=i
+                else:
+                    in_file.append(i)
+                # If more than one postcard is found for a single source, choose the postcard where the 
+                # source is closer to the center
+                if len(in_file) > 1:
+                    dist1 = np.sqrt( (xy[0]-t['POST_CENX'][in_files[0]])**2 + (xy[1]-t['POST_CENY'][in_files[0]])**2  )
+                    dist2 = np.sqrt( (xy[0]-t['POST_CENX'][in_files[1]])**2 + (xy[1]-t['POST_CENY'][in_files[1]])**2  )
+                    if dist1 >= dist2:
+                        in_file[0]=in_file[1]
+                    else:
+                        in_file[0]=in_file[0]
+        # Returns postcard filename & postcard header    
+        return t['POST_FILE'][in_file[0]], t[in_file[0]]
+
+
     def individual_tpf(self):
         """
         Creates a FITS file for a given source that includes:
@@ -591,10 +640,31 @@ class data_products(find_sources):
             Extension[1] = (9x9xn) TPF, where n is the number of cadences in an observing run
             Extension[2] = (3 x n) time, raw flux, systematics corrected flux
         """
+        
+        def init_shift():
+            nonlocal xy
+            """ Offsets (x,y) coords of source by pointing model """
+            pm = np.loadtxt('pointingModel_{}-{}.txt'.format(self.camera, self.chip), skiprows=1,
+                            usecols=(1,2,3))[0]
+            pm[0] = np.radians(pm[0])
+            x = xy[0]*np.cos(pm[0]) - xy[1]*np.sin(pm[0]) - pm[1]
+            y = xy[0]*np.sin(pm[0]) + xy[1]*np.cos(pm[0]) + pm[2]
+            return np.array([x,y])
+
+        
+
+        
         return
 
 
-    def aperture_fitting(self):
+    def aperture_fitting(self, sources):
+        """ 
+        Finds the "best" (i.e. the smallest std) light curve for a range of 
+        sizes and shapes
+        Parameters
+        ---------- 
+            sources: list of sources to find apertures for
+        """
         return
 
 
@@ -668,20 +738,19 @@ class visualize:
         tpf: A FITS file that contains stacked cadences for a single source
     """
 
-    def __init__(self, id, dir=None, **kwargs):
+    def __init__(self, id, dir=None, fn=None, **kwargs):
         """ USER INPUT """
         self.id  = id
         if dir==None:
-            self.tpf = '{}_tpf.fits'.format(self.id)
+            self.tpf = fn
         else:
-            self.tpf = dir+'{}_tpf.fits'.format(self.id)
+            self.tpf = dir+ fn
             
-
-        try:
-            fits.getdata(self.lcf)
-        except IOError:
-            print('Please input directory FITS files are in.')
-            return
+#        try:
+#            fits.getdata(self.lcf)
+#        except IOError:
+#            print('Please input directory FITS files are in.')
+#            return
         
 
     def tpf_movie(self, output_fn=None, cbar=True, aperture=False, com=False, plot_lc=False, **kwargs):
@@ -862,5 +931,14 @@ class visualize:
             lc = np.array(lc) / np.nanmedian(lc)
         else:
             self.click_aperture()
+            
+        return lc
 
-    return lc
+    def mark_gaia(self):
+        """
+        Allows the user to mark other Gaia sources within a given TPF
+        Click on the x's to reveal the source's ID and Gmag
+        Also cross-matches with TIC and identifies sources in there as well
+        """
+        
+
