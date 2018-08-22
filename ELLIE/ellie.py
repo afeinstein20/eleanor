@@ -2,7 +2,7 @@ import os, sys, re, json, time
 import requests
 from bs4 import BeautifulSoup
 import numpy as np
-import matplotlib
+from time import strftime
 
 import astropy.units as u
 from astropy.coordinates import SkyCoord
@@ -13,6 +13,7 @@ from astropy.io import ascii
 from astropy.table import Table, Column
 from astropy.wcs import WCS
 
+import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 import matplotlib.patches as patches
@@ -412,17 +413,18 @@ class find_sources:
 ##########################
 ##########################
 class data_products(find_sources):
-    def __init__(self, id=None, dir=None, camera=None, chip=None, sector=None):
-        self.id     = id
-        self.camera = camera
-        self.chip   = chip
-        self.dir    = dir
-        self.sector = sector
+    def __init__(self, id=None, dir=None, camera=None, chip=None, sector=None, mission=None):
+        self.id      = id
+        self.camera  = camera
+        self.chip    = chip
+        self.dir     = dir
+        self.sector  = sector
+        self.mission = mission
         self.corrFile = 'pointingModel_{}_{}-{}.txt'.format(sector, camera, chip)
         if dir==None:
-            self.tpf_file = '{}_tpf.fits'.format(self.id)
+            self.tpf_file = 'TIC{}.fits'.format(self.id)
         else:
-            self.tpf_file = dir + '{}_tpf.fits'.format(self.id)
+            self.tpf_file = dir + 'TIC{}.fits'.format(self.id)
             
 
     def sort_by_date(self):
@@ -633,7 +635,7 @@ class data_products(find_sources):
         return t['POST_FILE'][in_file[0]], t[in_file[0]]
 
 
-    def individual_tpf(self):
+    def individual_tpf(self, output_fn=None):
         """
         Creates a FITS file for a given source that includes:
             Extension[0] = header
@@ -650,8 +652,83 @@ class data_products(find_sources):
             x = xy[0]*np.cos(pm[0]) - xy[1]*np.sin(pm[0]) - pm[1]
             y = xy[0]*np.sin(pm[0]) + xy[1]*np.cos(pm[0]) + pm[2]
             return np.array([x,y])     
-        return
+        
+        
+        def from_find_sources():
+            """ Finds the source's position """
+            if self.mission == 'tic':
+                locate = find_sources(tic=self.id)
+                tic_id, pos, tmag = locate.tic_pos_by_ID()
+                locate = find_sources(tic=self.id, pos=pos)
+                table = locate.find_by_position
+            elif self.mission == 'gaia':
+                locate = find_sources(gaia=self.id)
+                table  = locate.gaia_pos_by_ID()
+                pos    = [table['ra'].data[0], table['dec'].data[0]]
+                locate = fs(gaia=id, pos=pos)
+                table  = locate.find_by_position()
+            else:
+                print('Unknown mission. Please try again.')
+                return            
+            return table
+    
+        source_info = from_find_sources()
+        pos = [source_info['RA'].data[0], source_info['Dec'].data[0]]
 
+        lcClass = dp(id=id, camera=3, chip=3, sector=1)
+        
+        postcard, card_info = find_postcard(id, pos)
+
+        data = []
+        for i in range(147):
+            data.append(card_info[i])
+        d = dict(zip(card_info.colnames[0:146], data))
+        hdr = fits.Header(cards=d)
+        xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
+        
+        # Corrects position with pointing model
+         pm = np.loadtxt('pointingModel_3-3.txt', skiprows=1, usecols=(1,2,3))
+         initShift = pm[0]
+         initShift[0] = np.radians(initShift[0])
+         x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
+         y = xy[0]*np.sin(initShift[0]) + xy[1]*np.cos(initShift[0]) - initShift[2]
+
+         post_fits = ktpf.from_fits(postcard)
+         
+         # Extracts camera & chip from postcard name
+          camera, chip = postcard[11:12], postcard[13:14]
+          xy = init_shift(xy, camera, chip)
+          delY, delX = xy[0]-card_info['POST_CENX'], xy[1]-card_info['POST_CENY']
+
+          newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
+          
+          newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
+          tpf = post_fits.flux[:,newX-4:newX+5, newY-4:newY+5]
+
+          radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
+          lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
+
+          # Additional header information
+          hdr.append(('COMMENT', '***********************'))
+          hdr.append(('COMMENT', '*     ELLIE INFO      *'))
+          hdr.append(('COMMENT', '***********************'))
+          hdr.append(('COMMENT' , 'Adina D. Feinstein', 'Author'))
+          hdr.append(('COMMENT', '1.0', 'Version'))
+          hdr.append(('COMMENT' , 'https://github.com/afeinstein20/ELLIE', 'GitHub'))
+          hdr.append(('CREATED', strftime('%Y-%m-%d'),
+                      'ELLIE file creation date (YYY-MM-DD)'))
+
+          # Saves to FITS file
+           hdu1 = fits.PrimaryHDU(header=hdr)
+           hdu2 = fits.ImageHDU()
+           hdu1.data = tpf
+           hdu2.data = lcData
+           new_hdu = fits.HDUList([hdu1, hdu2])
+           
+           if output_fn==None:
+               new_hdu.writeto('TIC{}.fits'.format(self.id))
+           else:
+               new_hdu.writeto(output_fn)
 
     def aperture_fitting(self, tpf=None):
         """ 
