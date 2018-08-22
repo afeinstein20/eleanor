@@ -583,10 +583,21 @@ class data_products(find_sources):
                 tpf.to_fits(output_fn=fn)
 
                 # Edits header of FITS files
-#                fits.setval(fn, 'CEN_X' , value=np.round(x_cen,5))
-#                fits.setval(fn, 'CEN_Y' , value=np.round(y_cen,5))
-#                fits.setval(fn, 'CEN_RA', value=float(radec[0]))
-#                fits.setval(fn, 'CEN_DEC', value=float(radec[1]))
+                hdu = fits.open(fn)
+                hdr = hdu[0].header
+                hdr.append(('COMMENT', '***********************'))
+                hdr.append(('COMMENT', '*     ELLIE INFO      *'))
+                hdr.append(('COMMENT', '***********************'))
+                hdr.append(('COMMENT' , 'Adina D. Feinstein -- Author'))
+                hdr.append(('COMMENT', '1.0', 'Version'))
+                hdr.append(('COMMENT' , 'https://github.com/afeinstein20/ELLIE -- GitHub'))
+                hdr.append(('CREATED', strftime('%Y-%m-%d'),
+                            'ELLIE file creation date (YYY-MM-DD)'))
+                hdr.append(('CEN_X'  , np.round(x_cen, 8)))
+                hdr.append(('CEN_Y'  , np.round(y_cen, 8)))
+                hdr.append(('CEN_RA' , float(radec[0])))
+                hdr.append(('CEN_DEC', float(radec[1])))
+                hdu.close()
                 
                 tempVals = list(mheader.values())
                 moreData = [fn, s, s, x_cen, y_cen, float(radec[0]), float(radec[1])]
@@ -597,7 +608,7 @@ class data_products(find_sources):
         return
 
 
-    def find_postcard(self):
+    def find_postcard(self, pos=None):
         """ 
         Finds what postcard a source is located in
         Returns
@@ -617,7 +628,7 @@ class data_products(find_sources):
             xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
             x_cen, y_cen, l, w = t['POST_CENX'][i], t['POST_CENY'][i], t['POST_SIZE1'][i]/2., t['POST_SIZE2'][i]/2.
             # Checks to see if xy coordinates of source falls within postcard
-            if (xy[1] >= x_cen-l) & (xy[1] <= x_cen+l) & (xy[0] >= y_cen-w) & (xy[0] <= y_cen+w):
+            if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
                 if in_file[0]==None:
                     in_file[0]=i
                 else:
@@ -643,14 +654,14 @@ class data_products(find_sources):
             Extension[2] = (3 x n) time, raw flux, systematics corrected flux
         """
         
-        def init_shift():
-#            nonlocal xy
+        def init_shift(xy):
+
             """ Offsets (x,y) coords of source by pointing model """
-            pm = np.loadtxt('pointingModel_{}-{}.txt'.format(self.camera, self.chip), skiprows=1,
-                            usecols=(1,2,3))[0]
+            pm = np.loadtxt('pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip), 
+                            skiprows=1, usecols=(1,2,3))[0]
             pm[0] = np.radians(pm[0])
             x = xy[0]*np.cos(pm[0]) - xy[1]*np.sin(pm[0]) - pm[1]
-            y = xy[0]*np.sin(pm[0]) + xy[1]*np.cos(pm[0]) + pm[2]
+            y = xy[0]*np.sin(pm[0]) + xy[1]*np.cos(pm[0]) - pm[2]
             return np.array([x,y])     
         
         
@@ -660,7 +671,7 @@ class data_products(find_sources):
                 locate = find_sources(tic=self.id)
                 tic_id, pos, tmag = locate.tic_pos_by_ID()
                 locate = find_sources(tic=self.id, pos=pos)
-                table = locate.find_by_position
+                table = locate.find_by_position()
             elif self.mission == 'gaia':
                 locate = find_sources(gaia=self.id)
                 table  = locate.gaia_pos_by_ID()
@@ -673,12 +684,11 @@ class data_products(find_sources):
             return table
     
         source_info = from_find_sources()
+        print(source_info)
         pos = [source_info['RA'].data[0], source_info['Dec'].data[0]]
-
-        lcClass = dp(id=id, camera=3, chip=3, sector=1)
         
-        postcard, card_info = find_postcard(id, pos)
-
+        postcard, card_info = self.find_postcard(pos)
+        print(postcard)
         data = []
         for i in range(147):
             data.append(card_info[i])
@@ -687,49 +697,52 @@ class data_products(find_sources):
         xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
         
         # Corrects position with pointing model
-         pm = np.loadtxt('pointingModel_3-3.txt', skiprows=1, usecols=(1,2,3))
-         initShift = pm[0]
-         initShift[0] = np.radians(initShift[0])
-         x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
-         y = xy[0]*np.sin(initShift[0]) + xy[1]*np.cos(initShift[0]) - initShift[2]
-
-         post_fits = ktpf.from_fits(postcard)
+        pm = np.loadtxt('pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip),
+                        skiprows=1, usecols=(1,2,3))
+        initShift = pm[0]
+        initShift[0] = np.radians(initShift[0])
+        x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
+        y = xy[0]*np.sin(initShift[0]) + xy[1]*np.cos(initShift[0]) - initShift[2]
+        
+        post_fits = ktpf.from_fits(postcard)
          
-         # Extracts camera & chip from postcard name
-          camera, chip = postcard[11:12], postcard[13:14]
-          xy = init_shift(xy, camera, chip)
-          delY, delX = xy[0]-card_info['POST_CENX'], xy[1]-card_info['POST_CENY']
+        xy = init_shift(xy)
+        delY, delX = xy[0]-card_info['POST_CENX'], xy[1]-card_info['POST_CENY']
 
-          newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
-          
-          newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
-          tpf = post_fits.flux[:,newX-4:newX+5, newY-4:newY+5]
+        newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
+        
+        newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
+        tpf = post_fits.flux[:,newX-4:newX+5, newY-4:newY+5]
+        plt.imshow(tpf[0], origin='lower')
+        plt.show()
+        radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
+        lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
 
-          radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
-          lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
+        # Additional header information
+        hdr.append(('COMMENT', '***********************'))
+        hdr.append(('COMMENT', '*     ELLIE INFO      *'))
+        hdr.append(('COMMENT', '***********************'))
+        hdr.append(('COMMENT' , 'Adina D. Feinstein -- Author'))
+        hdr.append(('COMMENT', '1.0', 'Version'))
+        hdr.append(('COMMENT' , 'https://github.com/afeinstein20/ELLIE -- GitHub'))
+        hdr.append(('CREATED', strftime('%Y-%m-%d'),
+                    'ELLIE file creation date (YYY-MM-DD)'))
+        hdr.append(('COMMENT', postcard, 'Postcard Filename'))
 
-          # Additional header information
-          hdr.append(('COMMENT', '***********************'))
-          hdr.append(('COMMENT', '*     ELLIE INFO      *'))
-          hdr.append(('COMMENT', '***********************'))
-          hdr.append(('COMMENT' , 'Adina D. Feinstein', 'Author'))
-          hdr.append(('COMMENT', '1.0', 'Version'))
-          hdr.append(('COMMENT' , 'https://github.com/afeinstein20/ELLIE', 'GitHub'))
-          hdr.append(('CREATED', strftime('%Y-%m-%d'),
-                      'ELLIE file creation date (YYY-MM-DD)'))
-
-          # Saves to FITS file
-           hdu1 = fits.PrimaryHDU(header=hdr)
-           hdu2 = fits.ImageHDU()
-           hdu1.data = tpf
-           hdu2.data = lcData
-           new_hdu = fits.HDUList([hdu1, hdu2])
+        # Saves to FITS file
+        hdu1 = fits.PrimaryHDU(header=hdr)
+        hdu2 = fits.ImageHDU()
+        hdu1.data = tpf
+        hdu2.data = lcData
+        new_hdu = fits.HDUList([hdu1, hdu2])
            
-           if output_fn==None:
-               new_hdu.writeto('TIC{}.fits'.format(self.id))
-           else:
-               new_hdu.writeto(output_fn)
+        if output_fn==None:
+            new_hdu.writeto('TIC{}.fits'.format(self.id))
+        else:
+            new_hdu.writeto(output_fn, overwrite=True)
+        return
 
+        
     def aperture_fitting(self, tpf=None):
         """ 
         Finds the "best" (i.e. the smallest std) light curve for a range of 
@@ -743,7 +756,6 @@ class data_products(find_sources):
             """ Finds offset between center of TPF and centroid of first cadence """
             tpf_com = tpf[0][2:7, 2:7]
             com = ndimage.measurements.center_of_mass(tpf_com.T - np.median(tpf_com))
-#            com=ndimage.measurements.center_of_mass(tpf_com - np.median(tpf_com))
             return len(tpf_com)/2-com[0], len(tpf_com)/2-com[1]
 
         def aperture(r, pos):
@@ -799,7 +811,6 @@ class data_products(find_sources):
             y.append( x[i-1]*np.sin(theta[i]) + y[i-1]*np.cos(theta[i]) - delY[i] )
 
         radius, shape, lc, uncorr = findLC(x, y)
-
         return radius, shape, lc, uncorr
 
 
@@ -851,7 +862,7 @@ class data_products(find_sources):
             lc_corrected = sff.correct(time, lc, x_pos, y_pos, niters=1,
                                        windows=1, polyorder=5)
             return lc_corrected.flux
-        print(lc)
+
         if jitter==True and roll==True:
             newlc = jitter_corr(lc, x_pos, y_pos)
 #            newlc = rotation_corr(newlc, x_pos, y_pos)
