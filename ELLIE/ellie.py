@@ -564,7 +564,7 @@ class data_products(find_sources):
         cat = 'postcard_catalog.txt'
         # Creating a table for the headers of each file
         colnames = list(mheader.keys())
-        add  = ['POST_FILE', 'POST_SIZE1', 'POST_SIZE2', 'POST_CENX', 'POST_CENY', 'POST_CEN_RA', 'POST_CEN_DEC']
+        add  = ['POST_FILE', 'POST_SIZE1', 'POST_SIZE2', 'POST_CEN_X', 'POST_CEN_Y', 'POST_CEN_RA', 'POST_CEN_DEC']
         for a in add:
             colnames.append(a)
 
@@ -581,7 +581,7 @@ class data_products(find_sources):
                 radec = WCS(mheader).all_pix2world(x_cen, y_cen, 1)
                 s = 300
                 tpf   = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(s,s))
-#                tpf.to_fits(output_fn=fn)
+
                 # Edits header of FITS files
                 tempVals = list(mheader.values())
                 moreData = [fn, s, s, x_cen, y_cen, float(radec[0]), float(radec[1])]
@@ -629,7 +629,7 @@ class data_products(find_sources):
             d = dict(zip(t.colnames[0:146], data))
             hdr = fits.Header(cards=d)
             xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
-            x_cen, y_cen, l, w = t['POST_CENX'][i], t['POST_CENY'][i], t['POST_SIZE1'][i]/2., t['POST_SIZE2'][i]/2.
+            x_cen, y_cen, l, w = t['POST_CEN_X'][i], t['POST_CEN_Y'][i], t['POST_SIZE1'][i]/2., t['POST_SIZE2'][i]/2.
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
                 if in_file[0]==None:
@@ -687,18 +687,18 @@ class data_products(find_sources):
             return table
     
         source_info = from_find_sources()
-        print(source_info)
+
         pos = [source_info['RA'].data[0], source_info['Dec'].data[0]]
         
         postcard, card_info = self.find_postcard(pos)
-        print(postcard)
+
         data = []
         for i in range(147):
             data.append(card_info[i])
         d = dict(zip(card_info.colnames[0:146], data))
         hdr = fits.Header(cards=d)
         xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
-        
+        print(xy)
         # Corrects position with pointing model
         pm = np.loadtxt('pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip),
                         skiprows=1, usecols=(1,2,3))
@@ -707,18 +707,28 @@ class data_products(find_sources):
         x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
         y = xy[0]*np.sin(initShift[0]) + xy[1]*np.cos(initShift[0]) - initShift[2]
         
-        post_fits = ktpf.from_fits(postcard)
-         
+        post_fits = fits.open(postcard)[0].data#ktpf.from_fits(postcard)
+
         xy = init_shift(xy)
-        delY, delX = xy[0]-card_info['POST_CENX'], xy[1]-card_info['POST_CENY']
+        delY, delX = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
 
         newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
         
         newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
-        tpf = post_fits.flux[:,newX-4:newX+5, newY-4:newY+5]
+        tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
         plt.imshow(tpf[0], origin='lower')
         plt.show()
+
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
+
+        if shape == 0:
+            shape = 'circle'
+        else:
+            shape = 'rectangle'
+
+        plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
+        plt.plot(np.arange(0,len(tpf),1), lc, 'r')
+        plt.show()
         lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
 
         # Additional header information
@@ -731,6 +741,8 @@ class data_products(find_sources):
         hdr.append(('CREATED', strftime('%Y-%m-%d'),
                     'ELLIE file creation date (YYY-MM-DD)'))
         hdr.append(('COMMENT', postcard, 'Postcard Filename'))
+        hdr.append(('APER_SHAPE', shape))
+        hdr.append(('APER_RADIUS', radius))
 
         # Saves to FITS file
         hdu1 = fits.PrimaryHDU(header=hdr)
@@ -772,6 +784,7 @@ class data_products(find_sources):
             """ Finds the lightcurve with the least noise by minimizing std """
             r_list = np.arange(1.5, 3.5, 0.5)
             matrix = np.zeros( (len(r_list), 2, len(tpf)) )
+            system = np.zeros( (len(r_list), 2, len(tpf)) )
             sigma  = np.zeros( (len(r_list), 2) )
             
             for i in range(len(r_list)):
@@ -787,12 +800,14 @@ class data_products(find_sources):
             # Creates a complete, systematics corrected light curve for each aperture
             for i in range(len(r_list)):
                 lc_circ = self.system_corr(matrix[i][0], x, y, jitter=True, roll=True)
+                system[i][0] = lc_circ
                 sigma[i][0] = np.std(lc_circ)
                 lc_rect = self.system_corr(matrix[i][1], x, y, jitter=True, roll=True)
+                system[i][1] = lc_rect
                 sigma[i][1] = np.std(lc_rect)
             best = np.where(sigma==np.min(sigma))
             r_ind, s_ind = best[0][0], best[1][0]
-            lc_best = matrix[r_ind][s_ind]
+            lc_best = system[r_ind][s_ind]
             return r_list[r_ind], s_ind, lc_best, matrix[r_ind][s_ind]
 
         file_cen = len(tpf[0])/2.
@@ -806,14 +821,11 @@ class data_products(find_sources):
         x, y = [startX], [startY]
 
         for i in range(1,len(theta)):
-#            if i == 0:
-#                x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) - delX[i] )
-#                y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) - delY[i] )
-#            else:
             x.append( x[i-1]*np.cos(theta[i]) - y[i-1]*np.sin(theta[i]) - delX[i] )
             y.append( x[i-1]*np.sin(theta[i]) + y[i-1]*np.cos(theta[i]) - delY[i] )
 
         radius, shape, lc, uncorr = findLC(x, y)
+        
         return radius, shape, lc, uncorr
 
 
@@ -868,7 +880,7 @@ class data_products(find_sources):
 
         if jitter==True and roll==True:
             newlc = jitter_corr(lc, x_pos, y_pos)
-#            newlc = rotation_corr(newlc, x_pos, y_pos)
+            newlc = rotation_corr(newlc, x_pos, y_pos)
         elif jitter==False and roll==True:
             lc = rotation_corr(lc, x_pos, y_pos)
         return newlc
