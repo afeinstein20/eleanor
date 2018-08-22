@@ -573,6 +573,7 @@ class data_products(find_sources):
 
         for i in range(len(x)-1):
             for j in range(len(y)-1):
+                mast, mheader = fits.getdata(fns[0], header=True)
                 fn = 'postcard_{}_{}-{}_{}-{}.fits'.format(self.sector, self.camera, self.chip, i, j)
                 x_cen = (x[i]+x[i+1]) / 2.
                 y_cen = (y[j]+y[j+1]) / 2.
@@ -580,11 +581,15 @@ class data_products(find_sources):
                 radec = WCS(mheader).all_pix2world(x_cen, y_cen, 1)
                 s = 300
                 tpf   = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(s,s))
-                tpf.to_fits(output_fn=fn)
-
+#                tpf.to_fits(output_fn=fn)
                 # Edits header of FITS files
-                hdu = fits.open(fn)
-                hdr = hdu[0].header
+                tempVals = list(mheader.values())
+                moreData = [fn, s, s, x_cen, y_cen, float(radec[0]), float(radec[1])]
+                for m in moreData:
+                    tempVals.append(m)
+                t.add_row(vals=tempVals)
+
+                hdr = mheader
                 hdr.append(('COMMENT', '***********************'))
                 hdr.append(('COMMENT', '*     ELLIE INFO      *'))
                 hdr.append(('COMMENT', '***********************'))
@@ -597,13 +602,11 @@ class data_products(find_sources):
                 hdr.append(('CEN_Y'  , np.round(y_cen, 8)))
                 hdr.append(('CEN_RA' , float(radec[0])))
                 hdr.append(('CEN_DEC', float(radec[1])))
-                hdu.close()
-                
-                tempVals = list(mheader.values())
-                moreData = [fn, s, s, x_cen, y_cen, float(radec[0]), float(radec[1])]
-                for m in moreData:
-                    tempVals.append(m)
-                t.add_row(vals=tempVals)
+
+                hdu1 = fits.PrimaryHDU(header=hdr)
+                hdu1.data = tpf.flux
+                hdu1.writeto(fn)
+
         ascii.write(t, output='postcard.cat')
         return
 
