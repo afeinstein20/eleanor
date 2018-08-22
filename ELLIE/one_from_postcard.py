@@ -8,9 +8,10 @@ from astropy.coordinates import SkyCoord
 import astropy.units as u
 from scipy       import ndimage
 from ellie  import find_sources as fs
+from ellie import data_products as dp
 from astropy.table import Table
 from astropy.nddata import Cutout2D
-
+from time import strftime
 
 def find_postcard(id, pos):
     """ Uses postcard_catalog to find where the source is """
@@ -84,6 +85,9 @@ def from_class(id, mission):
 def main(id, mission):
     source_info = from_class(id, mission)
     pos = [source_info['RA'].data[0], source_info['Dec'].data[0]]
+    
+    lcClass = dp(id=id, camera=3, chip=3, sector=1)
+
     postcard, card_info = find_postcard(id, pos)
 
     data = []
@@ -114,7 +118,33 @@ def main(id, mission):
 
     plt.imshow(tpf[0], origin='lower')#, vmin=50, vmax=200)
     plt.show()
+    print(len(tpf))
+    #### LC CORRECTION IN ellie.py NOT WORKING ####
+    radius, shape, lc, uncorrLC = lcClass.aperture_fitting(tpf=tpf)
+
+    plt.plot(np.arange(0,len(tpf),1), lc, 'r')
+    plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
+    plt.show()
+    lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
     
+    ## ADD HEADER THINGS (version, date created, github, author, fun asterisks
+    hdr.append(('COMMENT', '***********************'))
+    hdr.append(('COMMENT', '*     ELLIE INFO      *'))
+    hdr.append(('COMMENT', '***********************'))
+    hdr.append(('AUTHOR' , 'Adina D. Feinstein'))
+    hdr.append(('VERSION', '1.0'))
+    hdr.append(('GITHUB' , 'https://github.com/afeinstein20/ELLIE'))
+    hdr.append(('CREATED', strftime('%Y-%m-%d'),
+                'ELLIE file creation date (YYY-MM-DD)'))
+
+
+    hdu1 = fits.PrimaryHDU(header=hdr)
+    hdu2 = fits.ImageHDU()
+    hdu1.data = tpf
+    hdu2.data = lcData
+    new_hdu = fits.HDUList([hdu1, hdu2])
+    
+    new_hdu.writeto('test.fits')
 
 #main(219870537, 'tic')
 #main(229669377, 'tic')

@@ -649,15 +649,11 @@ class data_products(find_sources):
             pm[0] = np.radians(pm[0])
             x = xy[0]*np.cos(pm[0]) - xy[1]*np.sin(pm[0]) - pm[1]
             y = xy[0]*np.sin(pm[0]) + xy[1]*np.cos(pm[0]) + pm[2]
-            return np.array([x,y])
-
-        
-
-        
+            return np.array([x,y])     
         return
 
 
-    def aperture_fitting(self):
+    def aperture_fitting(self, tpf=None):
         """ 
         Finds the "best" (i.e. the smallest std) light curve for a range of 
         sizes and shapes
@@ -666,13 +662,12 @@ class data_products(find_sources):
             sources: list of sources to find apertures for
         """
 
-        def centroidOffset():
-            nonlocal file_cen, initParams, tpf
+        def centroidOffset(tpf, file_cen):
             """ Finds offset between center of TPF and centroid of first cadence """
-            tpf_init = tpf.flux[0]
-            tpf_com = tpf_init[2:6, 2:6]
+            tpf_com = tpf[0][2:7, 2:7]
             com = ndimage.measurements.center_of_mass(tpf_com.T - np.median(tpf_com))
-            return com[0]-len(tpf_com)/2., com[1]-len(tpf_com[0])/2.
+#            com=ndimage.measurements.center_of_mass(tpf_com - np.median(tpf_com))
+            return len(tpf_com)/2-com[0], len(tpf_com)/2-com[1]
 
         def aperture(r, pos):
             """ Creates circular & rectangular apertures of given size """
@@ -680,20 +675,20 @@ class data_products(find_sources):
             rect = RectangularAperture(pos, r, r, 0.0)
             return circ, rect
 
-        def findLC():
-            nonlocal tpf, x, y
+        def findLC(x_point, y_point):
+            nonlocal tpf
             """ Finds the lightcurve with the least noise by minimizing std """
             r_list = np.arange(1.5, 3.5, 0.5)
-            matrix = np.zeros( (len(r_list), 2, len(tpf.flux)) )
+            matrix = np.zeros( (len(r_list), 2, len(tpf)) )
             sigma  = np.zeros( (len(r_list), 2) )
             
             for i in range(len(r_list)):
-                for j in range(len(tpf.flux)):
-                    pos = (x[j], y[j])
+                for j in range(len(tpf)):
+                    pos = (x_point[j], y_point[j])
                     circ, rect = aperture(r_list[i], pos)
                     # Completes aperture sums for each tpf.flux and each aperture shape
-                    matrix[i][0][j] = aperture_photometry(tpf.flux[j], circ)['aperture_sum'].data[0]
-                    matrix[i][1][j] = aperture_photometry(tpf.flux[j], rect)['aperture_sum'].data[0]
+                    matrix[i][0][j] = aperture_photometry(tpf[j], circ)['aperture_sum'].data[0]
+                    matrix[i][1][j] = aperture_photometry(tpf[j], rect)['aperture_sum'].data[0]
                 matrix[i][0] = matrix[i][0] / np.nanmedian(matrix[i][0])
                 matrix[i][1] = matrix[i][1] / np.nanmedian(matrix[i][1])
 
@@ -706,30 +701,29 @@ class data_products(find_sources):
             best = np.where(sigma==np.min(sigma))
             r_ind, s_ind = best[0][0], best[1][0]
             lc_best = matrix[r_ind][s_ind]
-            return r_list[r_ind], s_ind, lc_best
+            return r_list[r_ind], s_ind, lc_best, matrix[r_ind][s_ind]
 
-        file = 'TIC{}.fits'.format(self.id) 
-        tpf  = ktpf.from_fits(file)
-        file_cen = len(tpf.flux[0])/2.
+        file_cen = len(tpf[0])/2.
         
         initParams = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))[0]
-        theta, delX, delY = np.loadtxt(self.corrFile, skiprows=2, usecols=(1,2,3))[0]
-        
-        startX, startY = centroidOffset()
+        theta, delX, delY = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3), unpack=True)
+
+        startX, startY = centroidOffset(tpf, file_cen)
         startX, startY = file_cen+startX, file_cen+startY
+
         x, y = [startX], [startY]
-        
-        for i in range(len(theta)):
-            if i == 0:
-                x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) - delX[i] )
-                y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) - delY[i] )
-            else:
-                x.append( x[i-1]*np.cos(theta[i]) - y[i-1]*np.sin(theta[i]) - delX[i] )
-                y.append( x[i-1]*np.sin(theta[i]) + y[i-1]*np.cos(theta[i]) - delY[i] )
 
-        radius, shape, lc = findLC
+        for i in range(1,len(theta)):
+#            if i == 0:
+#                x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) - delX[i] )
+#                y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) - delY[i] )
+#            else:
+            x.append( x[i-1]*np.cos(theta[i]) - y[i-1]*np.sin(theta[i]) - delX[i] )
+            y.append( x[i-1]*np.sin(theta[i]) + y[i-1]*np.cos(theta[i]) - delY[i] )
 
-        return
+        radius, shape, lc, uncorr = findLC(x, y)
+
+        return radius, shape, lc, uncorr
 
 
     def system_corr(self, lc, x_pos, y_pos, jitter=False, roll=None):
@@ -741,9 +735,9 @@ class data_products(find_sources):
             x_pos: np.array() of x positions for the centroid
             y_posL np.array() of y positions for the centroid 
         """
-        def jitter_corr():
-            nonlocal lc, x_pos, y_pos
-            
+        def jitter_corr(lc, x_pos, y_pos):
+            x_pos, y_pos = np.array(x_pos), np.array(y_pos)
+
             def parabola(params, x, y, f_obs, y_err):
                 c1, c2, c3, c4, c5 = params
                 f_corr = f_obs * (c1 + c2*(x-2.5) + c3*(x-2.5)**2 + c4*(y-2.5) + c5*(y-2.5)**2)
@@ -767,26 +761,26 @@ class data_products(find_sources):
                     initGuess = test.x
 
                 bnds = ((-15.,15.), (-15.,15.), (-15.,15.), (-15.,15.), (-15.,15.))
-                test = minimize(parabola, initGuess, args=(x_point, y_point, lc, y_err), bounds=bnds)
+                test = minimize(parabola, initGuess, args=(x_pos, y_pos, lc, y_err), bounds=bnds)
                 c1, c2, c3, c4, c5 = test.x
-                lc_new = lc * (c1 + c2*(x_point-2.5) + c3*(x_point-2.5)**2 + c4*(y_point-2.5) + c5*(y_point-2.5)**2)
+                lc_new = lc * (c1 + c2*(x_pos-2.5) + c3*(x_pos-2.5)**2 + c4*(y_pos-2.5) + c5*(y_pos-2.5)**2)
             return lc_new
         
 
-        def rotation_corr():
+        def rotation_corr(lc, x_pos, y_pos):
             """ Corrects for spacecraft roll using Lightkurve """
-            nonlocal lc, x_pos, y_pos
             time = np.arange(0, len(lc), 1)
             sff = SFFCorrector()
             lc_corrected = sff.correct(time, lc, x_pos, y_pos, niters=1,
                                        windows=1, polyorder=5)
             return lc_corrected.flux
-        
-        if jitter==True:
-            lc = jitt_corr()
-        if roll==True:
-            lc = rotation_corr()
-        return lc
+        print(lc)
+        if jitter==True and roll==True:
+            newlc = jitter_corr(lc, x_pos, y_pos)
+#            newlc = rotation_corr(newlc, x_pos, y_pos)
+        elif jitter==False and roll==True:
+            lc = rotation_corr(lc, x_pos, y_pos)
+        return newlc
 
 
 
