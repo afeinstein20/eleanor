@@ -25,8 +25,8 @@ def findAllFITS(year, camera, chip, url, dayMin, dayMax):
 #  files into new directory
 # -------------------------- 
 def downloadFiles(dir, fns):
-    if os.path.isdir(dir) == False:
-        os.mkdir(dir)
+#    if os.path.isdir(dir) == False:
+#        os.mkdir(dir)
     for i in fns:
         os.system('cd {} && curl -O -L {}'.format(dir, i))
     return

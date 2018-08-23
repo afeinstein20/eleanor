@@ -413,18 +413,20 @@ class find_sources:
 ##########################
 ##########################
 class data_products(find_sources):
-    def __init__(self, id=None, dir=None, camera=None, chip=None, sector=None, mission=None):
-        self.id      = id
+    def __init__(self, tic=None, dir=None, camera=None, chip=None, sector=None, mission=None):
+        self.id     = tic
         self.camera  = camera
         self.chip    = chip
         self.dir     = dir
         self.sector  = sector
         self.mission = mission
         self.corrFile = 'pointingModel_{}_{}-{}.txt'.format(sector, camera, chip)
-        if dir==None:
-            self.tpf_file = 'TIC{}.fits'.format(self.id)
-        else:
-            self.tpf_file = dir + 'TIC{}.fits'.format(self.id)
+        
+
+#        if dir==None:
+#            self.tpf_file = 'TIC{}.fits'.format(self.id)
+#        else:
+#            self.tpf_file = dir + 'TIC{}.fits'.format(self.id)
             
 
     def sort_by_date(self):
@@ -440,7 +442,7 @@ class data_products(find_sources):
         return fns
 
 
-    def pointing_model(self):
+    def pointing_model(self):#, camera=camera, chip=chip, sector=sector):
         """
         Creates the pointing model for a given camera and chip across all cadences
         """
@@ -479,6 +481,7 @@ class data_products(find_sources):
                 dist = nearest(x[i], y[i])
                 if dist >= 8.0:
                     isolated.append(i)
+            print(len(isolated))
             return isolated
                 
 
@@ -491,18 +494,25 @@ class data_products(find_sources):
             def model(params):
                 nonlocal xy, centroids
                 theta, xT, yT = params
-                theta = np.radians(theta)
+#                theta = np.radians(theta)
 
-                xRot = xy[:,0]*np.cos(theta) - xy[:,1]*np.sin(theta)+xT
-                yRot = xy[:,0]*np.sin(theta) + xy[:,1]*np.cos(theta)+yT
+                xRot = xy[:,0]*np.cos(theta) - xy[:,1]*np.sin(theta) + xT
+                yRot = xy[:,0]*np.sin(theta) + xy[:,1]*np.cos(theta) + yT
 
                 dist = np.sqrt((xRot-centroids[:,0])**2 + (yRot-centroids[:,1])**2)
                 return np.sum(np.square(dist))
 
             fns = np.array([self.dir+i for i in fns])
+
+            fns=fns[0:11]
+
             x_cen, y_cen = len(mast)/2., len(mast[0])/2.
             xy = np.zeros((len(x),2))
             matrix = np.zeros((len(x), len(fns), 2))
+
+            for i in range(len(x)):
+                xy[i][0] = x[i]-x_cen
+                xy[i][1] = y[i]-y_cen
 
             with open(self.corrFile, 'w') as tf:
                 tf.write('cadence medT medX medY\n')
@@ -514,16 +524,19 @@ class data_products(find_sources):
                     com = ndimage.measurements.center_of_mass(tpf.data.T-np.median(tpf.data)) # subtracts bkg
                     matrix[i][j][0] = com[0]+xy[i][0]
                     matrix[i][j][1] = com[1]+xy[i][1]
-                    
+
+
+            print(xy)
             for i in range(len(fns)):
                 centroids = matrix[:,i]
                 if i == 0:
-                    initGuess = [0.001, 0.1, -0.1]
+                    initGuess = [0.01, 1.0, -1.0]
                 else:
                     initGuess = solution.x
+
                 bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
                 solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-11,
-                                                                                               'gtol':5e-05})
+                                                                                               'gtol':5e-05})#, 'eps':1e-02})
                 sol = solution.x
 
                 with open(self.corrFile, 'a') as tf:

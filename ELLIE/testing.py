@@ -10,12 +10,12 @@ fns   = files.sort_by_date()
 ffi, header = fits.getdata(dir+fns[0], header=True)
 radec = [header['CRVAL1'], header['CRVAL2']]
 
-cone    = find_sources(pos=radec)
-r = 1
-sources = cone.cone_search(r=2, service='Mast.Catalogs.Tic.Cone')
-good = np.where(sources['Tmag'] < 16.0)[0]
-sources = sources[good]
-ids = sources['ID']
+#cone    = find_sources(pos=radec)
+#r = 1
+#sources = cone.cone_search(r=2, service='Mast.Catalogs.Tic.Cone')
+#good = np.where(sources['Tmag'] < 16.0)[0]
+#sources = sources[good]
+#ids = sources['ID']
 
 ex = data_products(dir=dir, camera=camera, chip=chip, sector=sector)
 print("making pm")
