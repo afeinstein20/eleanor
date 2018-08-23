@@ -1,9 +1,11 @@
 import os, sys, re, json, time
 import requests
+import urllib
 from bs4 import BeautifulSoup
 import numpy as np
 from time import strftime
 from tqdm import tqdm
+from pathlib import Path
 
 import astropy.units as u
 from astropy.coordinates import SkyCoord
@@ -414,21 +416,60 @@ class find_sources:
 ##########################
 ##########################
 class data_products(find_sources):
-    def __init__(self, tic=None, dir=None, camera=None, chip=None, sector=None, mission=None):
-        self.id     = tic
-        self.camera  = camera
-        self.chip    = chip
-        self.dir     = dir
-        self.sector  = sector
-        self.mission = mission
-        self.corrFile = 'pointingModel_{}_{}-{}.txt'.format(sector, camera, chip)
-        
+    def __init__(self, tic=None, gaia=None, pos=None, dir=None):
+        self.tic  = tic
+        self.pos  = pos
+        self.gaia = gaia
 
-#        if dir==None:
-#            self.tpf_file = 'TIC{}.fits'.format(self.id)
-#        else:
-#            self.tpf_file = dir + 'TIC{}.fits'.format(self.id)
-            
+        """ Sets default directory to a local hidden directory .ellie"""
+        """      with potential subdirectories ffis & postcards      """
+        self.root_dir = './.ellie'
+        if os.path.isdir(self.root_dir) == False:
+            os.mkdir(self.root_dir)
+
+
+    def download_ffis(self, sector=None):
+        """ Downloads entire sector of data into .ellie/ffis/sector directory """
+        def findAllFFIs(ca, ch):
+            nonlocal year, days, url
+            calFiles = []
+            for d in days:
+                path = '/'.join(str(e) for e in [url, year, d, ca])+'-'+str(ch)+'/'
+                for fn in BeautifulSoup(requests.get(path).text, "lxml").find_all('a'):
+                    if fn.get('href')[-7::] == 'ic.fits':
+                        calFiles.append(path+fn.get('href'))
+            return calFiles
+        
+        ffi_dir, sect_dir = 'ffis', 'sector_{}'.format(sector)
+        self.sect_dir = '/'.join(str(e) for e in [self.root_dir, ffi_dir, sect_dir])
+        # Creates an FFI directory, if one does not already exist
+        if os.path.isdir(self.root_dir+ffi_dir) == False:
+            os.system('cd {} && mkdir {}'.format(self.root_dir, ffi_dir))
+        # Creates a sector directory, if one does not already exist
+        if os.path.isdir(self.sect_dir) == False:
+            os.system('cd {} && mkdir {}'.format(self.root_dir+'/'+ffi_dir, sect_dir))
+
+        if sector in np.arange(1,14,1):
+            year=2019
+        else:
+            year=2020
+        # Current days available for ETE-6
+        days = np.arange(129,130,1)
+        camera = np.arange(1,5,1)
+        chips  = np.arange(1,5,1)
+        # This URL applies to ETE-6 simulated data ONLY
+        url = 'https://archive.stsci.edu/missions/tess/ete-6/ffi/'
+        for c in camera:
+            for h in chips:
+                files = findAllFFIs(c, h)
+                # Loops through all files from MAST 
+                for f in files:
+                    file = Path(self.sect_dir+f)
+                    # If the file in that directory doesn't exist, download it
+                    if file.is_file() == False:
+                        os.system('cd {} && curl -O -L {}'.format(self.sect_dir, f))
+        return
+
 
     def sort_by_date(self):
         """ Sorts FITS files by start date of observation """
@@ -538,12 +579,7 @@ class data_products(find_sources):
                 sol = solution.x
 
                 with open(self.corrFile, 'a') as tf:
-#                    if i == 0:
                     theta, delX, delY = sol[0], sol[1], sol[2]
-#                    else:
-#                        theta = oldSol[0] - sol[0]
-#                        delX  = oldSol[1] - sol[1]
-#                        delY  = oldSol[2] - sol[2]
                     tf.write('{}\n'.format(str(i) + ' ' + str(theta) + ' ' + str(delX) + ' ' + str(delY)))
                     oldSol = sol
             return
@@ -616,9 +652,9 @@ class data_products(find_sources):
 
                 hdu1 = fits.PrimaryHDU(header=hdr)
                 hdu1.data = tpf.flux
-                hdu1.writeto(fn)
+                hdu1.writeto(self.root_dir+fn)
 
-        ascii.write(t, output='postcard.cat')
+        ascii.write(t, output='postcard.txt')
         return
 
 
@@ -629,7 +665,10 @@ class data_products(find_sources):
         ----------
             postcard filename, header of the postcard
         """
-        t = Table.read('postcard.cat', format='ascii.basic')
+        postcard_cat = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/postcard.txt')
+        data = postcard_cat.read().decode('utf-8')
+        t = Table.read(data, format='ascii.basic') 
+
         in_file=[None]
         # Searches through rows of the table
         for i in range(len(t)):
@@ -669,7 +708,6 @@ class data_products(find_sources):
         """
         
         def init_shift(xy):
-
             """ Offsets (x,y) coords of source by pointing model """
             pm = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))[0]
             pm[0] = np.radians(pm[0])
@@ -680,13 +718,13 @@ class data_products(find_sources):
         
         def from_find_sources():
             """ Finds the source's position """
-            if self.mission == 'tic':
-                locate = find_sources(tic=self.id)
+            if self.tic != None:
+                locate = find_sources(tic=self.tic)
                 tic_id, pos, tmag = locate.tic_pos_by_ID()
-                locate = find_sources(tic=self.id, pos=pos)
+                locate = find_sources(tic=self.tic, pos=pos)
                 table = locate.find_by_position()
-            elif self.mission == 'gaia':
-                locate = find_sources(gaia=self.id)
+            elif self.gaia != None:
+                locate = find_sources(gaia=self.gaia)
                 table  = locate.gaia_pos_by_ID()
                 pos    = [table['ra'].data[0], table['dec'].data[0]]
                 locate = fs(gaia=id, pos=pos)
@@ -701,6 +739,17 @@ class data_products(find_sources):
         pos = [source_info['RA'].data[0], source_info['Dec'].data[0]]
         
         postcard, card_info = self.find_postcard(pos)
+        # Extracts sector, camera, and chip from postcard filename
+        self.camera, self.chip = postcard[11:12], postcard[13:14]
+        self.sector = postcard[9:10]
+
+        # Gets pointing model from website
+        pm_link = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/pointingModel_{}_{}-{}.txt'.format(
+                self.sector, self.camera, self.chip))
+        pm = pm_link.read().decode('utf-8')
+        pm = Table.read(pm, format='ascii.basic')
+
+        self.pointing = pm
 
         data = []
         for i in range(147):
@@ -708,25 +757,33 @@ class data_products(find_sources):
         d = dict(zip(card_info.colnames[0:146], data))
         hdr = fits.Header(cards=d)
         xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
-        print(xy)
-        # Corrects position with pointing model
-        pm = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))
-        initShift = pm[0]
-        initShift[0] = np.radians(initShift[0])
-        x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
-        y = xy[0]*np.sin(initShift[0]) + xy[1]*np.cos(initShift[0]) - initShift[2]
-        
-        post_fits = fits.open(postcard)[0].data#ktpf.from_fits(postcard)
 
-        xy = init_shift(xy)
+        # Corrects position with pointing model
+        initShift = pm[0]
+        initShift[0] = initShift['medT']
+        x = xy[0]*np.cos(initShift['medT']) - xy[1]*np.sin(initShift['medT']) - initShift['medX']
+        y = xy[0]*np.sin(initShift['medT']) + xy[1]*np.cos(initShift['medT']) - initShift['medY']
+        
+        self.post_dir = self.root_dir + '/postcards/'
+        self.post_url = 'https://astro.uchicago.edu/~bmontet/tess/postcards/'
+
+        if os.path.isdir(self.post_dir) == False:
+            os.system('cd {} && mkdir postcards'.format(self.root_dir))
+        if Path(self.post_dir+postcard).is_file() == False:
+            os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.post_url+postcard) )
+
+        post_fits = fits.open(self.post_dir+postcard)[0].data
+
+#        xy = init_shift(xy)
         delY, delX = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
 
         newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
         
         newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
-        plt.imshow(tpf[0], origin='lower')
-        plt.show()
+#        plt.imshow(tpf[0], origin='lower')
+#        plt.show()
+        
 
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
@@ -735,9 +792,9 @@ class data_products(find_sources):
         else:
             shape = 'rectangle'
 
-        plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
-        plt.plot(np.arange(0,len(tpf),1), lc, 'r')
-        plt.show()
+#        plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
+#        plt.plot(np.arange(0,len(tpf),1), lc, 'r')
+#        plt.show()
         lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
 
         # Additional header information
@@ -826,7 +883,7 @@ class data_products(find_sources):
             return r_list[r_ind], s_ind, lc_best, matrix[r_ind][s_ind]
 
         file_cen = len(tpf[0])/2.
-        
+        print(self.pointing)
         initParams = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))[0]
         theta, delX, delY = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3), unpack=True)
 
