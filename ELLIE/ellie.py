@@ -12,6 +12,7 @@ from astropy.io import fits
 from astropy.io import ascii
 from astropy.table import Table, Column
 from astropy.wcs import WCS
+from astropy.nddata import Cutout2D
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -506,14 +507,14 @@ class data_products(find_sources):
             with open(self.corrFile, 'w') as tf:
                 tf.write('cadence medT medX medY\n')
 
-            for i in range(len(x)):
-                xy[i][0], xy[i][1] = x[i]-x_cen, y[i]-y_cen
-                tpf = ktpf.from_fits_images(images=fns, position=(x[i],y[i]), size=(6,6))
-                for j in range(len(fns)):
-                    com = ndimage.measurements.center_of_mass(tpf.flux[j].T-np.median(tpf.flux[j])) # subtracts bkg
+            for j in range(len(fns)):
+                image, header = fits.getdata(fns[j], header=True)
+                for i in range(len(x)):
+                    tpf = Cutout2D(image, position=(x[i], y[i]), size=(6,6), mode='partial')
+                    com = ndimage.measurements.center_of_mass(tpf.data.T-np.median(tpf.data)) # subtracts bkg
                     matrix[i][j][0] = com[0]+xy[i][0]
-                    matrix[i][j][0] = com[1]+xy[i][1]
-            
+                    matrix[i][j][1] = com[1]+xy[i][1]
+                    
             for i in range(len(fns)):
                 centroids = matrix[:,i]
                 if i == 0:
