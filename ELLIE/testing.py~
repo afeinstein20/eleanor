@@ -18,7 +18,6 @@ sources = sources[good]
 ids = sources['ID']
 
 ex = data_products(dir=dir, camera=camera, chip=chip, sector=sector)
-print("making pm")
 ex.pointing_model()
 
 

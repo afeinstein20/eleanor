@@ -166,7 +166,6 @@ class find_sources:
             return "No position found. Please try reinitializing."
         else:
             pos = self.pos
-        print("This is the position I'm using: ", pos)
         request = {'service': service, 
                    'params': {'ra':pos[0], 'dec':pos[1], 'radius':r},
                    'format':'json'}
@@ -743,6 +742,11 @@ class data_products(find_sources):
         hdr.append(('COMMENT', postcard, 'Postcard Filename'))
         hdr.append(('APER_SHAPE', shape))
         hdr.append(('APER_RADIUS', radius))
+        hdr.append(('CEN_X', float(newX)))
+        hdr.append(('CEN_Y', float(newY)))
+        radec_cen = WCS(hdr).all_pix2world(newX, newY, 1)
+        hdr.append(('CEN_RA', float(radec_cen[0])))
+        hdr.append(('CEN_DEC', float(radec_cen[1])))
 
         # Saves to FITS file
         hdu1 = fits.PrimaryHDU(header=hdr)
@@ -751,8 +755,9 @@ class data_products(find_sources):
         hdu2.data = lcData
         new_hdu = fits.HDUList([hdu1, hdu2])
            
+        fn = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.id)
         if output_fn==None:
-            new_hdu.writeto('TIC{}.fits'.format(self.id))
+            new_hdu.writeto(fn)
         else:
             new_hdu.writeto(output_fn, overwrite=True)
         return
