@@ -3,6 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import numpy as np
 from time import strftime
+from tqdm import tqdm
 
 import astropy.units as u
 from astropy.coordinates import SkyCoord
@@ -432,7 +433,7 @@ class data_products(find_sources):
     def sort_by_date(self):
         """ Sorts FITS files by start date of observation """
         fns = np.array(os.listdir(self.dir))
-        fitsInds = np.array([i for i,item in enumerate(fns) if 'fits' in item])
+        fitsInds = np.array([i for i,item in enumerate(fns) if 'ffic' in item])
         fns = fns[fitsInds]
         dates = []
         for f in fns:
@@ -500,11 +501,9 @@ class data_products(find_sources):
                 yRot = xy[:,0]*np.sin(theta) + xy[:,1]*np.cos(theta) + yT
 
                 dist = np.sqrt((xRot-centroids[:,0])**2 + (yRot-centroids[:,1])**2)
-                return np.sum(np.square(dist))
+                return np.nansum(np.square(dist))
 
             fns = np.array([self.dir+i for i in fns])
-
-            fns=fns[0:11]
 
             x_cen, y_cen = len(mast)/2., len(mast[0])/2.
             xy = np.zeros((len(x),2))
@@ -525,14 +524,13 @@ class data_products(find_sources):
                     matrix[i][j][0] = com[0]+xy[i][0]
                     matrix[i][j][1] = com[1]+xy[i][1]
 
-
-            print(xy)
-            for i in range(len(fns)):
+            print("Creating Pointing Model")
+            for i in tqdm(range(len(fns))):
                 centroids = matrix[:,i]
                 if i == 0:
                     initGuess = [0.01, 1.0, -1.0]
                 else:
-                    initGuess = solution.x
+                    initGuess = oldSol
 
                 bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
                 solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-11,
@@ -540,12 +538,12 @@ class data_products(find_sources):
                 sol = solution.x
 
                 with open(self.corrFile, 'a') as tf:
-                    if i == 0:
-                        theta, delX, delY = sol[0], sol[1], sol[2]
-                    else:
-                        theta = oldSol[0] - sol[0]
-                        delX  = oldSol[1] - sol[1]
-                        delY  = oldSol[2] - sol[2]
+#                    if i == 0:
+                    theta, delX, delY = sol[0], sol[1], sol[2]
+#                    else:
+#                        theta = oldSol[0] - sol[0]
+#                        delX  = oldSol[1] - sol[1]
+#                        delY  = oldSol[2] - sol[2]
                     tf.write('{}\n'.format(str(i) + ' ' + str(theta) + ' ' + str(delX) + ' ' + str(delY)))
                     oldSol = sol
             return
@@ -594,7 +592,7 @@ class data_products(find_sources):
                 radec = WCS(mheader).all_pix2world(x_cen, y_cen, 1)
                 s = 300
                 tpf   = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(s,s))
-
+                print(tpf)
                 # Edits header of FITS files
                 tempVals = list(mheader.values())
                 moreData = [fn, s, s, x_cen, y_cen, float(radec[0]), float(radec[1])]
@@ -673,8 +671,7 @@ class data_products(find_sources):
         def init_shift(xy):
 
             """ Offsets (x,y) coords of source by pointing model """
-            pm = np.loadtxt('pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip), 
-                            skiprows=1, usecols=(1,2,3))[0]
+            pm = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))[0]
             pm[0] = np.radians(pm[0])
             x = xy[0]*np.cos(pm[0]) - xy[1]*np.sin(pm[0]) - pm[1]
             y = xy[0]*np.sin(pm[0]) + xy[1]*np.cos(pm[0]) - pm[2]
@@ -713,8 +710,7 @@ class data_products(find_sources):
         xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
         print(xy)
         # Corrects position with pointing model
-        pm = np.loadtxt('pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip),
-                        skiprows=1, usecols=(1,2,3))
+        pm = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))
         initShift = pm[0]
         initShift[0] = np.radians(initShift[0])
         x = xy[0]*np.cos(initShift[0]) - xy[1]*np.sin(initShift[0]) - initShift[1]
@@ -918,9 +914,10 @@ class visualize:
         tpf: A FITS file that contains stacked cadences for a single source
     """
 
-    def __init__(self, id, dir=None, fn=None, **kwargs):
+    def __init__(self, tic, dir=None, fn=None, **kwargs):
         """ USER INPUT """
-        self.id  = id
+        # Get ID out of file
+        self.tic  = tic
         if dir==None:
             self.tpf = fn
         else:
