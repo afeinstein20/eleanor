@@ -709,10 +709,9 @@ class data_products(find_sources):
         
         def init_shift(xy):
             """ Offsets (x,y) coords of source by pointing model """
-            pm = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))[0]
-            pm[0] = np.radians(pm[0])
-            x = xy[0]*np.cos(pm[0]) - xy[1]*np.sin(pm[0]) - pm[1]
-            y = xy[0]*np.sin(pm[0]) + xy[1]*np.cos(pm[0]) - pm[2]
+            theta, delX, delY = self.pointing[0]['medT'], self.pointing[0]['medX'], self.pointing[0]['medY']
+            x = xy[0]*np.cos(theta) - xy[1]*np.sin(theta) - delX
+            y = xy[0]*np.sin(theta) + xy[1]*np.cos(theta) - delY
             return np.array([x,y])     
         
         
@@ -774,16 +773,15 @@ class data_products(find_sources):
 
         post_fits = fits.open(self.post_dir+postcard)[0].data
 
-#        xy = init_shift(xy)
+        xy = init_shift(xy)
         delY, delX = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
 
         newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
         
         newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
-#        plt.imshow(tpf[0], origin='lower')
-#        plt.show()
-        
+        plt.imshow(tpf[0], origin='lower')
+        plt.show()
 
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
@@ -792,9 +790,9 @@ class data_products(find_sources):
         else:
             shape = 'rectangle'
 
-#        plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
-#        plt.plot(np.arange(0,len(tpf),1), lc, 'r')
-#        plt.show()
+        plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
+        plt.plot(np.arange(0,len(tpf),1), lc, 'r')
+        plt.show()
         lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
 
         # Additional header information
@@ -821,8 +819,12 @@ class data_products(find_sources):
         hdu1.data = tpf
         hdu2.data = lcData
         new_hdu = fits.HDUList([hdu1, hdu2])
-           
-        fn = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.id)
+
+        if self.tic != None:
+            fn = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.tic)
+        elif self.gaia != None:
+            fn = 'hlsp_ellie_tess_ffi_GAIA{}_v1_lc.fits'.format(self.gaia)
+
         if output_fn==None:
             new_hdu.writeto(fn)
         else:
@@ -841,9 +843,11 @@ class data_products(find_sources):
 
         def centroidOffset(tpf, file_cen):
             """ Finds offset between center of TPF and centroid of first cadence """
-            tpf_com = tpf[0][2:7, 2:7]
-            com = ndimage.measurements.center_of_mass(tpf_com.T - np.median(tpf_com))
-            return len(tpf_com)/2-com[0], len(tpf_com)/2-com[1]
+            tpf_com = Cutout2D(tpf[0], position=(len(tpf[0])/2, len(tpf[0])/2), size=(4,4))
+            plt.imshow(tpf_com.data, origin='lower')
+            plt.show()
+            com = ndimage.measurements.center_of_mass(tpf_com.data.T - np.median(tpf_com.data))
+            return com[0], com[1]#len(tpf_com.data)/2-com[0], len(tpf_com.data)/2-com[1]
 
         def aperture(r, pos):
             """ Creates circular & rectangular apertures of given size """
@@ -883,19 +887,22 @@ class data_products(find_sources):
             return r_list[r_ind], s_ind, lc_best, matrix[r_ind][s_ind]
 
         file_cen = len(tpf[0])/2.
-        print(self.pointing)
-        initParams = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3))[0]
-        theta, delX, delY = np.loadtxt(self.corrFile, skiprows=1, usecols=(1,2,3), unpack=True)
+
+        initParams = self.pointing[0]
+        theta, delX, delY = self.pointing['medT'].data, self.pointing['medX'].data, self.pointing['medY'].data
 
         startX, startY = centroidOffset(tpf, file_cen)
+        print(startX, startY)
         startX, startY = file_cen+startX, file_cen+startY
+        print(startX, startY)
+#        x, y = [startX], [startY]
+        x, y = [], []
+        for i in range(len(theta)):
+            x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) - delX[i] )
+            y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) - delY[i] )
 
-        x, y = [startX], [startY]
-
-        for i in range(1,len(theta)):
-            x.append( x[i-1]*np.cos(theta[i]) - y[i-1]*np.sin(theta[i]) - delX[i] )
-            y.append( x[i-1]*np.sin(theta[i]) + y[i-1]*np.cos(theta[i]) - delY[i] )
-
+        x, y = np.array(x), np.array(y)
+        print(x)
         radius, shape, lc, uncorr = findLC(x, y)
         
         return radius, shape, lc, uncorr
