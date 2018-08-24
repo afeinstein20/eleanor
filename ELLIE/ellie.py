@@ -439,13 +439,15 @@ class data_products(find_sources):
             return calFiles
         
         ffi_dir, sect_dir = 'ffis', 'sector_{}'.format(sector)
-        self.sect_dir = '/'.join(str(e) for e in [self.root_dir, ffi_dir, sect_dir])
+#        self.sect_dir = '/'.join(str(e) for e in [self.root_dir, sect_dir, ffi_dir])
         # Creates an FFI directory, if one does not already exist
-        if os.path.isdir(self.root_dir+ffi_dir) == False:
-            os.system('cd {} && mkdir {}'.format(self.root_dir, ffi_dir))
+        if os.path.isdir(self.root_dir+'/'+sect_dir) == False:
+            os.system('cd {} && mkdir {}'.format(self.root_dir, sect_dir))
         # Creates a sector directory, if one does not already exist
-        if os.path.isdir(self.sect_dir) == False:
-            os.system('cd {} && mkdir {}'.format(self.root_dir+'/'+ffi_dir, sect_dir))
+        if os.path.isdir(self.root_dir+'/'+sect_dir+'/'+ffi_dir) == False:
+            os.system('cd {} && mkdir {}'.format(self.root_dir+'/'+sect_dir, ffi_dir))
+
+        self.sect_dir = '/'.join(str(e) for e in [self.root_dir, sect_dir, ffi_dir])
 
         if sector in np.arange(1,14,1):
             year=2019
@@ -473,14 +475,19 @@ class data_products(find_sources):
         """ Sorts FITS files by start date of observation """
         fns = np.array(os.listdir(self.ffi_dir))
         pair = '{}-{}'.format(camera, chip)
-        fitsInds = np.array([i for i,item in enumerate(fns) if 'ffic' and pair in item])
-        fns = fns[fitsInds]
-        dates = []
+        ffisInd = np.array([i for i,item in enumerate(fns) if 'ffic' and pair in item])
+        camchip = np.array([i for i,item in enumerate(fns) if pair in item])
+        fitsInd = [i for i in ffisInd if i in camchip]
+
+        fns = fns[fitsInd]
+        dates, time = [], []
         for f in fns:
-            mast, header = fits.getdata(self.dir+f, header=True)
+            mast, header = fits.getdata(self.ffi_dir+f, header=True)
             dates.append(header['DATE-OBS'])
+            time.append((header['TSTOP']-header['TSTART'])/2.)
         dates, fns = np.sort(np.array([dates, fns]))
-        return fns
+        dates, time = np.sort(np.array([dates, time]))
+        return fns, time
 
 
     def pointing_model(self, camera=None, chip=None, sector=None):
@@ -584,7 +591,7 @@ class data_products(find_sources):
 
         self.ffi_dir = self.root_dir+'/ffis/sector_{}/'.format(sector)
 
-        fns = self.sort_by_date(camera, chip)
+        fns, time = self.sort_by_date(camera, chip)
         mast, header = fits.getdata(self.ffi_dir+fns[0], header=True)
         xy, id = pixel_cone(header, 6*np.sqrt(2), [0.0, 5e-5])
         
@@ -598,13 +605,18 @@ class data_products(find_sources):
         return
         
 
-    def make_postcard(self):
+    def make_postcard(self, camera, chip, sector):
         """
         Creates 300 x 300 x n postcards, where n is the number of cadences for a given observing run
         Creates a catalog of the associated header with each postcard for use later
         """
-        fns = self.sort_by_date()
-        fns = [self.dir+i for i in fns]
+        self.post_dir = self.root_dir+'/sector_{}/postcards/'.format(sector)
+        self.ffi_dir  = self.root_dir+'/sector_{}/ffis/'.format(sector)
+        if os.path.isdir(self.post_dir)==False:
+            os.system('cd {} && mkdir {}'.format(self.root_dir+'/sector_{}/'.format(sector), 'postcards'))
+
+        fns, time = self.sort_by_date(camera, chip)
+        fns = [self.ffi_dir+i for i in fns]
         mast, mheader = fits.getdata(fns[0], header=True)
         x, y = np.linspace(45, 2093, 8, dtype=int), np.linspace(0, 2048, 8, dtype=int)
         x_cens, y_cens = [], []
@@ -621,7 +633,7 @@ class data_products(find_sources):
         for i in range(len(x)-1):
             for j in range(len(y)-1):
                 mast, mheader = fits.getdata(fns[0], header=True)
-                fn = 'postcard_{}_{}-{}_{}-{}.fits'.format(self.sector, self.camera, self.chip, i, j)
+                fn = 'postcard_{}_{}-{}_{}-{}.fits'.format(sector, camera, chip, i, j)
                 x_cen = (x[i]+x[i+1]) / 2.
                 y_cen = (y[j]+y[j+1]) / 2.
 
@@ -640,9 +652,9 @@ class data_products(find_sources):
                 hdr.append(('COMMENT', '***********************'))
                 hdr.append(('COMMENT', '*     ELLIE INFO      *'))
                 hdr.append(('COMMENT', '***********************'))
-                hdr.append(('COMMENT' , 'Adina D. Feinstein -- Author'))
-                hdr.append(('COMMENT', '1.0', 'Version'))
-                hdr.append(('COMMENT' , 'https://github.com/afeinstein20/ELLIE -- GitHub'))
+                hdr.append(('AUTHOR' , 'Adina D. Feinstein'))
+                hdr.append(('VERSION', '1.0'))
+                hdr.append(('GITHUB' , 'https://github.com/afeinstein20/ELLIE'))
                 hdr.append(('CREATED', strftime('%Y-%m-%d'),
                             'ELLIE file creation date (YYY-MM-DD)'))
                 hdr.append(('CEN_X'  , np.round(x_cen, 8)))
@@ -652,7 +664,7 @@ class data_products(find_sources):
 
                 hdu1 = fits.PrimaryHDU(header=hdr)
                 hdu1.data = tpf.flux
-                hdu1.writeto(self.root_dir+fn)
+                hdu1.writeto(self.post_dir+fn)
 
         ascii.write(t, output='postcard.txt')
         return
@@ -730,6 +742,16 @@ class data_products(find_sources):
             x = xy[0]*np.cos(theta) - xy[1]*np.sin(theta) - delX
             y = xy[0]*np.sin(theta) + xy[1]*np.cos(theta) - delY
             return np.array([x,y])     
+
+        def add_shift(tpf):
+            """ Creates an additional shift to put source at (4,4) of TPF file """
+            """                          Returns: TPF                          """
+            tpf_init = tpf[0]
+            tpf_com  = tpf_init[2:7, 2:7]
+            com = ndimage.measurements.center_of_mass(tpf_com.T -  np.median(tpf_com))
+            shift = [com[0]-2, com[1]-2]
+            shift = [np.round(shift[0]+4.0,0), np.round(shift[1]+4.0,0)]
+            return shift
         
         if self.tic != None:
             tic_id, pos, tmag = find_sources.tic_pos_by_ID(self)
@@ -783,10 +805,12 @@ class data_products(find_sources):
         newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
         
         newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
+        print("initial tpf: ", newX, newY) 
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
-#        plt.imshow(tpf[0], origin='lower')
-#        plt.show()
 
+        xy_new = add_shift(tpf)
+        newX, newY = int(np.ceil(newX+xy_new[0]-4.0)), int(np.ceil(newY+xy_new[1]-4.0))
+        print("post com shift: ", newX, newY)
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
@@ -794,9 +818,6 @@ class data_products(find_sources):
         else:
             shape = 'rectangle'
 
-#        plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
-#        plt.plot(np.arange(0,len(tpf),1), lc, 'r')
-#        plt.show()
         lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
 
         # Additional header information
@@ -994,6 +1015,7 @@ class visualize(data_products):
             self.fn   = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.tic)
         else:
             self.fn   = input_fn
+        print(self.fn)
 
 
     def tpf_movie(self, output_fn=None, cbar=True, aperture=False, com=False, plot_lc=False, **kwargs):
@@ -1039,7 +1061,6 @@ class visualize(data_products):
 
         def animate(i):
             nonlocal line, x, y, scats, line
-            print(i)
             ax.imshow(tp[i], origin='lower', **kwargs)
             # Plots motion of COM when the user wants
             if com==True:
@@ -1086,7 +1107,6 @@ class visualize(data_products):
             spec = gridspec.GridSpec(ncols=1, nrows=1)
             ax   = fig.add_subplot(spec[0,0])
 
-
         # Writes frame number on TPF movie
         time_text = ax.text(5.5, -0.25, '', color='white', fontweight='bold')
         time_text.set_text('')
@@ -1109,6 +1129,7 @@ class visualize(data_products):
                 ax.set_title('{}'.format(self.gaia), fontweight='bold')
             
         plt.tight_layout()
+        plt.show()
         return
 
 
