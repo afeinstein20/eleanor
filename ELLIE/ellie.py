@@ -770,7 +770,9 @@ class data_products(find_sources):
         if os.path.isdir(self.post_dir) == False:
             os.system('cd {} && mkdir postcards'.format(self.root_dir))
         if Path(self.post_dir+postcard).is_file() == False:
+            print("*************")
             print("You don't have the postcard your source is one. Here: we'll download it for you!")
+            print("*************")
             os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.post_url+postcard) )
 
         post_fits = fits.open(self.post_dir+postcard)[0].data
@@ -901,6 +903,10 @@ class data_products(find_sources):
             x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) + delX[i] )
             y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) + delY[i] )
         x, y = np.array(x), np.array(y)
+
+        print("*************")
+        print("We're doing our best to find the ideal aperture shape & size for your source.")
+        print("*************")
         radius, shape, lc, uncorr = findLC(x, y)
         
         return radius, shape, lc, uncorr
@@ -954,6 +960,10 @@ class data_products(find_sources):
             lc_corrected = sff.correct(time, lc, x_pos, y_pos, niters=1,
                                        windows=1, polyorder=5)
             return lc_corrected.flux
+
+        print("*************")
+        print("Please hold while we do some systematics corrections.")
+        print("*************")
 
         if jitter==True and roll==True:
             newlc = jitter_corr(lc, x_pos, y_pos)
