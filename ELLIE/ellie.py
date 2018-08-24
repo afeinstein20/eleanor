@@ -231,8 +231,6 @@ class find_sources:
 
         job = Gaia.launch_job(adql)
         table = job.get_results()
-#        gaiaData = Catalogs.query_region(catalog="Gaia", ID=source, version=2)
-#        return gaiaData['ID'].data, [gaiaData['ra'].data[0], gaiaData['dec'].data[0]], gaiaData['phot_g_mean_mag'].data
         return table
 
 
@@ -353,7 +351,7 @@ class find_sources:
 
         for i in range(len(data)):
             pos = data[i]
-            gaia = self.crossmatch_by_position(0.005, 'Mast.GaiaDR2.Crossmatch', pos)[0]
+            gaia = self.crossmatch_by_position(0.01, 'Mast.GaiaDR2.Crossmatch', pos)[0]
             tess = self.crossmatch_by_position(0.5, 'Mast.Tic.Crossmatch', pos)[0]
             pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
             gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
@@ -471,10 +469,11 @@ class data_products(find_sources):
         return
 
 
-    def sort_by_date(self):
+    def sort_by_date(self, camera, chip):
         """ Sorts FITS files by start date of observation """
-        fns = np.array(os.listdir(self.dir))
-        fitsInds = np.array([i for i,item in enumerate(fns) if 'ffic' in item])
+        fns = np.array(os.listdir(self.ffi_dir))
+        pair = '{}-{}'.format(camera, chip)
+        fitsInds = np.array([i for i,item in enumerate(fns) if 'ffic' and pair in item])
         fns = fns[fitsInds]
         dates = []
         for f in fns:
@@ -484,7 +483,7 @@ class data_products(find_sources):
         return fns
 
 
-    def pointing_model(self):#, camera=camera, chip=chip, sector=sector):
+    def pointing_model(self, camera=None, chip=None, sector=None):
         """
         Creates the pointing model for a given camera and chip across all cadences
         """
@@ -536,7 +535,6 @@ class data_products(find_sources):
             def model(params):
                 nonlocal xy, centroids
                 theta, xT, yT = params
-#                theta = np.radians(theta)
 
                 xRot = xy[:,0]*np.cos(theta) - xy[:,1]*np.sin(theta) + xT
                 yRot = xy[:,0]*np.sin(theta) + xy[:,1]*np.cos(theta) + yT
@@ -584,8 +582,10 @@ class data_products(find_sources):
                     oldSol = sol
             return
 
-        fns = self.sort_by_date()
-        mast, header = fits.getdata(self.dir+fns[0], header=True)
+        self.ffi_dir = self.root_dir+'/ffis/sector_{}/'.format(sector)
+
+        fns = self.sort_by_date(camera, chip)
+        mast, header = fits.getdata(self.ffi_dir+fns[0], header=True)
         xy, id = pixel_cone(header, 6*np.sqrt(2), [0.0, 5e-5])
         
         # Makes sure sources are in the file
@@ -658,7 +658,7 @@ class data_products(find_sources):
         return
 
 
-    def find_postcard(self, pos=None):
+    def find_postcard(self):
         """ 
         Finds what postcard a source is located in
         Returns
@@ -678,7 +678,7 @@ class data_products(find_sources):
                 data.append(t[i][j])
             d = dict(zip(t.colnames[0:146], data))
             hdr = fits.Header(cards=d)
-            xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
+            xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
             x_cen, y_cen, l, w = t['POST_CEN_X'][i], t['POST_CEN_Y'][i], t['POST_SIZE1'][i]/2., t['POST_SIZE2'][i]/2.
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
@@ -696,7 +696,11 @@ class data_products(find_sources):
                     else:
                         in_file[0]=in_file[0]
         # Returns postcard filename & postcard header    
-        return t['POST_FILE'][in_file[0]], t[in_file[0]]
+        if in_file[0]==None:
+            print("Sorry! We don't have a postcard for you. Please double check your source has been observed by TESS")
+            return False, False
+        else:
+            return t['POST_FILE'][in_file[0]], t[in_file[0]]
 
 
     def get_pointing(self, header=None, postcard=None):
@@ -727,27 +731,23 @@ class data_products(find_sources):
             y = xy[0]*np.sin(theta) + xy[1]*np.cos(theta) - delY
             return np.array([x,y])     
         
-        
-        def from_find_sources():
-            """ Finds the source's position """
-            if self.tic != None:
-                locate = find_sources(tic=self.tic)
-                tic_id, pos, tmag = locate.tic_pos_by_ID()
-                locate = find_sources(tic=self.tic, pos=pos)
-                table = locate.find_by_position()
-            elif self.gaia != None:
-                locate = find_sources(gaia=self.gaia)
-                table  = locate.gaia_pos_by_ID()
-                pos    = [table['ra'].data[0], table['dec'].data[0]]
-                locate = fs(gaia=id, pos=pos)
-                table  = locate.find_by_position()
-            return table
+        if self.tic != None:
+            tic_id, pos, tmag = find_sources.tic_pos_by_ID(self)
+            self.pos = pos
+            table = find_sources.find_by_position(self)
+        elif self.gaia != None:
+            table = find_sources.gaia_pos_by_ID(self)
+            self.pos = [table['ra'].data[0], table['dec'].data[0]]
+            table = find_sources.find_by_position(self)
+        elif self.pos != None:
+            table = find_sources.find_by_position(self)
     
-        source_info = from_find_sources()
+        self.pos = [table['RA'].data[0], table['Dec'].data[0]]
 
-        pos = [source_info['RA'].data[0], source_info['Dec'].data[0]]
-        
-        postcard, card_info = self.find_postcard(pos)
+        postcard, card_info = self.find_postcard()
+        if postcard==False:
+            return
+
         # Extracts sector, camera, and chip from postcard filename
         self.pointing = self.get_pointing(postcard=postcard)
 
@@ -756,7 +756,7 @@ class data_products(find_sources):
             data.append(card_info[i])
         d = dict(zip(card_info.colnames[0:146], data))
         hdr = fits.Header(cards=d)
-        xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
+        xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
 
         # Corrects position with pointing model
         initShift = self.pointing[0]
@@ -770,6 +770,7 @@ class data_products(find_sources):
         if os.path.isdir(self.post_dir) == False:
             os.system('cd {} && mkdir postcards'.format(self.root_dir))
         if Path(self.post_dir+postcard).is_file() == False:
+            print("You don't have the postcard your source is one. Here: we'll download it for you!")
             os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.post_url+postcard) )
 
         post_fits = fits.open(self.post_dir+postcard)[0].data
@@ -825,6 +826,8 @@ class data_products(find_sources):
             fn = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.tic)
         elif self.gaia != None:
             fn = 'hlsp_ellie_tess_ffi_GAIA{}_v1_lc.fits'.format(self.gaia)
+        elif self.pos != None:
+            fn = 'hlsp_ellie_tess_ffi_CLOSEST_TIC{}_v1_lc.fits'.format(int(table['TIC_ID']))
 
         if output_fn==None:
             new_hdu.writeto(fn)
