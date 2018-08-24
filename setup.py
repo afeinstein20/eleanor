@@ -17,7 +17,7 @@ setup(
     description='Source Extraction for TESS Full Frame Images',
     package_data={'':['README.rst', 'LICENSE']},
     install_requires=[
-        'mplcursors', 'photutils',
+        'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
         ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
