@@ -771,7 +771,7 @@ class data_products(find_sources):
             os.system('cd {} && mkdir postcards'.format(self.root_dir))
         if Path(self.post_dir+postcard).is_file() == False:
             print("*************")
-            print("You don't have the postcard your source is one. Here: we'll download it for you!")
+            print("You don't have the postcard your source is on. Here: we'll download it for you!")
             print("*************")
             os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.post_url+postcard) )
 
@@ -809,8 +809,8 @@ class data_products(find_sources):
         hdr.append(('CREATED', strftime('%Y-%m-%d'),
                     'ELLIE file creation date (YYY-MM-DD)'))
         hdr.append(('POSTCARD', postcard, 'Postcard Filename'))
-        hdr.append(('APER_SHAPE', shape))
-        hdr.append(('APER_RADIUS', radius))
+        hdr.append(('AP_SHAPE', shape))
+        hdr.append(('AP_RAD', radius))
         hdr.append(('CEN_X', float(newX)))
         hdr.append(('CEN_Y', float(newY)))
         radec_cen = WCS(hdr).all_pix2world(newX, newY, 1)
@@ -876,7 +876,10 @@ class data_products(find_sources):
                     matrix[i][1][j] = aperture_photometry(tpf[j], rect)['aperture_sum'].data[0]
                 matrix[i][0] = matrix[i][0] / np.nanmedian(matrix[i][0])
                 matrix[i][1] = matrix[i][1] / np.nanmedian(matrix[i][1])
-
+            
+            print("*************")
+            print("Please hold while we do some systematics corrections.")
+            print("*************")
             # Creates a complete, systematics corrected light curve for each aperture
             for i in range(len(r_list)):
                 lc_circ = self.system_corr(matrix[i][0], x, y, jitter=True, roll=True)
@@ -960,10 +963,6 @@ class data_products(find_sources):
             lc_corrected = sff.correct(time, lc, x_pos, y_pos, niters=1,
                                        windows=1, polyorder=5)
             return lc_corrected.flux
-
-        print("*************")
-        print("Please hold while we do some systematics corrections.")
-        print("*************")
 
         if jitter==True and roll==True:
             newlc = jitter_corr(lc, x_pos, y_pos)
