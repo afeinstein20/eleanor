@@ -1,19 +1,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from lightkurve import KeplerTargetPixelFile as ktpf
-from customTPFs import custom_tpf as ctpf
+from ellie import find_sources as ctpf
 from astropy.io import fits
 from astropy.wcs import WCS
 from oneSource import files_in_dir
 import mplcursors
 from astroquery.mast import Catalogs
 
-def find_center(file):
+def find_center(header):
     """ Finds the true center of the TPF """
-    hdu = fits.open(file)
-    header = hdu[0].header
     # Finds center (RA,Dec) and (x,y) of TPF
-    return (header['CEN_RA'], header['CEN_DEC']), (header['CEN_X'], header['CEN_Y']), header
+    return (header['CEN_RA'], header['CEN_DEC']), (header['CEN_X'], header['CEN_Y'])
 
 
 def cone_search_sources(cen_ra, cen_dec):#gaia_id):
@@ -63,16 +61,19 @@ def plot_with_hover(tpf, gaiaXY, gaiaID, gaiaMAG, ticID, tmag):
 
 def main(id, camera, chip):
     """ Temporary main function """
-    file = './figures/TIC{}_tpf.fits'.format(id)
-    dir  = './2019/2019_1_{}-{}/ffis/'.format(camera, chip)
-    fns  = files_in_dir(dir)
-    
-    flux, header = fits.getdata(fns[0], header=True)
-    pos, xy, hdu1 = find_center(file)
-
+#    file = './figures/TIC{}_tpf.fits'.format(id)
+    file = 'hlsp_ellie_tess_ffi_284969084_v1_lc.fits'
+#    dir  = './2019/2019_1_{}-{}/ffis/'.format(camera, chip)
+#    fns  = files_in_dir(dir)
+    hdu = fits.open(file)
+    tpf = hdu[0].data
+    post, post_header = fits.getdata(hdu[0].header['COMMENT'][6], header=True)
+#    flux, header = fits.getdata(fns[0], header=True)
+    pos, xy = find_center(post_header)
+    print(post_header)
     gaiaRA, gaiaDEC, gaiaID, gaiaMAG = cone_search_sources(pos[0], pos[1])#hdu1['GAIA_ID'])
 
-    gaiaXY = WCS(header).all_world2pix(gaiaRA, gaiaDEC, 1)
+    gaiaXY = WCS(post_header).all_world2pix(gaiaRA, gaiaDEC, 1)
     gaiaXY = pointingCorr(gaiaXY, camera, chip)
     gaiaXY, gaiaID, gaiaMAG = in_tpf(xy, gaiaXY, gaiaID, gaiaMAG)
 
