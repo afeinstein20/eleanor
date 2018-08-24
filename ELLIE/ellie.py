@@ -699,6 +699,19 @@ class data_products(find_sources):
         return t['POST_FILE'][in_file[0]], t[in_file[0]]
 
 
+    def get_pointing(self, header=None, postcard=None):
+        """ Gets the pointing model from the website """
+        if postcard == None:
+            postcard = header['POSTCARD']
+        self.camera, self.chip = postcard[11:12], postcard[13:14]
+        self.sector = postcard[9:10]
+        pm_link = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/pointingModel_{}_{}-{}.txt'.format(
+                self.sector, self.camera, self.chip))
+        pm = pm_link.read().decode('utf-8')
+        pm = Table.read(pm, format='ascii.basic')
+        return pm
+
+
     def individual_tpf(self, output_fn=None):
         """
         Creates a FITS file for a given source that includes:
@@ -728,9 +741,6 @@ class data_products(find_sources):
                 pos    = [table['ra'].data[0], table['dec'].data[0]]
                 locate = fs(gaia=id, pos=pos)
                 table  = locate.find_by_position()
-            else:
-                print('Unknown mission. Please try again.')
-                return            
             return table
     
         source_info = from_find_sources()
@@ -739,16 +749,7 @@ class data_products(find_sources):
         
         postcard, card_info = self.find_postcard(pos)
         # Extracts sector, camera, and chip from postcard filename
-        self.camera, self.chip = postcard[11:12], postcard[13:14]
-        self.sector = postcard[9:10]
-
-        # Gets pointing model from website
-        pm_link = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/pointingModel_{}_{}-{}.txt'.format(
-                self.sector, self.camera, self.chip))
-        pm = pm_link.read().decode('utf-8')
-        pm = Table.read(pm, format='ascii.basic')
-
-        self.pointing = pm
+        self.pointing = self.get_pointing(postcard=postcard)
 
         data = []
         for i in range(147):
@@ -758,7 +759,7 @@ class data_products(find_sources):
         xy = WCS(hdr).all_world2pix(pos[0], pos[1], 1)
 
         # Corrects position with pointing model
-        initShift = pm[0]
+        initShift = self.pointing[0]
         initShift[0] = initShift['medT']
         x = xy[0]*np.cos(initShift['medT']) - xy[1]*np.sin(initShift['medT']) - initShift['medX']
         y = xy[0]*np.sin(initShift['medT']) + xy[1]*np.cos(initShift['medT']) - initShift['medY']
@@ -780,8 +781,8 @@ class data_products(find_sources):
         
         newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
-        plt.imshow(tpf[0], origin='lower')
-        plt.show()
+#        plt.imshow(tpf[0], origin='lower')
+#        plt.show()
 
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
@@ -790,21 +791,21 @@ class data_products(find_sources):
         else:
             shape = 'rectangle'
 
-        plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
-        plt.plot(np.arange(0,len(tpf),1), lc, 'r')
-        plt.show()
+#        plt.plot(np.arange(0,len(tpf),1), uncorrLC, 'k')
+#        plt.plot(np.arange(0,len(tpf),1), lc, 'r')
+#        plt.show()
         lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
 
         # Additional header information
         hdr.append(('COMMENT', '***********************'))
         hdr.append(('COMMENT', '*     ELLIE INFO      *'))
         hdr.append(('COMMENT', '***********************'))
-        hdr.append(('COMMENT' , 'Adina D. Feinstein -- Author'))
-        hdr.append(('COMMENT', '1.0', 'Version'))
-        hdr.append(('COMMENT' , 'https://github.com/afeinstein20/ELLIE -- GitHub'))
+        hdr.append(('AUTHOR' , 'Adina D. Feinstein'))
+        hdr.append(('VERSION', '1.0'))
+        hdr.append(('GITHUB' , 'https://github.com/afeinstein20/ELLIE'))
         hdr.append(('CREATED', strftime('%Y-%m-%d'),
                     'ELLIE file creation date (YYY-MM-DD)'))
-        hdr.append(('COMMENT', postcard, 'Postcard Filename'))
+        hdr.append(('POSTCARD', postcard, 'Postcard Filename'))
         hdr.append(('APER_SHAPE', shape))
         hdr.append(('APER_RADIUS', radius))
         hdr.append(('CEN_X', float(newX)))
@@ -844,10 +845,8 @@ class data_products(find_sources):
         def centroidOffset(tpf, file_cen):
             """ Finds offset between center of TPF and centroid of first cadence """
             tpf_com = Cutout2D(tpf[0], position=(len(tpf[0])/2, len(tpf[0])/2), size=(4,4))
-            plt.imshow(tpf_com.data, origin='lower')
-            plt.show()
             com = ndimage.measurements.center_of_mass(tpf_com.data.T - np.median(tpf_com.data))
-            return com[0], com[1]#len(tpf_com.data)/2-com[0], len(tpf_com.data)/2-com[1]
+            return len(tpf_com.data)/2-com[0], len(tpf_com.data)/2-com[1]
 
         def aperture(r, pos):
             """ Creates circular & rectangular apertures of given size """
@@ -881,28 +880,24 @@ class data_products(find_sources):
                 lc_rect = self.system_corr(matrix[i][1], x, y, jitter=True, roll=True)
                 system[i][1] = lc_rect
                 sigma[i][1] = np.std(lc_rect)
+
             best = np.where(sigma==np.min(sigma))
             r_ind, s_ind = best[0][0], best[1][0]
             lc_best = system[r_ind][s_ind]
             return r_list[r_ind], s_ind, lc_best, matrix[r_ind][s_ind]
 
         file_cen = len(tpf[0])/2.
-
         initParams = self.pointing[0]
         theta, delX, delY = self.pointing['medT'].data, self.pointing['medX'].data, self.pointing['medY'].data
-
         startX, startY = centroidOffset(tpf, file_cen)
-        print(startX, startY)
-        startX, startY = file_cen+startX, file_cen+startY
-        print(startX, startY)
+#        startX, startY = file_cen+startX, file_cen+startY
 #        x, y = [startX], [startY]
+#        startX, startY = file_cen, file_cen
         x, y = [], []
         for i in range(len(theta)):
-            x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) - delX[i] )
-            y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) - delY[i] )
-
+            x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) + delX[i] )
+            y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) + delY[i] )
         x, y = np.array(x), np.array(y)
-        print(x)
         radius, shape, lc, uncorr = findLC(x, y)
         
         return radius, shape, lc, uncorr
@@ -969,7 +964,7 @@ class data_products(find_sources):
 ##########################
 ##########################
 ##########################
-class visualize:
+class visualize(data_products):
     """
     The main interface for creating figures, movies, and interactive plots
     Allows the user to have a grand ole time playing with their data!
@@ -978,15 +973,16 @@ class visualize:
         tpf: A FITS file that contains stacked cadences for a single source
     """
 
-    def __init__(self, tic, dir=None, fn=None, **kwargs):
+    def __init__(self, tic=None, gaia=None, input_fn=None, **kwargs):
         """ USER INPUT """
         # Get ID out of file
         self.tic  = tic
-        if dir==None:
-            self.tpf = fn
+        self.gaia = gaia
+        if self.tic != None:
+            self.fn   = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.tic)
         else:
-            self.tpf = dir+ fn
-                    
+            self.fn   = input_fn
+
 
     def tpf_movie(self, output_fn=None, cbar=True, aperture=False, com=False, plot_lc=False, **kwargs):
         """
@@ -1007,21 +1003,32 @@ class visualize:
         ----------
             Creates an MP4 file
         """
-        tp = ktpf.from_fits(self.tpf)
-        lc = tp.to_lightcurve()
-#        lc = fits.getdata(self.lcf)
-        time, lc = lc.time, lc.flux/np.nanmedian(lc.flux)
+        hdu = fits.open(self.fn)
+        tp  = hdu[0].data
+        lc_dat = hdu[1].data
+        time = lc_dat[0]
+        lc = lc_dat[2]
+        lc = lc/np.nanmedian(lc)
+
+        if com==True or aperture==True:
+            pm = data_products.get_pointing(self, header=hdu[0].header)
+            x, y = [], []
+            for i in range(len(tp)):
+                tp_com = Cutout2D(tp[i], position=(4,4), size=(4,4))
+                tp_com = tp_com.data
+                centroid = ndimage.measurements.center_of_mass(tp_com.T - np.median(tp_com))
+                x.append(centroid[0]+2.)
+                y.append(centroid[1]+2.)
 
         if 'vmax' not in kwargs:
-            kwargs['vmax'] = np.max(tp.flux[0])
+            kwargs['vmax'] = np.max(tp[0])
         if 'vmin' not in kwargs:
-            kwargs['vmin'] = np.min(tp.flux[0])
+            kwargs['vmin'] = np.min(tp[0])
 
-        print(kwargs)
         def animate(i):
-            nonlocal line
-
-            ax.imshow(tp.flux[i], origin='lower', **kwargs)
+            nonlocal line, x, y, scats, line
+            print(i)
+            ax.imshow(tp[i], origin='lower', **kwargs)
             # Plots motion of COM when the user wants
             if com==True:
                 for scat in scats:
@@ -1076,17 +1083,21 @@ class visualize:
         Writer = animation.writers['ffmpeg']
         writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
 
-        ani = animation.FuncAnimation(fig, animate, frames=len(tp.flux))
+        ani = animation.FuncAnimation(fig, animate, frames=len(tp))
 
         if cbar==True:
-            plt.colorbar(plt.imshow(tp.flux[0], **kwargs), ax=ax)
+            plt.colorbar(plt.imshow(tp[0], **kwargs), ax=ax)
 
         if output_fn == None:
-            output_fn = '{}.mp4'.format(self.id)        
+            if self.tic != None:
+                self.output_fn = '{}.mp4'.format(self.tic)
+                ax.set_title('{}'.format(self.tic), fontweight='bold')
+            elif self.gaia != None:
+                self.output_fn = '{}.mp4'.format(self.gaia)
+                ax.set_title('{}'.format(self.gaia), fontweight='bold')
             
         plt.tight_layout()
-        ax.set_title('{}'.format(self.id), fontweight='bold')
-        return ani
+        return
 
 
     def click_aperture(self):
@@ -1100,7 +1111,7 @@ class visualize:
             coords, rectList = [], []
 
             fig, ax = plt.subplots()
-            ax.imshow(tpf.flux[0], origin='lower')
+            ax.imshow(tpf[0], origin='lower')
             
             def onclick(event):
                 """ Update figure canvas """
@@ -1125,7 +1136,7 @@ class visualize:
             nonlocal tpf, coords, rectList
             """ Presents a figure for the user to approve of selected pixels """
             fig, ax = plt.subplots(1)
-            ax.imshow(tpf.flux[0], origin='lower')
+            ax.imshow(tpf[0], origin='lower')
             
             # Recreates patches for confirmation
             for i in range(len(coords)):
@@ -1142,7 +1153,7 @@ class visualize:
             good=True
             
             # Checks if user is happy with custom aperture
-            def get_status(val):
+            def get_status(value):
                 nonlocal good
                 if value == 'Yes':
                     good=True
@@ -1153,21 +1164,24 @@ class visualize:
             plt.show()
             return good
 
-        tpf = ktpf.from_fits(self.tpf)
+        hdu = fits.open(self.fn)
+        tpf = hdu[0].data
         coords, rectList = click_pixels()
         check = check_pixels()
+
+        custlc = []
         if check==True:
-            lc = []
-            for f in range(len(tpf.flux)):
+            for f in range(len(tpf)):
                 cadence = []
                 for i in range(len(coords)):
-                    cadence.append(tpf.flux[f][coords[i][0], coords[i][1]])
-                lc.append(np.sum(cadence))
-            lc = np.array(lc) / np.nanmedian(lc)
+                    cadence.append(tpf[f][coords[i][0], coords[i][1]])
+                custlc.append(np.sum(cadence))
+            custlc = np.array(custlc) / np.nanmedian(custlc)
+            return custlc
+            
         else:
             self.click_aperture()
-            
-        return lc
+
 
     def mark_gaia(self):
         """
@@ -1175,5 +1189,5 @@ class visualize:
         Click on the x's to reveal the source's ID and Gmag
         Also cross-matches with TIC and identifies sources in there as well
         """
-        
+        return
 
