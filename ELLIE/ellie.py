@@ -690,7 +690,7 @@ class data_products(find_sources):
                 data.append(t[i][j])
             d = dict(zip(t.colnames[0:146], data))
             hdr = fits.Header(cards=d)
-            xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
+            xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1, )
             x_cen, y_cen, l, w = t['POST_CEN_X'][i], t['POST_CEN_Y'][i], t['POST_SIZE1'][i]/2., t['POST_SIZE2'][i]/2.
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
@@ -1013,8 +1013,10 @@ class visualize(data_products):
         self.gaia = gaia
         if self.tic != None:
             self.fn   = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.tic)
+        elif self.gaia != None:
+            self.fn   = 'hlsp_ellie_tess_ffi_GAIA{}_v1_lc.fits'.format(self.gaia)
         else:
-            self.fn   = input_fn
+            self.fn = input_fn
         print(self.fn)
 
 
@@ -1118,7 +1120,7 @@ class visualize(data_products):
         ani = animation.FuncAnimation(fig, animate, frames=len(tp))
 
         if cbar==True:
-            plt.colorbar(plt.imshow(tp[0], **kwargs), ax=ax)
+            plt.colorbar(ax.imshow(tp[0], **kwargs), ax=ax)
 
         if output_fn == None:
             if self.tic != None:
@@ -1222,5 +1224,25 @@ class visualize(data_products):
         Click on the x's to reveal the source's ID and Gmag
         Also cross-matches with TIC and identifies sources in there as well
         """
+        def find_gaia_sources(header):
+            """ Compeltes a cone search around the center of the TPF for Gaia sources """
+            pos = [header['CEN_RA'], header['CEN_DEC']]
+            l   = find_sources(pos=pos)
+            sources = l.cone_search(r=0.05, service='Mast.Catalogs.GaiaDR2.Cone')
+            return sources['ra'], sources['dec'], sources['source_id'], sources['phot_g_mean_mag']
+
+        def pointingCorr(xy, header):
+            """ Corrects (x,y) coordinates based on pointing model """
+            pm = data_products.get_pointing(self, header=header)
+            shift = pm[0]
+            print(shift)
+
+        
+        tpf, header = fits.getdata(self.fn, header=True)
+        postcard = header['POSTCARD']
+        self.sector, self.camera, self.chip = postcard[9:10], postcard[11:12], postcard[13:14]
+
+
         return
+
 
