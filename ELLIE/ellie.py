@@ -423,6 +423,11 @@ class data_products(find_sources):
         self.pos  = pos
         self.gaia = gaia
 
+        if self.tic != None:
+            self.tic_fn = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.tic)
+        if self.gaia != None:
+            self.gaia_fn = 'hlsp_ellie_tess_ffi_GAIA{}_v1_lc.fits'.format(self.gaia)
+
         """ Sets default directory to a local hidden directory .ellie"""
         """      with potential subdirectories ffis & postcards      """
         self.root_dir = './.ellie'
@@ -866,9 +871,9 @@ class data_products(find_sources):
         new_hdu = fits.HDUList([hdu1, hdu2])
 
         if self.tic != None:
-            fn = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.tic)
+            fn = self.tic_fn
         elif self.gaia != None:
-            fn = 'hlsp_ellie_tess_ffi_GAIA{}_v1_lc.fits'.format(self.gaia)
+            fn = self.gaia_fn
         elif self.pos != None:
             fn = 'hlsp_ellie_tess_ffi_CLOSEST_TIC{}_v1_lc.fits'.format(int(table['TIC_ID']))
 
@@ -954,7 +959,74 @@ class data_products(find_sources):
         return radius, shape, lc, uncorr
 
 
-    def system_corr(self, lc, x_pos, y_pos, jitter=False, roll=None):
+    def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, t=0.0, pointing=True,
+                        jitter=True, roll=True, input_fn=None, pos=[]):
+        """ 
+        Allows the user to input their own aperture of a given shape (either 'circle' or
+            'rectangle' are accepted) of a given size {radius of circle: r, length of rectangle: l,
+            width of rectangle: w, rotation of rectangle: t}
+        The user can have the aperture not follow the pointing model by setting pointing=False
+        The user can determine which kinds of corrections would like to be applied to their light curve
+            jitter & roll are automatically set to True
+        Pos is the position given in pixel space
+        """
+        def create_ap(pos):
+            """ Defines the custom aperture, as inputted by the user """
+            nonlocal shape, r, l, w, t
+            if shape=='circle':
+                return CircularAperture(pos, r)
+            elif shape=='rectangle':
+                return RectangularAperture(pos, l, w, t)
+            else:
+                print("Shape of aperture not recognized. Please input: circle or rectangle")
+            return
+        
+        def cust_lc(center, x=None, y=None):
+            nonlocal tpf
+            """ Creates the light curve for both cases (if pointing model is on or off) """
+            lc = []
+            for i in range(len(tpf)):
+                if pointing==True:
+                    ap = create_ap((x[i], y[i]))
+                else:
+                    ap = create_ap(center)
+                lc.append(aperture_photometry(tpf[i], ap)['aperture_sum'].data[0])
+            lc = np.array(lc)/np.nanmedian(lc)
+            return lc
+
+        # Checks for all of the correct inputs to create an aperture
+        if shape=='circle' and r==0.0:
+            print("Please input a radius of your aperture when calling custom_aperture(shape='circle', r=#)")
+            return
+        if shape=='rectangle' and (l==0.0 or w==0.0):
+            print("You are missing a dimension of your rectangular aperture. Please set custom_aperture(shape='rectangle', l=#, w=#)")
+            return
+        
+        if self.tic != None:
+            hdu = fits.open(self.tic_fn)
+        elif self.gaia != None:
+            hdu = fits.open(self.gaia_fn)
+        else:
+            hdu = fits.open(input_fn)
+        tpf = hdu[0].data
+        center = [4,4]
+        # Grabs the pointing model if the user has set pointing==True
+        if pointing==True:
+            pm  = self.get_pointing(header = hdu[0].header)
+            x = center[0]*np.cos(pm['medT'].data) - center[1]*np.sin(pm['medT'].data) + pm['medX'].data
+            y = center[0]*np.sin(pm['medT'].data) + center[1]*np.cos(pm['medT'].data) + pm['medY'].data
+
+        lc = cust_lc(center)
+
+        if pointing==False and roll==True:
+            print("Sorry, our roll correction, lightkurve.SFFCorrector, only works when you use the pointing model.\nFor now, we're turning roll corrections off.")
+            roll=False
+
+        lc = self.system_corr(lc, center[0], center[1], jitter=jitter, roll=roll)
+        plt.plot(hdu[1].data[0], lc)
+        plt.show()
+            
+    def system_corr(self, lc, x_pos, y_pos, jitter=False, roll=False):
         """ 
         Allows for systematics correction of a given light curve 
         Parameters
@@ -1007,7 +1079,9 @@ class data_products(find_sources):
             newlc = jitter_corr(lc, x_pos, y_pos)
             newlc = rotation_corr(newlc, x_pos, y_pos)
         elif jitter==False and roll==True:
-            lc = rotation_corr(lc, x_pos, y_pos)
+            newlc = rotation_corr(lc, x_pos, y_pos)
+        elif jitter==False and roll==False:
+            newlc = lc
         return newlc
 
 

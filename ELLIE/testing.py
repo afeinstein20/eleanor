@@ -10,12 +10,13 @@ import matplotlib.pyplot as plt
 tic  = 198593129
 #pos  = [266.491526, 49.518268]
 #gaia = 1414861664385248640
-#a = data_products(tic=tic)
+a = data_products(tic=tic)
 #a.individual_tpf()
+a.custom_aperture(shape='circle', r=2.3, pointing=False, jitter=False)
 
-b = visualize(tic=tic)
+#b = visualize(tic=tic)
 #b.mark_gaia()
-b.tpf_movie(plot_lc=True, aperture=True)
+#b.tpf_movie(plot_lc=True, aperture=True)
 #lc = b.click_aperture()
 #print(lc)
 #plt.plot(np.arange(0,len(lc),1), lc, 'r')
