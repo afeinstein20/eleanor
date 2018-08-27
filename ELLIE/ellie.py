@@ -852,11 +852,11 @@ class data_products(find_sources):
         hdr.append(('POSTCARD', postcard, 'Postcard Filename'))
         hdr.append(('AP_SHAPE', shape))
         hdr.append(('AP_RAD', radius))
-        hdr.append(('CEN_X', float(newX)))
-        hdr.append(('CEN_Y', float(newY)))
-        radec_cen = WCS(hdr).all_pix2world(newX, newY, 1)
-        hdr.append(('CEN_RA', float(self.pos[0])))
-        hdr.append(('CEN_DEC', float(self.pos[1])))
+        xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
+        hdr.append(('SOURCE_X', float(xy[0])))
+        hdr.append(('SOURCE_Y', float(xy[1])))
+        hdr.append(('SOURCE_RA', float(self.pos[0])))
+        hdr.append(('SOURCE_DEC', float(self.pos[1])))
 
         # Saves to FITS file
         hdu1 = fits.PrimaryHDU(header=hdr)
@@ -1243,7 +1243,7 @@ class visualize(data_products, find_sources):
         """
         def find_gaia_sources(header, hdr):
             """ Compeltes a cone search around the center of the TPF for Gaia sources """
-            pos = [header['CEN_RA'], header['CEN_DEC']]
+            pos = [header['SOURCE_RA'], header['SOURCE_DEC']]
             l   = find_sources(pos=pos)
             sources = l.cone_search(r=0.5, service='Mast.Catalogs.GaiaDR2.Cone')
             xy = WCS(hdr).all_world2pix(sources['ra'], sources['dec'], 1)
@@ -1259,9 +1259,9 @@ class visualize(data_products, find_sources):
 
         def in_tpf(xy, gaiaXY, gaiaID, gaiaMAG):
             """ Pushes the gaia sources to the appropriate place in the TPF """
-            gaiaX, gaiaY = gaiaXY[0]-xy[0]+4, gaiaXY[1]-xy[1]+5
-            inds = np.where( (gaiaX > -0.5) & (gaiaX < 8.5) &
-                             (gaiaY > -0.5) & (gaiaY < 8.5) )
+            gaiaX, gaiaY = gaiaXY[0]-xy[0]+4, gaiaXY[1]-xy[1]+6
+            inds = np.where( (gaiaX >= -0.5) & (gaiaX <= 8.5) &
+                             (gaiaY >= -0.5) & (gaiaY <= 8.5) )
             return [gaiaX[inds], gaiaY[inds]], gaiaID[inds], gaiaMAG[inds]
 
 
@@ -1285,13 +1285,13 @@ class visualize(data_products, find_sources):
         postcard = header['POSTCARD']
         hdr = data_products.get_header(self, postcard=postcard)
 
-        center   = [header['CEN_X'], header['CEN_Y']]
+        center   = [header['SOURCE_X'], header['SOURCE_Y']]
         self.sector, self.camera, self.chip = postcard[9:10], postcard[11:12], postcard[13:14]
         gaia_xy, gaia_id, gaia_gmag = find_gaia_sources(header, hdr)
 
         gaia_xy = pointingCorr(gaia_xy, header)
         gaia_xy, gaia_id, gaia_gmag = in_tpf(center, gaia_xy, gaia_id, gaia_gmag)
-
+ 
         crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)
 
         ticLabel, tmagLabel = np.zeros(len(gaia_id.data)), np.zeros(len(gaia_id.data))
