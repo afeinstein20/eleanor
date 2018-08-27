@@ -8,12 +8,13 @@ from oneSource import files_in_dir
 import mplcursors
 from astroquery.mast import Catalogs
 
+## ADDED ##
 def find_center(header):
     """ Finds the true center of the TPF """
     # Finds center (RA,Dec) and (x,y) of TPF
     return (header['CEN_RA'], header['CEN_DEC']), (header['CEN_X'], header['CEN_Y'])
 
-
+## ADDED ##
 def cone_search_sources(cen_ra, cen_dec):#gaia_id):
     """ Completes a cone search for sources """
     pos = [cen_ra, cen_dec]
