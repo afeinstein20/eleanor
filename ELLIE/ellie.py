@@ -1057,6 +1057,8 @@ class visualize(data_products, find_sources):
             Creates an MP4 file
         """
         hdu = fits.open(self.fn)
+        hdr = hdu[0].header
+        print(hdr['AP_SHAPE'], hdr['AP_RAD'])
         tp  = hdu[0].data
         lc_dat = hdu[1].data
         time = lc_dat[0]
@@ -1079,7 +1081,7 @@ class visualize(data_products, find_sources):
             kwargs['vmin'] = np.min(tp[0])
 
         def animate(i):
-            nonlocal line, x, y, scats, line
+            nonlocal line, x, y, scats, line, hdr, ps
             ax.imshow(tp[i], origin='lower', **kwargs)
             # Plots motion of COM when the user wants
             if com==True:
@@ -1092,11 +1094,13 @@ class visualize(data_products, find_sources):
             if aperture==True:
                 for c in ps:
                     c.remove()
-                circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
-                p = PatchCollection([circleShape], alpha=0.4)
-                p.set_array(np.array([0]))
-                p.set_edgecolor('face')
-                ps.append(ax.add_collection(p))
+                ps = []
+                if hdr['AP_SHAPE'] == 'circle':
+                    shape = patches.Circle((x[i],y[i]), hdr['AP_RAD'], alpha=0.4, color='white')
+                elif hdr['AP_SHAPE'] == 'rectangle':
+                    shape = patches.Rectangle((x[i],y[i]), hdr['AP_RAD'], hdr['AP_RAD'], 0.0,
+                                              alpha=0.4, color='white')
+                ps.append(ax.add_patch(shape))
 
             # Plots moving point along light curve when the user wants
             if plot_lc==True:
@@ -1109,7 +1113,7 @@ class visualize(data_products, find_sources):
             time_text.set_text('Frame {}'.format(i))
 
         
-        line, scats = [],[]
+        ps, line, scats = [],[], []
         if plot_lc==True:
             fig  = plt.figure(figsize=(18,5))
             spec = gridspec.GridSpec(ncols=3, nrows=1)
