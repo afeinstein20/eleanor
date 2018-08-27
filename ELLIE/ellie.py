@@ -13,7 +13,7 @@ from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs
 from astropy.io import fits
 from astropy.io import ascii
-from astropy.table import Table, Column
+from astropy.table import Table, Column, Row
 from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 
@@ -304,12 +304,16 @@ class find_sources:
             table: table of gaia_id, tic_id, ra, dec, delta_pos, gmag, tmag, pmra, pmdec, parallax 
         """
         if len(list) == 0:
-            filename = self.multiFile
-            sources  = np.loadtxt(filename, dtype=int)
+            try:
+                sources  = np.loadtxt(self.multiFile, dtype=int)
+            except AttributeError:
+                print("If calling from data_products: No filename found. Please make sure you spelled it correctly.")
+                print("If calling from visualize.mark_gaia: No Gaia sources were found in this TPF.")
+                return
         else:
             sources = list
         service  = 'Mast.Tic.Crossmatch'
-        r = 0.05
+        r = 0.1
         t = self.initialize_table()
         for s in sources:
             self.gaia = s
@@ -677,9 +681,7 @@ class data_products(find_sources):
         ----------
             postcard filename, header of the postcard
         """
-        postcard_cat = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/postcard.txt')
-        data = postcard_cat.read().decode('utf-8')
-        t = Table.read(data, format='ascii.basic') 
+        t = self.get_header()
 
         in_file=[None]
         # Searches through rows of the table
@@ -727,6 +729,23 @@ class data_products(find_sources):
         pm = Table.read(pm, format='ascii.basic')
         return pm
 
+    def get_header(self, postcard=None):
+        """ Gets postcard header from the website """
+        post_link = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/postcard.txt')
+        post  = post_link.read().decode('utf-8')
+        post  = Table.read(post, format='ascii.basic')
+        if postcard==None:
+            return post
+        else:
+            where = np.where(post['POST_FILE']==postcard)[0]
+            row   = Row(post, where[0])
+            data = []
+            for i in range(147):
+                data.append(row[i])
+            d = dict(zip(row.colnames[0:146], data))
+            hdr = fits.Header(cards=d)
+            return hdr
+
 
     def individual_tpf(self, output_fn=None):
         """
@@ -755,6 +774,7 @@ class data_products(find_sources):
         
         if self.tic != None:
             tic_id, pos, tmag = find_sources.tic_pos_by_ID(self)
+            print(tic_id, pos, tmag)
             self.pos = pos
             table = find_sources.find_by_position(self)
         elif self.gaia != None:
@@ -835,8 +855,8 @@ class data_products(find_sources):
         hdr.append(('CEN_X', float(newX)))
         hdr.append(('CEN_Y', float(newY)))
         radec_cen = WCS(hdr).all_pix2world(newX, newY, 1)
-        hdr.append(('CEN_RA', float(radec_cen[0])))
-        hdr.append(('CEN_DEC', float(radec_cen[1])))
+        hdr.append(('CEN_RA', float(self.pos[0])))
+        hdr.append(('CEN_DEC', float(self.pos[1])))
 
         # Saves to FITS file
         hdu1 = fits.PrimaryHDU(header=hdr)
@@ -919,9 +939,7 @@ class data_products(find_sources):
         initParams = self.pointing[0]
         theta, delX, delY = self.pointing['medT'].data, self.pointing['medX'].data, self.pointing['medY'].data
         startX, startY = centroidOffset(tpf, file_cen)
-#        startX, startY = file_cen+startX, file_cen+startY
-#        x, y = [startX], [startY]
-#        startX, startY = file_cen, file_cen
+
         x, y = [], []
         for i in range(len(theta)):
             x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) + delX[i] )
@@ -997,7 +1015,7 @@ class data_products(find_sources):
 ##########################
 ##########################
 ##########################
-class visualize(data_products):
+class visualize(data_products, find_sources):
     """
     The main interface for creating figures, movies, and interactive plots
     Allows the user to have a grand ole time playing with their data!
@@ -1017,7 +1035,6 @@ class visualize(data_products):
             self.fn   = 'hlsp_ellie_tess_ffi_GAIA{}_v1_lc.fits'.format(self.gaia)
         else:
             self.fn = input_fn
-        print(self.fn)
 
 
     def tpf_movie(self, output_fn=None, cbar=True, aperture=False, com=False, plot_lc=False, **kwargs):
@@ -1224,23 +1241,67 @@ class visualize(data_products):
         Click on the x's to reveal the source's ID and Gmag
         Also cross-matches with TIC and identifies sources in there as well
         """
-        def find_gaia_sources(header):
+        def find_gaia_sources(header, hdr):
             """ Compeltes a cone search around the center of the TPF for Gaia sources """
             pos = [header['CEN_RA'], header['CEN_DEC']]
             l   = find_sources(pos=pos)
-            sources = l.cone_search(r=0.05, service='Mast.Catalogs.GaiaDR2.Cone')
-            return sources['ra'], sources['dec'], sources['source_id'], sources['phot_g_mean_mag']
+            sources = l.cone_search(r=0.5, service='Mast.Catalogs.GaiaDR2.Cone')
+            xy = WCS(hdr).all_world2pix(sources['ra'], sources['dec'], 1)
+            return xy, sources['source_id'], sources['phot_g_mean_mag']
 
         def pointingCorr(xy, header):
             """ Corrects (x,y) coordinates based on pointing model """
             pm = data_products.get_pointing(self, header=header)
             shift = pm[0]
-            print(shift)
+            x = xy[0]*np.cos(shift[0]) - xy[1]*np.sin(shift[0]) - shift[1]
+            y = xy[0]*np.sin(shift[0]) + xy[1]*np.cos(shift[0]) - shift[2]
+            return np.array([x,y])
 
-        
+        def in_tpf(xy, gaiaXY, gaiaID, gaiaMAG):
+            """ Pushes the gaia sources to the appropriate place in the TPF """
+            gaiaX, gaiaY = gaiaXY[0]-xy[0]+4, gaiaXY[1]-xy[1]+5
+            inds = np.where( (gaiaX > -0.5) & (gaiaX < 8.5) &
+                             (gaiaY > -0.5) & (gaiaY < 8.5) )
+            return [gaiaX[inds], gaiaY[inds]], gaiaID[inds], gaiaMAG[inds]
+
+
+        def plot_with_click(tpf, gaia_xy, gaia_id, gaia_gmag, ticID, tmag):
+            """ Plots first cadence TPF; plots Gaia sources as black x's; click an x to get source information """
+            fig, ax = plt.subplots()
+            ax.imshow(tpf, origin='lower')
+            sc = ax.scatter(gaia_xy[0], gaia_xy[1], c='k', s=10)
+            plt.xlim([-0.5,8.5])
+            plt.ylim([-0.5,8.5])
+            mplcursors.cursor(sc).connect(
+                "add", lambda sel: sel.annotation.set_text("TIC ID = {}\nTmag = {}\nGaia ID = {}\nGmag = {}".format(ticID[sel.target.index],
+                                                                                                                    tmag[sel.target.index],
+                                                                                                                    gaia_id[sel.target.index],
+                                                                                                                    gaia_gmag[sel.target.index])))
+            plt.show()
+            return
+
+
         tpf, header = fits.getdata(self.fn, header=True)
         postcard = header['POSTCARD']
+        hdr = data_products.get_header(self, postcard=postcard)
+
+        center   = [header['CEN_X'], header['CEN_Y']]
         self.sector, self.camera, self.chip = postcard[9:10], postcard[11:12], postcard[13:14]
+        gaia_xy, gaia_id, gaia_gmag = find_gaia_sources(header, hdr)
+
+        gaia_xy = pointingCorr(gaia_xy, header)
+        gaia_xy, gaia_id, gaia_gmag = in_tpf(center, gaia_xy, gaia_id, gaia_gmag)
+
+        crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)
+
+        ticLabel, tmagLabel = np.zeros(len(gaia_id.data)), np.zeros(len(gaia_id.data))
+        for i in range(len(gaia_id.data)):
+            row = crossTable[i]
+            if row['separation'] <= 1.0 and row['Gmag'] <= 16.5:
+                ticLabel[i]  = row['TIC_ID']
+                tmagLabel[i] = row['Tmag']
+
+        plot_with_click(tpf[0], gaia_xy, gaia_id, gaia_gmag, ticLabel, tmagLabel)
 
 
         return
