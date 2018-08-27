@@ -14,8 +14,8 @@ tic  = 198593129
 #a.individual_tpf()
 
 b = visualize(tic=tic)
-#b.mark_gaia()
-b.tpf_movie(plot_lc=True, aperture=True)
+b.mark_gaia()
+#b.tpf_movie(plot_lc=True)
 #lc = b.click_aperture()
 #print(lc)
 #plt.plot(np.arange(0,len(lc),1), lc, 'r')
