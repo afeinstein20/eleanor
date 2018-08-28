@@ -1329,7 +1329,7 @@ class visualize(data_products, find_sources):
             l   = find_sources(pos=pos)
             sources = l.cone_search(r=0.5, service='Mast.Catalogs.GaiaDR2.Cone')
             xy = WCS(hdr).all_world2pix(sources['ra'], sources['dec'], 1)
-            return xy, sources['source_id'], sources['phot_g_mean_mag']
+            return xy, sources['source_id'], sources['phot_g_mean_mag'], sources['ra'], sources['dec']
 
         def pointingCorr(xy, header):
             """ Corrects (x,y) coordinates based on pointing model """
@@ -1339,12 +1339,12 @@ class visualize(data_products, find_sources):
             y = xy[0]*np.sin(shift[0]) + xy[1]*np.cos(shift[0]) - shift[2]
             return np.array([x,y])
 
-        def in_tpf(xy, gaiaXY, gaiaID, gaiaMAG):
+        def in_tpf(xy, gaiaXY, gaiaID, gaiaMAG, gaiaRA, gaiaDEC):
             """ Pushes the gaia sources to the appropriate place in the TPF """
             gaiaX, gaiaY = gaiaXY[0]-xy[0]+4, gaiaXY[1]-xy[1]+6
             inds = np.where( (gaiaX >= -0.5) & (gaiaX <= 8.5) &
                              (gaiaY >= -0.5) & (gaiaY <= 8.5) & (gaiaMAG <= 16.5))
-            return [gaiaX[inds], gaiaY[inds]], gaiaID[inds], gaiaMAG[inds]
+            return [gaiaX[inds], gaiaY[inds]], gaiaID[inds], gaiaMAG[inds], gaiaRA[inds], gaiaDEC[inds]
         
         def create_labels(gaia_id):
             ticLabel, tmagLabel = np.zeros(len(gaia_id.data)), np.zeros(len(gaia_id.data))
@@ -1367,9 +1367,9 @@ class visualize(data_products, find_sources):
         hdr = data_products.get_header(self, postcard=header['POSTCARD'])
 
         # Finds & corrects Gaia sources
-        gaia_xy, gaia_id, gaia_gmag = find_gaia_sources(header, hdr)
+        gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec = find_gaia_sources(header, hdr)
         gaia_xy = pointingCorr(gaia_xy, header)
-        gaia_xy, gaia_id, gaia_gmag = in_tpf(center, gaia_xy, gaia_id, gaia_gmag)
+        gaia_xy, gaia_id, gaia_gmag = in_tpf(center, gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec)
 
         # Crossmatches Gaia -> TIC
         ticLabel, tmagLabel = create_labels(gaia_id)
@@ -1393,14 +1393,16 @@ class visualize(data_products, find_sources):
 
         source=ColumnDataSource(data=dict(x=gaia_xy[0], y=gaia_xy[1],
                                           tic=ticLabel, tmag=tmagLabel,
-                                          gaia=gaia_id, gmag=gaia_gmag))
+                                          gaia=gaia_id, gmag=gaia_gmag,
+                                          ra=gaia_ra  , dec=gaia_dec))
 
 
         s = p.circle('x', 'y', size=8, source=source, line_color=None,
                      selection_color='red', nonselection_fill_alpha=0.0, nonselection_line_alpha=0.0,
                      nonselection_line_color=None, fill_color='black', hover_alpha=0.9, hover_line_color='white')
         p.add_tools(HoverTool( tooltips=[("TIC Source", "@tic"), ("Tmag", "@tmag"),
-                                         ("Gaia Source", "@gaia"), ("Gmag", "@gmag")],
+                                         ("Gaia Source", "@gaia"), ("Gmag", "@gmag"),
+                                         ("RA", "@ra"), ("Dec", "@dec")],
                                renderers=[s], mode='mouse', point_policy="snap_to_data"))
         
         
