@@ -1381,7 +1381,4 @@ class visualize(data_products, find_sources):
 
         plot_with_click(tpf[0], gaia_xy, gaia_id, gaia_gmag, ticLabel, tmagLabel)
 
-
         return
-
-
