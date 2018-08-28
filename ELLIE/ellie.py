@@ -35,6 +35,10 @@ from scipy import ndimage
 from scipy.optimize import minimize
 import collections
 
+from bokeh.models   import HoverTool
+from bokeh.plotting import figure, show, output_file
+from bokeh.models   import ColumnDataSource, LinearColorMapper, ColorBar, BasicTicker
+
 try: # Python 3.x
     from urllib.parse import quote as urlencode
     from urllib.request import urlretrieve
@@ -1339,46 +1343,67 @@ class visualize(data_products, find_sources):
             """ Pushes the gaia sources to the appropriate place in the TPF """
             gaiaX, gaiaY = gaiaXY[0]-xy[0]+4, gaiaXY[1]-xy[1]+6
             inds = np.where( (gaiaX >= -0.5) & (gaiaX <= 8.5) &
-                             (gaiaY >= -0.5) & (gaiaY <= 8.5) )
+                             (gaiaY >= -0.5) & (gaiaY <= 8.5) & (gaiaMAG <= 16.5))
             return [gaiaX[inds], gaiaY[inds]], gaiaID[inds], gaiaMAG[inds]
+        
+        def create_labels(gaia_id):
+            ticLabel, tmagLabel = np.zeros(len(gaia_id.data)), np.zeros(len(gaia_id.data))
+            crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)
+            for i in range(len(gaia_id.data)):
+                row = crossTable[i]
+                if row['separation'] <= 1.0 and row['Gmag'] <= 16.5:
+                    ticLabel[i]  = row['TIC_ID']
+                    tmagLabel[i] = row['Tmag']
+            return ticLabel, tmagLabel
 
 
-        def plot_with_click(tpf, gaia_xy, gaia_id, gaia_gmag, ticID, tmag):
-            """ Plots first cadence TPF; plots Gaia sources as black x's; click an x to get source information """
-            fig, ax = plt.subplots()
-            ax.imshow(tpf, origin='lower')
-            sc = ax.scatter(gaia_xy[0], gaia_xy[1], c='k', s=10)
-            plt.xlim([-0.5,8.5])
-            plt.ylim([-0.5,8.5])
-            mplcursors.cursor(sc).connect(
-                "add", lambda sel: sel.annotation.set_text("TIC ID = {}\nTmag = {}\nGaia ID = {}\nGmag = {}".format(ticID[sel.target.index],
-                                                                                                                    tmag[sel.target.index],
-                                                                                                                    gaia_id[sel.target.index],
-                                                                                                                    gaia_gmag[sel.target.index])))
-            plt.show()
-            return
+        output_file("gaia_hover.html")
 
+        hdu = fits.open(self.fn)
+        tpf = hdu[0].data[0]
+        header = hdu[0].header
+        center = [header['SOURCE_X'], header['SOURCE_Y']]
+        
+        hdr = data_products.get_header(self, postcard=header['POSTCARD'])
 
-        tpf, header = fits.getdata(self.fn, header=True)
-        postcard = header['POSTCARD']
-        hdr = data_products.get_header(self, postcard=postcard)
-
-        center   = [header['SOURCE_X'], header['SOURCE_Y']]
-        self.sector, self.camera, self.chip = postcard[9:10], postcard[11:12], postcard[13:14]
+        # Finds & corrects Gaia sources
         gaia_xy, gaia_id, gaia_gmag = find_gaia_sources(header, hdr)
-
         gaia_xy = pointingCorr(gaia_xy, header)
         gaia_xy, gaia_id, gaia_gmag = in_tpf(center, gaia_xy, gaia_id, gaia_gmag)
- 
-        crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)
 
-        ticLabel, tmagLabel = np.zeros(len(gaia_id.data)), np.zeros(len(gaia_id.data))
-        for i in range(len(gaia_id.data)):
-            row = crossTable[i]
-            if row['separation'] <= 1.0 and row['Gmag'] <= 16.5:
-                ticLabel[i]  = row['TIC_ID']
-                tmagLabel[i] = row['Tmag']
+        # Crossmatches Gaia -> TIC
+        ticLabel, tmagLabel = create_labels(gaia_id)
 
-        plot_with_click(tpf[0], gaia_xy, gaia_id, gaia_gmag, ticLabel, tmagLabel)
+        hover = HoverTool()
+        hover.tooltips = [
+            ("TIC ID", "test"),
+            ("T_mag", "test"),
+            ("GAIA ID", "test"),
+            ("G_mag", "test")
+            ]
+
+        p = figure(x_range=(0,9), y_range=(0,9),
+                   plot_width=450, plot_height=450)
+        
+        color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(tpf), high=np.max(tpf))
+        tpf_img = p.image(image=[tpf], x=0, y=0, dw=9, dh=9, color_mapper=color_mapper)
+        color_bar = ColorBar(color_mapper=color_mapper, location=(0,0), border_line_color=None,
+                             ticker=BasicTicker())
+        p.add_layout(color_bar, 'right')
+
+        source=ColumnDataSource(data=dict(x=gaia_xy[0], y=gaia_xy[1],
+                                          tic=ticLabel, tmag=tmagLabel,
+                                          gaia=gaia_id, gmag=gaia_gmag))
+
+
+        s = p.circle('x', 'y', size=8, source=source, line_color=None,
+                     selection_color='red', nonselection_fill_alpha=0.0, nonselection_line_alpha=0.0,
+                     nonselection_line_color=None, fill_color='black', hover_alpha=0.9, hover_line_color='white')
+        p.add_tools(HoverTool( tooltips=[("TIC Source", "@tic"), ("Tmag", "@tmag"),
+                                         ("Gaia Source", "@gaia"), ("Gmag", "@gmag")],
+                               renderers=[s], mode='mouse', point_policy="snap_to_data"))
+        
+        
+        show(p)
 
         return
