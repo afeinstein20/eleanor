@@ -321,16 +321,21 @@ class find_sources:
         t = self.initialize_table()
         for s in sources:
             self.gaia = s
-            table = self.gaia_pos_by_ID()
+            table = self.gaia_pos_by_ID()            
             sID, pos, gmag = table['source_id'].data, [table['ra'].data[0], table['dec'].data[0]], table['phot_g_mean_mag'].data
             pmra, pmdec, parallax = table['pmra'].data, table['pmdec'].data, table['parallax'].data
-            tic = self.crossmatch_by_position(r, service, pos)
-            pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
-            separation = self.crossmatch_distance(pos, [tic['MatchRA'], tic['MatchDEC']])
+            self.pos = pos
+            print(self.pos)
+            tic = self.crossmatch_by_position(r, service)
+            self.pos = [self.pos[0]*u.deg, self.pos[1]*u.deg]
+            print(self.pos)
+            separation = self.crossmatch_distance(self.pos, [tic['MatchRA'], tic['MatchDEC']])
             min = separation.argmin()
             row = tic[min]
-            t.add_row([sID, row['MatchID'], (pos[0]).to(u.arcsec), (pos[1]).to(u.arcsec), separation[min], gmag, row['Tmag'], pmra, pmdec, parallax])
+            print(row['ra'], row['dec'])
+            t.add_row([sID, row['MatchID'], (self.pos[0]).to(u.arcsec), (self.pos[1]).to(u.arcsec), separation[min], gmag, row['Tmag'], pmra, pmdec, parallax])
         t.remove_row(0)
+
         return t
 
     
@@ -783,7 +788,6 @@ class data_products(find_sources):
         
         if self.tic != None:
             tic_id, pos, tmag = find_sources.tic_pos_by_ID(self)
-            print(tic_id, pos, tmag)
             self.pos = pos
             table = find_sources.find_by_position(self)
         elif self.gaia != None:
@@ -834,12 +838,10 @@ class data_products(find_sources):
         newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
         
         newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
-        print("initial tpf: ", newX, newY) 
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
 
         xy_new = add_shift(tpf)
         newX, newY = int(np.ceil(newX+xy_new[0]-4.0)), int(np.ceil(newY+xy_new[1]-4.0))
-        print("post com shift: ", newX, newY)
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
@@ -862,10 +864,11 @@ class data_products(find_sources):
         hdr.append(('AP_SHAPE', shape))
         hdr.append(('AP_RAD', radius))
         xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
-        hdr.append(('SOURCE_X', float(xy[0])))
-        hdr.append(('SOURCE_Y', float(xy[1])))
-        hdr.append(('SOURCE_RA', float(self.pos[0])))
-        hdr.append(('SOURCE_DEC', float(self.pos[1])))
+
+        hdr.append(('CENTER_X', float(xy[0])))
+        hdr.append(('CENTER_Y', float(xy[1])))
+        hdr.append(('CEN_RA', float(self.pos[0])))
+        hdr.append(('CEN_DEC', float(self.pos[1])))
 
         # Saves to FITS file
         hdu1 = fits.PrimaryHDU(header=hdr)
@@ -1230,7 +1233,9 @@ class visualize(data_products, find_sources):
                 ax.set_title('{}'.format(self.gaia), fontweight='bold')
             
         plt.tight_layout()
-        plt.show()
+#        plt.show()
+        ani.save('{}_customAp.mp4'.format(self.tic), writer=writer)
+
         return
 
 
@@ -1325,7 +1330,7 @@ class visualize(data_products, find_sources):
         """
         def find_gaia_sources(header, hdr):
             """ Compeltes a cone search around the center of the TPF for Gaia sources """
-            pos = [header['SOURCE_RA'], header['SOURCE_DEC']]
+            pos = [header['CEN_RA'], header['CEN_DEC']]
             l   = find_sources(pos=pos)
             sources = l.cone_search(r=0.5, service='Mast.Catalogs.GaiaDR2.Cone')
             xy = WCS(hdr).all_world2pix(sources['ra'], sources['dec'], 1)
@@ -1349,9 +1354,10 @@ class visualize(data_products, find_sources):
         def create_labels(gaia_id):
             ticLabel, tmagLabel = np.zeros(len(gaia_id.data)), np.zeros(len(gaia_id.data))
             crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)
+            print(crossTable['Gaia_ID'].data, gaia_id.data)
             for i in range(len(gaia_id.data)):
                 row = crossTable[i]
-                if row['separation'] <= 1.0 and row['Gmag'] <= 16.5:
+                if row['separation'] <= 1.2 and row['Gmag'] <= 16.5:
                     ticLabel[i]  = row['TIC_ID']
                     tmagLabel[i] = row['Tmag']
             return ticLabel, tmagLabel
@@ -1362,14 +1368,15 @@ class visualize(data_products, find_sources):
         hdu = fits.open(self.fn)
         tpf = hdu[0].data[0]
         header = hdu[0].header
-        center = [header['SOURCE_X'], header['SOURCE_Y']]
-        
-        hdr = data_products.get_header(self, postcard=header['POSTCARD'])
+        center = [header['CENTER_X'],  header['CENTER_Y']]
 
+        hdr = data_products.get_header(self, postcard=header['POSTCARD'])
+        xy_source = [header['CENTER_X'], header['CENTER_Y']]
         # Finds & corrects Gaia sources
         gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec = find_gaia_sources(header, hdr)
+        print(gaia_ra, gaia_dec)
         gaia_xy = pointingCorr(gaia_xy, header)
-        gaia_xy, gaia_id, gaia_gmag = in_tpf(center, gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec)
+        gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec = in_tpf(center, gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec)
 
         # Crossmatches Gaia -> TIC
         ticLabel, tmagLabel = create_labels(gaia_id)
@@ -1382,13 +1389,34 @@ class visualize(data_products, find_sources):
             ("G_mag", "test")
             ]
 
-        p = figure(x_range=(0,9), y_range=(0,9),
-                   plot_width=450, plot_height=450)
-        
+        xyrange=(-0.5,8.5)
+        if self.tic != None:
+            p = figure(x_range=xyrange, y_range=xyrange, toolbar_location="above",
+                       title='TIC {}'.format(self.tic), plot_width=500, plot_height=450)
+        elif self.gaia!= None:
+            p = figure(x_range=xyrange, y_range=xyrange, toolbar_location="above",
+                       title='Gaia {}'.format(self.gaia), plot_width=500, plot_height=450)
+
         color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(tpf), high=np.max(tpf))
-        tpf_img = p.image(image=[tpf], x=0, y=0, dw=9, dh=9, color_mapper=color_mapper)
+        tpf_img = p.image(image=[tpf], x=-0.5, y=-0.5, dw=9, dh=9, color_mapper=color_mapper)
+        p.xaxis.ticker = np.arange(0,9,1)
+        p.yaxis.ticker = np.arange(0,9,1)
+        
+        x_overrides, y_overrides = {}, {}
+        x_list = np.arange(int(center[0]-4), int(center[0]+5), 1)
+        y_list = np.arange(int(center[1]-4), int(center[1]+5), 1)
+        for i in np.arange(0,9,1):
+            ind = str(i)
+            x_overrides[ind] = str(x_list[i])
+            y_overrides[ind] = str(y_list[i])
+
+        p.xaxis.major_label_overrides = x_overrides
+        p.yaxis.major_label_overrides = y_overrides
+        p.xaxis.axis_label = 'Pixel Column Number'
+        p.yaxis.axis_label = 'Pixel Row Number'
+
         color_bar = ColorBar(color_mapper=color_mapper, location=(0,0), border_line_color=None,
-                             ticker=BasicTicker())
+                             ticker=BasicTicker(), title='Intensity', title_text_align='left')
         p.add_layout(color_bar, 'right')
 
         source=ColumnDataSource(data=dict(x=gaia_xy[0], y=gaia_xy[1],
@@ -1404,7 +1432,6 @@ class visualize(data_products, find_sources):
                                          ("Gaia Source", "@gaia"), ("Gmag", "@gmag"),
                                          ("RA", "@ra"), ("Dec", "@dec")],
                                renderers=[s], mode='mouse', point_policy="snap_to_data"))
-        
         
         show(p)
 
