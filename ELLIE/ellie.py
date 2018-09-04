@@ -444,7 +444,7 @@ class data_products(find_sources):
             os.mkdir(self.root_dir)
 
 
-    def download_ffis(self, sector=None):
+    def download_ffis(self, sector=None, camera=None, chips=None):
         """ Downloads entire sector of data into .ellie/ffis/sector directory """
         def findAllFFIs(ca, ch):
             nonlocal year, days, url
@@ -457,7 +457,6 @@ class data_products(find_sources):
             return calFiles
         
         ffi_dir, sect_dir = 'ffis', 'sector_{}'.format(sector)
-#        self.sect_dir = '/'.join(str(e) for e in [self.root_dir, sect_dir, ffi_dir])
         # Creates an FFI directory, if one does not already exist
         if os.path.isdir(self.root_dir+'/'+sect_dir) == False:
             os.system('cd {} && mkdir {}'.format(self.root_dir, sect_dir))
@@ -473,8 +472,10 @@ class data_products(find_sources):
             year=2020
         # Current days available for ETE-6
         days = np.arange(129,130,1)
-        camera = np.arange(1,5,1)
-        chips  = np.arange(1,5,1)
+        if camera==None:
+            camera = np.arange(1,5,1)
+        if chips==None:
+            chips  = np.arange(1,5,1)
         # This URL applies to ETE-6 simulated data ONLY
         url = 'https://archive.stsci.edu/missions/tess/ete-6/ffi/'
         for c in camera:
@@ -567,7 +568,7 @@ class data_products(find_sources):
                 dist = np.sqrt((xRot-centroids[:,0])**2 + (yRot-centroids[:,1])**2)
                 return np.nansum(np.square(dist))
 
-            fns = np.array([self.dir+i for i in fns])
+            fns = np.array([self.ffi_dir+'/'+i for i in fns])
 
             x_cen, y_cen = len(mast)/2., len(mast[0])/2.
             xy = np.zeros((len(x),2))
@@ -583,10 +584,11 @@ class data_products(find_sources):
             for j in range(len(fns)):
                 image, header = fits.getdata(fns[j], header=True)
                 for i in range(len(x)):
-                    tpf = Cutout2D(image, position=(x[i], y[i]), size=(6,6), mode='partial')
+                    tpf = Cutout2D(image, position=(x[i], y[i]), size=(5,5), mode='partial')
                     com = ndimage.measurements.center_of_mass(tpf.data.T-np.median(tpf.data)) # subtracts bkg
-                    matrix[i][j][0] = com[0]+xy[i][0]
-                    matrix[i][j][1] = com[1]+xy[i][1]
+                    if (np.isfinite(com[0]) == True) and (np.isfinite(com[1]) == True):
+                        matrix[i][j][0] = com[0]+xy[i][0]
+                        matrix[i][j][1] = com[1]+xy[i][1]
 
             print("Creating Pointing Model")
             for i in tqdm(range(len(fns))):
@@ -596,25 +598,26 @@ class data_products(find_sources):
                 else:
                     initGuess = oldSol
 
-                bnds = ((-0.08, 0.08), (-5.0, 5.0), (-5.0, 5.0))
+                bnds = ((-0.08, 0.08), (-3.0, 3.0), (-3.0, 3.0))
                 solution = minimize(model, initGuess, method='L-BFGS-B', bounds=bnds, options={'ftol':5e-11,
                                                                                                'gtol':5e-05})#, 'eps':1e-02})
                 sol = solution.x
-
                 with open(self.corrFile, 'a') as tf:
                     theta, delX, delY = sol[0], sol[1], sol[2]
                     tf.write('{}\n'.format(str(i) + ' ' + str(theta) + ' ' + str(delX) + ' ' + str(delY)))
                     oldSol = sol
             return
 
-        self.ffi_dir = self.root_dir+'/ffis/sector_{}/'.format(sector)
-
+        self.ffi_dir = self.root_dir+'/sector_{}/ffis/'.format(sector)
+        self.corrFile = 'pointingModel_{}_{}-{}.txt'.format(sector, camera, chip)
+        
         fns, time = self.sort_by_date(camera, chip)
         mast, header = fits.getdata(self.ffi_dir+fns[0], header=True)
-        xy, id = pixel_cone(header, 6*np.sqrt(2), [0.0, 5e-5])
+        xy, id = pixel_cone(header, 6*np.sqrt(2), [0.0, 5e-6])
         
         # Makes sure sources are in the file
-        inds = np.where( (xy[1]>=44.) & (xy[1]<len(mast)-45.) & (xy[0]>=0.) & (xy[0]<len(mast[0])-41.))[0]
+        bord = 80.
+        inds = np.where( (xy[1]>=44.+bord) & (xy[1]<len(mast)-45.-bord) & (xy[0]>=bord) & (xy[0]<len(mast[0])-41.-bord))[0]
         x, y = xy[0][inds], xy[1][inds]
 
         isolated = find_isolated(x, y)
