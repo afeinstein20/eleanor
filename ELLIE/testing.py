@@ -13,14 +13,14 @@ tic  = 420888018
 gaia = 1414861664385248640
 #a = data_products(gaia=gaia)
 #a.individual_tpf()
-a = data_products()
+#a = data_products()
 #a.download_ffis(sector=1, camera=[3], chips=[2])
-a.pointing_model(camera=2, chip=1, sector=1)
+#a.pointing_model(camera=2, chip=1, sector=1)
 
 
 
-#b = visualize(tic=tic)
-#b.mark_gaia()
+b = visualize(tic=tic)
+b.mark_gaia()
 #b.tpf_movie()
 #lc = b.click_aperture()
 

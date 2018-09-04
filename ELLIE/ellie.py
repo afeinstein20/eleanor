@@ -35,7 +35,14 @@ from scipy import ndimage
 from scipy.optimize import minimize
 import collections
 
-from bokeh.models   import HoverTool
+from IPython.display import display
+from ipywidgets import interact
+import ipywidgets as widgets
+from bokeh.aplettes import Viridis256
+from bokeh.io import push_notebook, show, output_notebook, curdoc
+from bokeh.models import (ColumnDataSource, HoverTool, BasicTicker,
+                          Slider, Button, Label, LinearColorMapper, Span,
+                          ColorBar)
 from bokeh.plotting import figure, show, output_file
 from bokeh.models   import ColumnDataSource, LinearColorMapper, ColorBar, BasicTicker
 
@@ -325,14 +332,11 @@ class find_sources:
             sID, pos, gmag = table['source_id'].data, [table['ra'].data[0], table['dec'].data[0]], table['phot_g_mean_mag'].data
             pmra, pmdec, parallax = table['pmra'].data, table['pmdec'].data, table['parallax'].data
             self.pos = pos
-            print(self.pos)
             tic = self.crossmatch_by_position(r, service)
             self.pos = [self.pos[0]*u.deg, self.pos[1]*u.deg]
-            print(self.pos)
             separation = self.crossmatch_distance(self.pos, [tic['MatchRA'], tic['MatchDEC']])
             min = separation.argmin()
             row = tic[min]
-            print(row['ra'], row['dec'])
             t.add_row([sID, row['MatchID'], (self.pos[0]).to(u.arcsec), (self.pos[1]).to(u.arcsec), separation[min], gmag, row['Tmag'], pmra, pmdec, parallax])
         t.remove_row(0)
 
@@ -1126,6 +1130,19 @@ class visualize(data_products, find_sources):
         else:
             self.fn = input_fn
 
+    
+    def in_ipynb(self):
+        """ Checks if user is calling the command from a Jupyter Notebook or not """
+        print(get_ipython().config)
+        try:
+            cfg = get_ipython().config 
+            if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
+                return True
+            else:
+                return False
+        except NameError:
+            return False
+
 
     def tpf_movie(self, output_fn=None, cbar=True, aperture=False, com=False, plot_lc=False, **kwargs):
         """
@@ -1146,105 +1163,74 @@ class visualize(data_products, find_sources):
         ----------
             Creates an MP4 file
         """
-        hdu = fits.open(self.fn)
-        hdr = hdu[0].header
-        print(hdr['AP_SHAPE'], hdr['AP_RAD'])
-        tp  = hdu[0].data
-        lc_dat = hdu[1].data
-        time = lc_dat[0]
-        lc = lc_dat[2]
-        lc = lc/np.nanmedian(lc)
-
-        if com==True or aperture==True:
-            pm = data_products.get_pointing(self, header=hdu[0].header)
-            x, y = [], []
-            for i in range(len(tp)):
-                tp_com = Cutout2D(tp[i], position=(4,4), size=(4,4))
-                tp_com = tp_com.data
-                centroid = ndimage.measurements.center_of_mass(tp_com.T - np.median(tp_com))
-                x.append(centroid[0]+2.)
-                y.append(centroid[1]+2.)
-
-        if 'vmax' not in kwargs:
-            kwargs['vmax'] = np.max(tp[0])
-        if 'vmin' not in kwargs:
-            kwargs['vmin'] = np.min(tp[0])
-
-        def animate(i):
-            nonlocal line, x, y, scats, line, hdr, ps
-            ax.imshow(tp[i], origin='lower', **kwargs)
-            # Plots motion of COM when the user wants
-            if com==True:
-                for scat in scats:
-                    scat.remove()
-                scats = []
-                scats.append(ax.scatter(x[i], y[i], s=16, c='k'))
-            
-            # Plots aperture around source when the user wants
-            if aperture==True:
-                for c in ps:
-                    c.remove()
-                ps = []
-                if hdr['AP_SHAPE'] == 'circle':
-                    shape = patches.Circle((x[i],y[i]), hdr['AP_RAD'], alpha=0.4, color='white')
-                elif hdr['AP_SHAPE'] == 'rectangle':
-                    shape = patches.Rectangle((x[i],y[i]), hdr['AP_RAD'], hdr['AP_RAD'], 0.0,
-                                              alpha=0.4, color='white')
-                ps.append(ax.add_patch(shape))
-
-            # Plots moving point along light curve when the user wants
-            if plot_lc==True:
-                for l in line:
-                    l.remove()
-                line = []
-                line.append(ax1.scatter(time[i], lc[i], s=20, c='r'))
-
-            # Updates the frame number
-            time_text.set_text('Frame {}'.format(i))
-
+        def animate_update():
+            cadence = int(slider.value)+1
+            if cadence > cadences[-1]:
+                cadence   = cadences[0]
+            slider.value  = int(cadence)
+            vert.location = int(cadence)
         
-        ps, line, scats = [],[], []
-        if plot_lc==True:
-            fig  = plt.figure(figsize=(18,5))
-            spec = gridspec.GridSpec(ncols=3, nrows=1)
-            ax   = fig.add_subplot(spec[0,2])
-            ax1  = fig.add_subplot(spec[0, 0:2])
-            ax1.plot(time, lc, 'k')
-            ax1.set_ylabel('Normalized Flux')
-            ax1.set_xlabel('Time - 2454833 (Days)')
-            ax1.set_xlim([np.min(time)-0.05, np.max(time)+0.05])
-            ax1.set_ylim([np.min(lc)-0.05, np.max(lc)+0.05])
+        def slider_update(attr, old, new):
+            cadence = int(slider.value)
+            p.image(image=[tpf[cadence]], x=-0.5, y=-0.5, dw=9, dh=9, color_mapper=color_mapper)
+            vert.location = cadence
 
-        elif plot_lc==False:
-            fig  = plt.figure()
-            spec = gridspec.GridSpec(ncols=1, nrows=1)
-            ax   = fig.add_subplot(spec[0,0])
-
-        # Writes frame number on TPF movie
-        time_text = ax.text(5.5, -0.25, '', color='white', fontweight='bold')
-        time_text.set_text('')
-
-        # Allows TPF movie to be saved as mp4
-        Writer = animation.writers['ffmpeg']
-        writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
-
-        ani = animation.FuncAnimation(fig, animate, frames=len(tp))
-
-        if cbar==True:
-            plt.colorbar(ax.imshow(tp[0], **kwargs), ax=ax)
-
-        if output_fn == None:
-            if self.tic != None:
-                self.output_fn = '{}.mp4'.format(self.tic)
-                ax.set_title('{}'.format(self.tic), fontweight='bold')
-            elif self.gaia != None:
-                self.output_fn = '{}.mp4'.format(self.gaia)
-                ax.set_title('{}'.format(self.gaia), fontweight='bold')
+        def animate():
+            global callback_id
+            if button.label == '► Play':
+                button.label = '❚❚ Pause'
+                callback_id = curdoc().add_periodic_callback(animate_update, 10)
+            else:
+                button.label = '► Play'
+                curdoc().remove_periodic_callback(callback_id)
             
-        plt.tight_layout()
-#        plt.show()
-        ani.save('{}_customAp.mp4'.format(self.tic), writer=writer)
+        hdu = fits.open(self.fn)
+        tpf = hdu[0].data
+        cadences = hdu[1].data[0]
+        hdr = hdu[0].header
 
+        # Creates the plot for the TPF movie
+        xyrange=(-0.5,8.5)
+        p = figure(x_range=xyrange, y_range=xyrange, title=id,
+                   plot_height=250, plot_width=300)
+        p.xaxis.axis_label = 'Pixel Column Number'
+        p.yaxis.axis_label = 'Pixel Row Number'
+        color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(tpf), high=np.max(tpf))
+        p.image(image=[tpf[int(cadences[0])]], x=-0.5, y=-0.5, dw=9, dh=9, color_mapper=color_mapper)
+        color_bar = ColorBar(color_mapper=color_mapper, location=(0,0), border_line_color=None,
+                             ticker=BasicTicker(), title='Intensity', title_text_align='left')
+        p.add_layout(color_bar, 'right')
+
+        # Creates the plot for the light curve movie
+        l = figure(plot_height=250, plot_width=800)
+        l.xaxis.axis_label = 'Time'
+        l.yaxis.axis_label = 'Normalized Flux'
+        source = ColumnDataSource(data=dict(time=hdu[1].data[0], flux=hdu[1].data[1]))
+        l.circle('time', 'flux', source=source, size=2, alpha=0.8, color='royalblue')
+        vert = Span(location=0, dimension='height', line_color='red',
+                    line_width=2, line_alpha=0.4)
+        l.add_layout(vert)
+
+        # Creates the slider widget
+        slider = Slider(start=cadences[0], end=cadences[-1],
+                        value=cadences[0], step=1, title='TPF Cadence Slice',
+                        width=300)
+        slider.on_change('value', slider_update)
+
+        # Creates the button widget
+        button = Button(label='► Play', width=60)
+        button.on_click(animate)
+        
+        layout = layout([
+                [l, p],
+                [slider, button],])
+        
+        widgets = widgetbox(slider, button)
+        row = row(p, l)
+        row_and_col = column(row, widgets)
+        
+        curdoc().add_root(layout)
+        curdoc().title='Test Movie'
         return
 
 
@@ -1362,8 +1348,7 @@ class visualize(data_products, find_sources):
         
         def create_labels(gaia_id):
             ticLabel, tmagLabel = np.zeros(len(gaia_id.data)), np.zeros(len(gaia_id.data))
-            crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)
-            print(crossTable['Gaia_ID'].data, gaia_id.data)
+            crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)            
             for i in range(len(gaia_id.data)):
                 row = crossTable[i]
                 if row['separation'] <= 1.2 and row['Gmag'] <= 16.5:
@@ -1372,7 +1357,7 @@ class visualize(data_products, find_sources):
             return ticLabel, tmagLabel
 
 
-        output_file("gaia_hover.html")
+#        output_file("gaia_hover.html")
 
         hdu = fits.open(self.fn)
         tpf = hdu[0].data[0]
@@ -1383,7 +1368,6 @@ class visualize(data_products, find_sources):
         xy_source = [header['CENTER_X'], header['CENTER_Y']]
         # Finds & corrects Gaia sources
         gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec = find_gaia_sources(header, hdr)
-        print(gaia_ra, gaia_dec)
         gaia_xy = pointingCorr(gaia_xy, header)
         gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec = in_tpf(center, gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec)
 
@@ -1442,6 +1426,6 @@ class visualize(data_products, find_sources):
                                          ("RA", "@ra"), ("Dec", "@dec")],
                                renderers=[s], mode='mouse', point_policy="snap_to_data"))
         
-        show(p)
-
-        return
+#        print(self.in_ipynb())
+        output_notebook()
+        return p
