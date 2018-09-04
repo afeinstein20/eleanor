@@ -519,7 +519,7 @@ class data_products(find_sources):
             pos = [header['CRVAL1'], header['CRVAL2']]
             data = find_sources.tic_by_contamination(find_sources(), pos, r, contam)
             ra, dec = data['ra'], data['dec']
-            return WCS(header).all_world2pix(ra, dec, 1), data['ID']
+            return WCS(header).all_world2pix(ra, dec, 1), data['ID'], data['Tmag']
         
 
         def find_isolated(x, y):
@@ -613,15 +613,21 @@ class data_products(find_sources):
         
         fns, time = self.sort_by_date(camera, chip)
         mast, header = fits.getdata(self.ffi_dir+fns[0], header=True)
-        xy, id = pixel_cone(header, 6*np.sqrt(2), [0.0, 5e-6])
+        print("Grabbing good sources for the pointing model")
+        xy, ids, tmag = pixel_cone(header, 6*np.sqrt(1.2), [0.0, 5e-6])
         
         # Makes sure sources are in the file
-        bord = 80.
+        bord = 20.
         inds = np.where( (xy[1]>=44.+bord) & (xy[1]<len(mast)-45.-bord) & (xy[0]>=bord) & (xy[0]<len(mast[0])-41.-bord))[0]
-        x, y = xy[0][inds], xy[1][inds]
-
+        x, y, ids, tmag = xy[0][inds], xy[1][inds], ids[inds], tmag[inds]
+        
+        print("Finding the most isolated sources")
         isolated = find_isolated(x, y)
-        x, y = x[isolated], y[isolated]
+        x, y, ids, tmag = x[isolated], y[isolated], ids[isolated], tmag[isolated]
+
+        # Applying Tmag cuts
+        tmag_inds = np.where(tmag <= 14.0)[0]
+        x, y, ids, tmag = x[tmag_inds], y[tmag_inds], ids[tmag_inds], tmag[tmag_inds]
         calc_shift()
         return
         
