@@ -710,21 +710,21 @@ class data_products(find_sources):
         ----------
             postcard.txt: a catalog of header information for each postcard
         """
+        from astropy.table import join
+
         output_fn = 'postcard.txt'
         dir_fns = np.array(os.listdir())
         post_fns = np.array([i for i,item in enumerate(dir_fns) if 'postcard_' in item])
         post_fns = dir_fns[post_fns]
-        for i in range(len(post_fns)):
-            headers = np.loadtxt(post_fns[i], dtype=str)
-            if i == 0:
-                with open(output_fn, 'w') as tf:
-                    tf.write('{}\n'.format(headers[0]))
+        main_table = Table.read(post_fns[0], format='ascii.basic')
+        for i in range(1,len(post_fns)):
+            post = Table.read(post_fns[i], format='ascii.basic')
+            for j in range(len(post)):
+                main_table.add_row(post[j])
 
-            for j in range(1, len(headers)):
-                with open(output_fn, 'a') as tf:
-                    tf.write('{}\n'.format(headers[j]))
-            
+        ascii.write(main_table, output='postcard.txt')
         return
+
 
     def find_postcard(self):
         """ 
@@ -781,6 +781,9 @@ class data_products(find_sources):
         pm = Table.read(pm, format='ascii.basic')
         return pm
 
+######################################
+######### CHANGE ALL LINKS ###########
+######################################
     def get_header(self, postcard=None):
         """ Gets postcard header from the website """
         post_link = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/postcard.txt')
@@ -820,8 +823,7 @@ class data_products(find_sources):
             tpf_init = tpf[0]
             tpf_com  = tpf_init[2:7, 2:7]
             com = ndimage.measurements.center_of_mass(tpf_com.T -  np.median(tpf_com))
-            shift = [com[0]-2, com[1]-2]
-            shift = [np.round(shift[0]+4.0,0), np.round(shift[1]+4.0,0)]
+            shift = [2-com[0], 2-com[1]]
             return shift
         
         if self.tic != None:
@@ -871,16 +873,22 @@ class data_products(find_sources):
         post_fits = fits.open(self.post_dir+postcard)[0].data
 
         xy = init_shift(xy)
-        delY, delX = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
-
-        newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
         
+        # Moving coordinates to postcard space
+        delY, delX = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
+        newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
+
+
         newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
 
         xy_new = add_shift(tpf)
-        newX, newY = int(np.ceil(newX+xy_new[0]-4.0)), int(np.ceil(newY+xy_new[1]-4.0))
-        radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
+
+        xy_shift = add_shift(tpf)
+        cutout = Cutout2D(post_fits[0],position=(newY-xy_shift[1],newX-xy_shift[0]), size=(9,9))
+        plt.imshow(cutout.data, origin='lower')
+        plt.show()
+#        radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
             shape = 'circle'
@@ -925,8 +933,9 @@ class data_products(find_sources):
         if output_fn==None:
             new_hdu.writeto(fn)
         else:
-            new_hdu.writeto(output_fn, overwrite=True)
-        return
+            fn = output_fn
+            new_hdu.writeto(fn, overwrite=True)
+        return fn
 
         
     def aperture_fitting(self, tpf=None):
