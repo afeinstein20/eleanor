@@ -35,11 +35,8 @@ from scipy import ndimage
 from scipy.optimize import minimize
 import collections
 
-from IPython.display import display
-from ipywidgets import interact
-import ipywidgets as widgets
-from bokeh.aplettes import Viridis256
-from bokeh.io import push_notebook, show, output_notebook, curdoc
+from bokeh.palettes import Viridis256
+from bokeh.io import push_notebook, show, output_notebook
 from bokeh.models import (ColumnDataSource, HoverTool, BasicTicker,
                           Slider, Button, Label, LinearColorMapper, Span,
                           ColorBar)
@@ -701,6 +698,34 @@ class data_products(find_sources):
         return
 
 
+    def make_postcard_catalog(self):
+        """
+        Whenever a postcard is created for a camera-chip pair, a new catalog is created
+            called: "postcard_{}-{}.txt".format(camera, chip)
+        This function will take all of the postcard sub-catalogs and create a main one
+            for each sector
+        This file will be stored online and will be called from such, preventing the user
+            from having to download it onto their personal machine
+        Returns
+        ----------
+            postcard.txt: a catalog of header information for each postcard
+        """
+        output_fn = 'postcard.txt'
+        dir_fns = np.array(os.listdir())
+        post_fns = np.array([i for i,item in enumerate(dir_fns) if 'postcard_' in item])
+        post_fns = dir_fns[post_fns]
+        for i in range(len(post_fns)):
+            headers = np.loadtxt(post_fns[i], dtype=str)
+            if i == 0:
+                with open(output_fn, 'w') as tf:
+                    tf.write('{}\n'.format(headers[0]))
+
+            for j in range(1, len(headers)):
+                with open(output_fn, 'a') as tf:
+                    tf.write('{}\n'.format(headers[j]))
+            
+        return
+
     def find_postcard(self):
         """ 
         Finds what postcard a source is located in
@@ -1163,75 +1188,103 @@ class visualize(data_products, find_sources):
         ----------
             Creates an MP4 file
         """
-        def animate_update():
-            cadence = int(slider.value)+1
-            if cadence > cadences[-1]:
-                cadence   = cadences[0]
-            slider.value  = int(cadence)
-            vert.location = int(cadence)
-        
-        def slider_update(attr, old, new):
-            cadence = int(slider.value)
-            p.image(image=[tpf[cadence]], x=-0.5, y=-0.5, dw=9, dh=9, color_mapper=color_mapper)
-            vert.location = cadence
-
-        def animate():
-            global callback_id
-            if button.label == '► Play':
-                button.label = '❚❚ Pause'
-                callback_id = curdoc().add_periodic_callback(animate_update, 10)
-            else:
-                button.label = '► Play'
-                curdoc().remove_periodic_callback(callback_id)
-            
         hdu = fits.open(self.fn)
-        tpf = hdu[0].data
-        cadences = hdu[1].data[0]
-        hdr = hdu[0].header
+        tp  = hdu[0].data
+        lc_dat = hdu[1].data
+        time = lc_dat[0]
+        lc = lc_dat[2]
+        lc = lc/np.nanmedian(lc)
 
-        # Creates the plot for the TPF movie
-        xyrange=(-0.5,8.5)
-        p = figure(x_range=xyrange, y_range=xyrange, title=id,
-                   plot_height=250, plot_width=300)
-        p.xaxis.axis_label = 'Pixel Column Number'
-        p.yaxis.axis_label = 'Pixel Row Number'
-        color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(tpf), high=np.max(tpf))
-        p.image(image=[tpf[int(cadences[0])]], x=-0.5, y=-0.5, dw=9, dh=9, color_mapper=color_mapper)
-        color_bar = ColorBar(color_mapper=color_mapper, location=(0,0), border_line_color=None,
-                             ticker=BasicTicker(), title='Intensity', title_text_align='left')
-        p.add_layout(color_bar, 'right')
+        if com==True or aperture==True:
+            pm = data_products.get_pointing(self, header=hdu[0].header)
+            x, y = [], []
+            for i in range(len(tp)):
+                tp_com = Cutout2D(tp[i], position=(4,4), size=(4,4))
+                tp_com = tp_com.data
+                centroid = ndimage.measurements.center_of_mass(tp_com.T - np.median(tp_com))
+                x.append(centroid[0]+2.)
+                y.append(centroid[1]+2.)
 
-        # Creates the plot for the light curve movie
-        l = figure(plot_height=250, plot_width=800)
-        l.xaxis.axis_label = 'Time'
-        l.yaxis.axis_label = 'Normalized Flux'
-        source = ColumnDataSource(data=dict(time=hdu[1].data[0], flux=hdu[1].data[1]))
-        l.circle('time', 'flux', source=source, size=2, alpha=0.8, color='royalblue')
-        vert = Span(location=0, dimension='height', line_color='red',
-                    line_width=2, line_alpha=0.4)
-        l.add_layout(vert)
+        if 'vmax' not in kwargs:
+            kwargs['vmax'] = np.max(tp[0])
+        if 'vmin' not in kwargs:
+            kwargs['vmin'] = np.min(tp[0])
 
-        # Creates the slider widget
-        slider = Slider(start=cadences[0], end=cadences[-1],
-                        value=cadences[0], step=1, title='TPF Cadence Slice',
-                        width=300)
-        slider.on_change('value', slider_update)
+        def animate(i):
+            nonlocal line, x, y, scats, line
+            ax.imshow(tp[i], origin='lower', **kwargs)
+            # Plots motion of COM when the user wants
+            if com==True:
+                for scat in scats:
+                    scat.remove()
+                scats = []
+                scats.append(ax.scatter(x[i], y[i], s=16, c='k'))
+            
+            # Plots aperture around source when the user wants
+            if aperture==True:
+                for c in ps:
+                    c.remove()
+                circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
+                p = PatchCollection([circleShape], alpha=0.4)
+                p.set_array(np.array([0]))
+                p.set_edgecolor('face')
+                ps.append(ax.add_collection(p))
 
-        # Creates the button widget
-        button = Button(label='► Play', width=60)
-        button.on_click(animate)
+            # Plots moving point along light curve when the user wants
+            if plot_lc==True:
+                for l in line:
+                    l.remove()
+                line = []
+                line.append(ax1.scatter(time[i], lc[i], s=20, c='r'))
+
+            # Updates the frame number
+            time_text.set_text('Frame {}'.format(i))
+
         
-        layout = layout([
-                [l, p],
-                [slider, button],])
-        
-        widgets = widgetbox(slider, button)
-        row = row(p, l)
-        row_and_col = column(row, widgets)
-        
-        curdoc().add_root(layout)
-        curdoc().title='Test Movie'
+        line, scats = [],[]
+        if plot_lc==True:
+            fig  = plt.figure(figsize=(18,5))
+            spec = gridspec.GridSpec(ncols=3, nrows=1)
+            ax   = fig.add_subplot(spec[0,2])
+            ax1  = fig.add_subplot(spec[0, 0:2])
+            ax1.plot(time, lc, 'k')
+            ax1.set_ylabel('Normalized Flux')
+            ax1.set_xlabel('Time - 2454833 (Days)')
+            ax1.set_xlim([np.min(time)-0.05, np.max(time)+0.05])
+            ax1.set_ylim([np.min(lc)-0.05, np.max(lc)+0.05])
+
+        elif plot_lc==False:
+            fig  = plt.figure()
+            spec = gridspec.GridSpec(ncols=1, nrows=1)
+            ax   = fig.add_subplot(spec[0,0])
+
+        # Writes frame number on TPF movie
+        time_text = ax.text(5.5, -0.25, '', color='white', fontweight='bold')
+        time_text.set_text('')
+
+        # Allows TPF movie to be saved as mp4
+        Writer = animation.writers['ffmpeg']
+        writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
+
+        ani = animation.FuncAnimation(fig, animate, frames=len(tp))
+
+        if cbar==True:
+            plt.colorbar(ax.imshow(tp[0], **kwargs), ax=ax)
+
+        if output_fn == None:
+            if self.tic != None:
+                self.output_fn = '{}.mp4'.format(self.tic)
+                ax.set_title('{}'.format(self.tic), fontweight='bold')
+            elif self.gaia != None:
+                self.output_fn = '{}.mp4'.format(self.gaia)
+                ax.set_title('{}'.format(self.gaia), fontweight='bold')
+            
+        plt.tight_layout()
+#        plt.show()
+        from IPython.display import HTML
+        HTML(ani.to_jshtml())
         return
+
 
 
     def click_aperture(self):
@@ -1341,7 +1394,7 @@ class visualize(data_products, find_sources):
 
         def in_tpf(xy, gaiaXY, gaiaID, gaiaMAG, gaiaRA, gaiaDEC):
             """ Pushes the gaia sources to the appropriate place in the TPF """
-            gaiaX, gaiaY = gaiaXY[0]-xy[0]+4, gaiaXY[1]-xy[1]+6
+            gaiaX, gaiaY = gaiaXY[0]-xy[0]+4, gaiaXY[1]-xy[1]+5
             inds = np.where( (gaiaX >= -0.5) & (gaiaX <= 8.5) &
                              (gaiaY >= -0.5) & (gaiaY <= 8.5) & (gaiaMAG <= 16.5))
             return [gaiaX[inds], gaiaY[inds]], gaiaID[inds], gaiaMAG[inds], gaiaRA[inds], gaiaDEC[inds]
@@ -1365,7 +1418,6 @@ class visualize(data_products, find_sources):
         center = [header['CENTER_X'],  header['CENTER_Y']]
 
         hdr = data_products.get_header(self, postcard=header['POSTCARD'])
-        xy_source = [header['CENTER_X'], header['CENTER_Y']]
         # Finds & corrects Gaia sources
         gaia_xy, gaia_id, gaia_gmag, gaia_ra, gaia_dec = find_gaia_sources(header, hdr)
         gaia_xy = pointingCorr(gaia_xy, header)
@@ -1426,6 +1478,11 @@ class visualize(data_products, find_sources):
                                          ("RA", "@ra"), ("Dec", "@dec")],
                                renderers=[s], mode='mouse', point_policy="snap_to_data"))
         
-#        print(self.in_ipynb())
         output_notebook()
-        return p
+        show(p, notebook_handle=True)
+
+        try:
+            push_notebook()
+        except AttributeError:
+            print("Because you're not working in a Jupyter Notebook, we've saved this figure as a .html for you. Please check your files now for the figure.")
+            output_file("markGaia.html")
