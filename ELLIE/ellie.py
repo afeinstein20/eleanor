@@ -790,6 +790,7 @@ class data_products(find_sources):
         if postcard == None:
             postcard = header['POSTCARD']
         self.camera, self.chip = postcard[11:12], postcard[13:14]
+        print(postcard)
         self.sector = postcard[9:10]
         pm_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(
                 self.sector, self.camera, self.chip))
@@ -1217,19 +1218,6 @@ class visualize(data_products, find_sources):
         else:
             self.fn = input_fn
 
-    
-    def in_ipynb(self):
-        """ Checks if user is calling the command from a Jupyter Notebook or not """
-        print(get_ipython().config)
-        try:
-            cfg = get_ipython().config 
-            if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
-                return True
-            else:
-                return False
-        except NameError:
-            return False
-
 
     def tpf_movie(self, output_fn=None, cbar=True, aperture=False, com=False, plot_lc=False, **kwargs):
         """
@@ -1273,7 +1261,7 @@ class visualize(data_products, find_sources):
             kwargs['vmin'] = np.min(tp[0])
 
         def animate(i):
-            nonlocal line, x, y, scats, line
+            nonlocal line, x, y, scats, line, ps
             ax.imshow(tp[i], origin='lower', **kwargs)
             # Plots motion of COM when the user wants
             if com==True:
@@ -1286,6 +1274,7 @@ class visualize(data_products, find_sources):
             if aperture==True:
                 for c in ps:
                     c.remove()
+                ps=[]
                 circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
                 p = PatchCollection([circleShape], alpha=0.4)
                 p.set_array(np.array([0]))
@@ -1303,7 +1292,7 @@ class visualize(data_products, find_sources):
             time_text.set_text('Frame {}'.format(i))
 
         
-        line, scats = [],[]
+        line, scats, ps = [],[], []
         if plot_lc==True:
             fig  = plt.figure(figsize=(18,5))
             spec = gridspec.GridSpec(ncols=3, nrows=1)
@@ -1311,7 +1300,7 @@ class visualize(data_products, find_sources):
             ax1  = fig.add_subplot(spec[0, 0:2])
             ax1.plot(time, lc, 'k')
             ax1.set_ylabel('Normalized Flux')
-            ax1.set_xlabel('Time - 2454833 (Days)')
+            ax1.set_xlabel('Time (Days)')
             ax1.set_xlim([np.min(time)-0.05, np.max(time)+0.05])
             ax1.set_ylim([np.min(lc)-0.05, np.max(lc)+0.05])
 
@@ -1343,13 +1332,13 @@ class visualize(data_products, find_sources):
             
         plt.tight_layout()
 #        plt.show()
-        from IPython.display import HTML
-        HTML(ani.to_jshtml())
-        return
+#        from IPython.display import HTML
+#        HTML(ani.to_html5_video())
+        return ani
 
 
 
-    def click_aperture(self):
+    def click_aperture(self, corrected=False):
         """
         Allows the user to click specific pixels they want to create
         a lightcurve for
@@ -1426,6 +1415,9 @@ class visualize(data_products, find_sources):
                     cadence.append(tpf[f][coords[i][0], coords[i][1]])
                 custlc.append(np.sum(cadence))
             custlc = np.array(custlc) / np.nanmedian(custlc)
+
+        ### do the corrections if asked ###
+
             return custlc
             
         else:
@@ -1472,10 +1464,10 @@ class visualize(data_products, find_sources):
             return ticLabel, tmagLabel
 
 
-        output_file("gaia_hover.html")
+#        output_file("gaia_hover.html")
 
         hdu = fits.open(self.fn)
-        tpf = hdu[0].data#[0]
+        tpf = hdu[0].data[0]
         header = hdu[0].header
         center = [header['CENTER_X'],  header['CENTER_Y']]
 
@@ -1540,10 +1532,10 @@ class visualize(data_products, find_sources):
                                          ("RA", "@ra"), ("Dec", "@dec")],
                                renderers=[s], mode='mouse', point_policy="snap_to_data"))
         
-#        output_notebook()
-
-        show(p)
-        return
+        output_notebook()
+        
+#        show(p)
+        return p
 
 #        try:
 #            push_notebook()
