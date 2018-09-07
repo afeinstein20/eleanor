@@ -1,3 +1,5 @@
 This is the README file, which will contain more useful information *eventually*
 
-<img src="/ELLIE/figures/logo.gif">
+<p align="center">
+  <img width = "300" src="./ELLIE/figures/logo.gif"/>
+</p>
