@@ -744,7 +744,8 @@ class data_products(find_sources):
                 data.append(t[i][j])
             d = dict(zip(t.colnames[0:146], data))
             hdr = fits.Header(cards=d)
-            xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1, )
+
+            xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1, quiet=True)
             x_cen, y_cen, l, w = t['POST_CEN_X'][i], t['POST_CEN_Y'][i], t['POST_SIZE1'][i]/2., t['POST_SIZE2'][i]/2.
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
@@ -775,18 +776,16 @@ class data_products(find_sources):
             postcard = header['POSTCARD']
         self.camera, self.chip = postcard[11:12], postcard[13:14]
         self.sector = postcard[9:10]
-        pm_link = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/pointingModel_{}_{}-{}.txt'.format(
+        pm_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(
                 self.sector, self.camera, self.chip))
         pm = pm_link.read().decode('utf-8')
         pm = Table.read(pm, format='ascii.basic')
         return pm
 
-######################################
-######### CHANGE ALL LINKS ###########
-######################################
+
     def get_header(self, postcard=None):
         """ Gets postcard header from the website """
-        post_link = urllib.request.urlopen('https://astro.uchicago.edu/~bmontet/tess/postcards/postcard.txt')
+        post_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.txt')
         post  = post_link.read().decode('utf-8')
         post  = Table.read(post, format='ascii.basic')
         if postcard==None:
@@ -851,6 +850,7 @@ class data_products(find_sources):
             data.append(card_info[i])
         d = dict(zip(card_info.colnames[0:146], data))
         hdr = fits.Header(cards=d)
+
         xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
 
         # Corrects position with pointing model
@@ -860,7 +860,7 @@ class data_products(find_sources):
         y = xy[0]*np.sin(initShift['medT']) + xy[1]*np.cos(initShift['medT']) - initShift['medY']
         
         self.post_dir = self.root_dir + '/postcards/'
-        self.post_url = 'https://astro.uchicago.edu/~bmontet/tess/postcards/'
+        self.post_url = 'http://jet.uchicago.edu/tess_postcards/'
 
         if os.path.isdir(self.post_dir) == False:
             os.system('cd {} && mkdir postcards'.format(self.root_dir))
@@ -871,13 +871,14 @@ class data_products(find_sources):
             os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.post_url+postcard) )
 
         post_fits = fits.open(self.post_dir+postcard)[0].data
+        time_info = fits.open(self.post_dir+postcard)[1].data
+        time = (time_info[1]+time_info[0])/2. + time_info[2]
 
         xy = init_shift(xy)
         
         # Moving coordinates to postcard space
         delY, delX = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
         newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
-
 
         newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
@@ -886,7 +887,9 @@ class data_products(find_sources):
 
         xy_shift = add_shift(tpf)
         cutout = Cutout2D(post_fits[0],position=(newY-xy_shift[1],newX-xy_shift[0]), size=(9,9))
-        plt.imshow(cutout.data, origin='lower')
+        fig, (ax1, ax2) = plt.subplots(ncols=2, nrows=1)
+        ax1.imshow(tpf[0], origin='lower')
+        ax2.imshow(cutout.data, origin='lower')
         plt.show()
 #        radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
@@ -895,7 +898,7 @@ class data_products(find_sources):
         else:
             shape = 'rectangle'
 
-        lcData = [np.arange(0,len(tpf),1), np.array(uncorrLC), np.array(lc)]
+        lcData = [time, np.array(uncorrLC), np.array(lc)]
 
         # Additional header information
         hdr.append(('COMMENT', '***********************'))
