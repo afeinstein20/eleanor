@@ -435,6 +435,8 @@ class data_products(find_sources):
 
         if self.tic != None:
             self.tic_fn = 'hlsp_ellie_tess_ffi_{}_v1_lc.fits'.format(self.tic)
+            id, pos, tmag = data_products.tic_pos_by_ID(self)
+            self.pos = pos
         if self.gaia != None:
             self.gaia_fn = 'hlsp_ellie_tess_ffi_GAIA{}_v1_lc.fits'.format(self.gaia)
 
@@ -456,38 +458,39 @@ class data_products(find_sources):
                     if fn.get('href')[-7::] == 'ic.fits':
                         calFiles.append(path+fn.get('href'))
             return calFiles
-        
-        ffi_dir, sect_dir = 'ffis', 'sector_{}'.format(sector)
-        # Creates an FFI directory, if one does not already exist
-        if os.path.isdir(self.root_dir+'/'+sect_dir) == False:
-            os.system('cd {} && mkdir {}'.format(self.root_dir, sect_dir))
-        # Creates a sector directory, if one does not already exist
-        if os.path.isdir(self.root_dir+'/'+sect_dir+'/'+ffi_dir) == False:
-            os.system('cd {} && mkdir {}'.format(self.root_dir+'/'+sect_dir, ffi_dir))
 
-        self.sect_dir = '/'.join(str(e) for e in [self.root_dir, sect_dir, ffi_dir])
+        for s in sector:
+            ffi_dir, sect_dir = 'ffis', 'sector_{}'.format(sector)
+            # Creates an FFI directory, if one does not already exist
+            if os.path.isdir(self.root_dir+'/'+sect_dir) == False:
+                os.system('cd {} && mkdir {}'.format(self.root_dir, sect_dir))
+            # Creates a sector directory, if one does not already exist
+            if os.path.isdir(self.root_dir+'/'+sect_dir+'/'+ffi_dir) == False:
+                os.system('cd {} && mkdir {}'.format(self.root_dir+'/'+sect_dir, ffi_dir))
 
-        if sector in np.arange(1,14,1):
-            year=2019
-        else:
-            year=2020
-        # Current days available for ETE-6
-        days = np.arange(129,130,1)
-        if camera==None:
-            camera = np.arange(1,5,1)
-        if chips==None:
-            chips  = np.arange(1,5,1)
-        # This URL applies to ETE-6 simulated data ONLY
-        url = 'https://archive.stsci.edu/missions/tess/ete-6/ffi/'
-        for c in camera:
-            for h in chips:
-                files = findAllFFIs(c, h)
-                # Loops through all files from MAST 
-                for f in files:
-                    file = Path(self.sect_dir+f)
-                    # If the file in that directory doesn't exist, download it
-                    if file.is_file() == False:
-                        os.system('cd {} && curl -O -L {}'.format(self.sect_dir, f))
+            self.sect_dir = '/'.join(str(e) for e in [self.root_dir, sect_dir, ffi_dir])
+            
+            if sector in np.arange(1,14,1):
+                year=2019
+            else:
+                year=2020
+            # Current days available for ETE-6
+            days = np.arange(129,132,1)
+            if camera==None:
+                camera = np.arange(1,5,1)
+            if chips==None:
+                chips  = np.arange(1,5,1)
+            # This URL applies to ETE-6 simulated data ONLY
+            url = 'https://archive.stsci.edu/missions/tess/ete-6/ffi/'
+            for c in camera:
+                for h in chips:
+                    files = findAllFFIs(c, h)
+                    # Loops through all files from MAST 
+                    for f in files:
+                        file = Path(self.sect_dir+f)
+                        # If the file in that directory doesn't exist, download it
+                        if file.is_file() == False:
+                            os.system('cd {} && curl -O -L {}'.format(self.sect_dir, f))
         return
 
 
@@ -549,7 +552,6 @@ class data_products(find_sources):
                 dist = nearest(x[i], y[i])
                 if dist >= 8.0:
                     isolated.append(i)
-            print(len(isolated))
             return isolated
                 
 
@@ -591,7 +593,6 @@ class data_products(find_sources):
                         matrix[i][j][0] = com[0]+xy[i][0]
                         matrix[i][j][1] = com[1]+xy[i][1]
 
-            print("Creating Pointing Model")
             for i in tqdm(range(len(fns))):
                 centroids = matrix[:,i]
                 if i == 0:
@@ -622,8 +623,8 @@ class data_products(find_sources):
         inds = np.where( (xy[1]>=44.+bord) & (xy[1]<len(mast)-45.-bord) & (xy[0]>=bord) & (xy[0]<len(mast[0])-41.-bord))[0]
         x, y, ids, tmag = xy[0][inds], xy[1][inds], ids[inds], tmag[inds]
         
-        print("Finding the most isolated sources")
         isolated = find_isolated(x, y)
+        print("{} isolated sources will be used to create the pointing model".format(len(isolated)))
         x, y, ids, tmag = x[isolated], y[isolated], ids[isolated], tmag[isolated]
 
         # Applying Tmag cuts
@@ -633,11 +634,16 @@ class data_products(find_sources):
         return
         
 
-    def make_postcard(self, camera, chip, sector):
+    def make_postcard(self, camera=None, chip=None, sector=None):
         """
         Creates 300 x 300 x n postcards, where n is the number of cadences for a given observing run
         Creates a catalog of the associated header with each postcard for use later
         """
+        if camera==None or chip==None or sector==None:
+            print("You must input camera, chip, and sector you wish to create postcards for.")
+            print("You can do this by calling data_products.make_postcard(sector=#, camera=#, chip=#)")
+            return
+
         self.post_dir = self.root_dir+'/sector_{}/postcards/'.format(sector)
         self.ffi_dir  = self.root_dir+'/sector_{}/ffis/'.format(sector)
         if os.path.isdir(self.post_dir)==False:
@@ -662,13 +668,15 @@ class data_products(find_sources):
             for j in range(len(y)-1):
                 mast, mheader = fits.getdata(fns[0], header=True)
                 fn = 'postcard_{}_{}-{}_{}-{}.fits'.format(sector, camera, chip, i, j)
+                if os.path.isfile(self.post_dir+fn)==True:
+                    return
+                print("Creating postcard: {}".format(fn))
                 x_cen = (x[i]+x[i+1]) / 2.
                 y_cen = (y[j]+y[j+1]) / 2.
 
                 radec = WCS(mheader).all_pix2world(x_cen, y_cen, 1)
                 s = 300
                 tpf   = ktpf.from_fits_images(images=fns, position=(x_cen,y_cen), size=(s,s))
-                print(tpf)
                 # Edits header of FITS files
                 tempVals = list(mheader.values())
                 moreData = [fn, s, s, x_cen, y_cen, float(radec[0]), float(radec[1])]
@@ -694,7 +702,8 @@ class data_products(find_sources):
                 hdu1.data = tpf.flux
                 hdu1.writeto(self.post_dir+fn)
 
-        ascii.write(t, output='postcard.txt')
+        ascii.write(t, output='postcard_{}_{}-{}.txt'.format(sector, camera, chip))
+        self.make_postcard_catalog()
         return
 
 
@@ -723,6 +732,8 @@ class data_products(find_sources):
                 main_table.add_row(post[j])
 
         ascii.write(main_table, output='postcard.txt')
+        for i in post_fns:
+            os.remove(i)
         return
 
 
@@ -734,6 +745,10 @@ class data_products(find_sources):
             postcard filename, header of the postcard
         """
         t = self.get_header()
+
+        if self.pos == None and self.tic != None:
+            id, pos, tmag = data_products.tic_pos_by_ID(self)
+            self.pos = pos
 
         in_file=[None]
         # Searches through rows of the table
@@ -884,14 +899,15 @@ class data_products(find_sources):
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
 
         xy_new = add_shift(tpf)
-
-        xy_shift = add_shift(tpf)
-        cutout = Cutout2D(post_fits[0],position=(newY-xy_shift[1],newX-xy_shift[0]), size=(9,9))
-        fig, (ax1, ax2) = plt.subplots(ncols=2, nrows=1)
-        ax1.imshow(tpf[0], origin='lower')
-        ax2.imshow(cutout.data, origin='lower')
-        plt.show()
-#        radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
+        newX, newY = int(newY-xy_new[1]), int(newX-xy_new[0])
+        tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
+#        xy_shift = add_shift(tpf)
+#        cutout = Cutout2D(post_fits[0], position=(newY-xy_shift[1],newX-xy_shift[0]), size=(9,9))
+#        fig, (ax1, ax2) = plt.subplots(ncols=2, nrows=1)
+#        ax1.imshow(tpf[0], origin='lower')
+#        ax2.imshow(cutout.data, origin='lower')
+#        plt.show()
+        radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
             shape = 'circle'
@@ -912,6 +928,8 @@ class data_products(find_sources):
         hdr.append(('POSTCARD', postcard, 'Postcard Filename'))
         hdr.append(('AP_SHAPE', shape))
         hdr.append(('AP_RAD', radius))
+        if self.tic !=None:
+            hdr.append(('TMAG', float(tmag[0])))
         xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
 
         hdr.append(('CENTER_X', float(xy[0])))
@@ -934,11 +952,35 @@ class data_products(find_sources):
             fn = 'hlsp_ellie_tess_ffi_CLOSEST_TIC{}_v1_lc.fits'.format(int(table['TIC_ID']))
 
         if output_fn==None:
-            new_hdu.writeto(fn)
+            new_hdu.writeto(fn, overwrite=True)
         else:
             fn = output_fn
             new_hdu.writeto(fn, overwrite=True)
+        self.target_fn = fn
         return fn
+
+
+    def plot(self):
+        """
+        Makes a simple plot of the light curve and image of TPF
+        """
+        hdu = fits.open(self.target_fn)
+        tpf = hdu[0].data
+        lc  = hdu[1].data
+        fig  = plt.figure(figsize=(18,5))
+        spec = gridspec.GridSpec(ncols=3, nrows=1)
+        ax2   = fig.add_subplot(spec[0,2])
+        ax1  = fig.add_subplot(spec[0, 0:2])
+
+        ax2.imshow(tpf[0], origin='lower')
+        ax2.set_xlabel('Pixel Column Number')
+        ax2.set_ylabel('Pixel Row Number')
+        ax1.plot(lc[0], lc[1], 'k', label='Uncorrected')
+        ax1.plot(lc[0], lc[2], 'r', label='Corrected')
+        ax1.set_xlabel('Time')
+        ax1.set_ylabel('Normalized Flux')
+        plt.show()
+        return
 
         
     def aperture_fitting(self, tpf=None):
@@ -1065,23 +1107,28 @@ class data_products(find_sources):
             hdu = fits.open(self.gaia_fn)
         else:
             hdu = fits.open(input_fn)
+            
         tpf = hdu[0].data
-        center = [4,4]
+
+        if len(pos) < 2:
+            center = [4,4]
+        else:
+            center = pos
         # Grabs the pointing model if the user has set pointing==True
         if pointing==True:
             pm  = self.get_pointing(header = hdu[0].header)
             x = center[0]*np.cos(pm['medT'].data) - center[1]*np.sin(pm['medT'].data) + pm['medX'].data
             y = center[0]*np.sin(pm['medT'].data) + center[1]*np.cos(pm['medT'].data) + pm['medY'].data
 
-        lc = cust_lc(center)
+        x, y = x-np.median(x)+center[0], y-np.median(y)+center[1]
+        lc = cust_lc(center, x, y)
 
         if pointing==False and roll==True:
             print("Sorry, our roll correction, lightkurve.SFFCorrector, only works when you use the pointing model.\nFor now, we're turning roll corrections off.")
             roll=False
 
-        lc = self.system_corr(lc, center[0], center[1], jitter=jitter, roll=roll)
-        plt.plot(hdu[1].data[0], lc)
-        plt.show()
+        lc = self.system_corr(lc, x, y, jitter=jitter, roll=roll)
+        return lc
             
     def system_corr(self, lc, x_pos, y_pos, jitter=False, roll=False):
         """ 
@@ -1128,6 +1175,7 @@ class data_products(find_sources):
             """ Corrects for spacecraft roll using Lightkurve """
             time = np.arange(0, len(lc), 1)
             sff = SFFCorrector()
+            x_pos, y_pos = np.array(x_pos), np.array(y_pos)
             lc_corrected = sff.correct(time, lc, x_pos, y_pos, niters=1,
                                        windows=1, polyorder=5)
             return lc_corrected.flux
@@ -1135,6 +1183,8 @@ class data_products(find_sources):
         if jitter==True and roll==True:
             newlc = jitter_corr(lc, x_pos, y_pos)
             newlc = rotation_corr(newlc, x_pos, y_pos)
+        elif jitter==True and roll==False:
+            newlc = jitter_corr(lc, x_pos, y_pos)
         elif jitter==False and roll==True:
             newlc = rotation_corr(lc, x_pos, y_pos)
         elif jitter==False and roll==False:
@@ -1422,10 +1472,10 @@ class visualize(data_products, find_sources):
             return ticLabel, tmagLabel
 
 
-#        output_file("gaia_hover.html")
+        output_file("gaia_hover.html")
 
         hdu = fits.open(self.fn)
-        tpf = hdu[0].data[0]
+        tpf = hdu[0].data#[0]
         header = hdu[0].header
         center = [header['CENTER_X'],  header['CENTER_Y']]
 
@@ -1490,11 +1540,13 @@ class visualize(data_products, find_sources):
                                          ("RA", "@ra"), ("Dec", "@dec")],
                                renderers=[s], mode='mouse', point_policy="snap_to_data"))
         
-        output_notebook()
-        show(p, notebook_handle=True)
+#        output_notebook()
 
-        try:
-            push_notebook()
-        except AttributeError:
-            print("Because you're not working in a Jupyter Notebook, we've saved this figure as a .html for you. Please check your files now for the figure.")
-            output_file("markGaia.html")
+        show(p)
+        return
+
+#        try:
+#            push_notebook()
+#        except AttributeError:
+#            print("Because you're not working in a Jupyter Notebook, we've saved this figure as a .html for you. Please check your files now for the figure.")
+#            output_file("markGaia.html")
