@@ -4,23 +4,12 @@ from ellie import visualize
 from astropy.io import fits
 import numpy as np
 import matplotlib.pyplot as plt
+from bokeh.plotting import show
 
 
-
-tic  = 198593129
-tic  = 420888018
-#pos  = [266.491526, 49.518268]
-gaia = 1414861664385248640
-#a = data_products(gaia=gaia)
-#a.individual_tpf()
-#a = data_products()
-#a.download_ffis(sector=1, camera=[3], chips=[2])
-#a.pointing_model(camera=2, chip=1, sector=1)
-
-
-
-b = visualize(tic=tic)
-b.mark_gaia()
-#b.tpf_movie()
-#lc = b.click_aperture()
-
+vis = visualize(tic=193945542)
+#ani = vis.tpf_movie(aperture=True, plot_lc=True, com=True)
+#plt.show()
+lc = vis.click_aperture()
+plt.plot(np.arange(0,len(lc),1), lc, 'k')
+plt.show()
