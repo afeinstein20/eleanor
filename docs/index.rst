@@ -10,6 +10,7 @@ Welcome to ELLIE's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   API <api>
 
 
 Indices and tables
