@@ -17,5 +17,8 @@ cache:
     directories:
         - $HOME/miniconda
 
+script:
+    - echo "Run tests here."
+
 after_success:
     - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
