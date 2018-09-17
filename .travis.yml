@@ -10,7 +10,7 @@ matrix:
           env: PYTHON_VERSION=3.6 NUMPY_VERSION=1.11
 
 install:
-    - source .ci/travis.sh
+    - source .ci/conda.sh
     - python setup.py install
 
 cache:
