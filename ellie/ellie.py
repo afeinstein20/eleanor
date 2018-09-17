@@ -1,3 +1,11 @@
+"""
+ELLIE
+-----
+
+This is ELLIE.
+
+"""
+
 import os, sys, re, json, time
 import requests
 import urllib
@@ -104,29 +112,29 @@ class find_sources:
         """
         Sends a request to the MAST server
         Parameters
-        ---------- 
+        ----------
             request: json string
         Returns
-        ---------- 
+        ----------
             head: headers for response
             content: data for response
         """
         server = 'mast.stsci.edu'
-        
-        # Grab Python Version   
+
+        # Grab Python Version
         version = '.'.join(map(str, sys.version_info[:3]))
-        # Create Http Header Variables                    
+        # Create Http Header Variables
         headers = {'Content-type': 'application/x-www-form-urlencoded',
                    'Accept': 'text/plain',
                    'User-agent': 'python-requests/'+version}
-        # Encoding the request as a json string       
+        # Encoding the request as a json string
         requestString = urlencode(json.dumps(request))
-        # Opening the https cnnection         
+        # Opening the https cnnection
         conn = httplib.HTTPSConnection(server)
-        # Making the query                           
+        # Making the query
         conn.request('POST', '/api/v0/invoke', 'request='+requestString, headers)
 
-        # Getting the response   
+        # Getting the response
         resp = conn.getresponse()
         head = resp.getheaders()
         content = resp.read().decode('utf-8')
@@ -136,7 +144,7 @@ class find_sources:
 
         return head, content
 
-            
+
     def jsonTable(self, jsonObj):
         """
         Convets json return type object into an astropy Table
@@ -162,13 +170,13 @@ class find_sources:
     def cone_search(self, r, service, multiPos=None):
         """
         Completes a cone search in the Gaia DR2 or TIC catalog
-        Parameters 
-        ----------  
+        Parameters
+        ----------
             r: radius of cone search [deg]
             service: identifies which MAST service to use. Either 'Mast.Catalogs.GaiaDR2.Cone'
                      or 'Mast.Catalogs.Tic.Cone' are acceptable inputs
-        Returns 
-        ----------  
+        Returns
+        ----------
             table: table of sources found within cone of radius r
             See the Gaia & TIC field documantation for more information on returned columns
         """
@@ -178,7 +186,7 @@ class find_sources:
             return "No position found. Please try reinitializing."
         else:
             pos = self.pos
-        request = {'service': service, 
+        request = {'service': service,
                    'params': {'ra':pos[0], 'dec':pos[1], 'radius':r},
                    'format':'json'}
         headers, outString = self.mastQuery(request)
@@ -191,7 +199,7 @@ class find_sources:
         Parameters
         ----------
             pos: [RA,Dec] list
-            r: radius of search for crossmatch 
+            r: radius of search for crossmatch
             service: identifies which catalog to crossmatch to. Either: 'Mast.GaiaDR2.Crossmatch'
                      or 'Mast.Tic.Crossmatch' are accepted
             multiPos: used when user passes in list of IDs to crossmatch
@@ -221,9 +229,9 @@ class find_sources:
         """
         Finds the RA,Dec for a given Gaia source_id
         Parameters
-        ---------- 
-        Returns 
-        ---------- 
+        ----------
+        Returns
+        ----------
             source_id, pos [RA,Dec], gmag, pmra, pmdec, parallax
         """
         from astroquery.gaia import Gaia
@@ -250,7 +258,7 @@ class find_sources:
             multiSource: used when user passes in a file of TIC IDs to crossmatch
         Returns
         ----------
-            source_id, pos [RA,Dec], tmag 
+            source_id, pos [RA,Dec], tmag
         """
         if multiSource != None:
             source = multiSource
@@ -262,7 +270,7 @@ class find_sources:
         ticData = Catalogs.query_criteria(catalog='Tic', ID=source)
         return ticData['ID'].data, [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
 
-    
+
     def initialize_table(self):
         """ Creates a table for crossmatching multiple sources between Gaia and TIC catalogs """
         columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'separation', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
@@ -276,15 +284,15 @@ class find_sources:
         c1 = SkyCoord(pos[0], pos[1], frame='icrs')
         c2 = SkyCoord(match[0]*u.deg, match[1]*u.deg, frame='icrs')
         return c1.separation(c2).to(u.arcsec)
-        
+
 
     def crossmatch_multi_to_gaia(self):
         """
         Crossmatches file of TIC IDs to Gaia
         Parameters
-        ---------- 
+        ----------
         Returns
-        ---------- 
+        ----------
             table: table of gaia_id, tic_id, ra, dec, delta_pos, gmag, tmag, pmra, pmdec, parallax
         """
         filename = self.multiFile
@@ -301,7 +309,7 @@ class find_sources:
         t.remove_row(0)
         return t
 
-    
+
     def crossmatch_multi_to_tic(self, list=[]):
         """
         Crossmatches file of Gaia IDs to TIC
@@ -309,7 +317,7 @@ class find_sources:
         ----------
         Returns
         ----------
-            table: table of gaia_id, tic_id, ra, dec, delta_pos, gmag, tmag, pmra, pmdec, parallax 
+            table: table of gaia_id, tic_id, ra, dec, delta_pos, gmag, tmag, pmra, pmdec, parallax
         """
         if len(list) == 0:
             try:
@@ -325,7 +333,7 @@ class find_sources:
         t = self.initialize_table()
         for s in sources:
             self.gaia = s
-            table = self.gaia_pos_by_ID()            
+            table = self.gaia_pos_by_ID()
             sID, pos, gmag = table['source_id'].data, [table['ra'].data[0], table['dec'].data[0]], table['phot_g_mean_mag'].data
             pmra, pmdec, parallax = table['pmra'].data, table['pmdec'].data, table['parallax'].data
             self.pos = pos
@@ -339,14 +347,14 @@ class find_sources:
 
         return t
 
-    
+
     def find_by_position(self):
         """
         Allows the user to pass in a file of RA,Dec pairs to be matched in Gaia & TIC
         Parameters
-        ----------  
-        Returns 
-        ----------  
+        ----------
+        Returns
+        ----------
             table: table of gaia_id, tic_id, ra, dec, delta_pos_gaia, delta_pos_tic, gmag, tmag, pmra, pmdec, parallax
         """
         if self.pos == None:
@@ -354,7 +362,7 @@ class find_sources:
                 data = np.loadtxt(self.multiFile, delimiter=',')
             else:
                 data = np.loadtxt(self.multiFile)
-            
+
         else:
             data = [self.pos]
 
@@ -373,7 +381,7 @@ class find_sources:
             tessPos = [tess['MatchRA'], tess['MatchDEC']]
             sepTess = self.crossmatch_distance(pos, tessPos)
 
-            t.add_row([gaia['MatchID'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'], 
+            t.add_row([gaia['MatchID'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'],
                        tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
 
         t.remove_row(0)
@@ -404,7 +412,7 @@ class find_sources:
         headers, outString = self.mastQuery(request)
         return self.jsonTable(json.loads(outString))
 
-    
+
     def download_tic_tpf(self, custom=False):
         """
         This function finds the sector, camera, and chip a target is located in
@@ -469,7 +477,7 @@ class data_products(find_sources):
                 os.system('cd {} && mkdir {}'.format(self.root_dir+'/'+sect_dir, ffi_dir))
 
             self.sect_dir = '/'.join(str(e) for e in [self.root_dir, sect_dir, ffi_dir])
-            
+
             if sector in np.arange(1,14,1):
                 year=2019
             else:
@@ -485,7 +493,7 @@ class data_products(find_sources):
             for c in camera:
                 for h in chips:
                     files = findAllFFIs(c, h)
-                    # Loops through all files from MAST 
+                    # Loops through all files from MAST
                     for f in files:
                         file = Path(self.sect_dir+f)
                         # If the file in that directory doesn't exist, download it
@@ -517,25 +525,25 @@ class data_products(find_sources):
         """
         Creates the pointing model for a given camera and chip across all cadences
         """
-        
+
         def pixel_cone(header, r, contam):
             """ Completes a cone search around center of FITS file """
             pos = [header['CRVAL1'], header['CRVAL2']]
             data = find_sources.tic_by_contamination(find_sources(), pos, r, contam)
             ra, dec = data['ra'], data['dec']
             return WCS(header).all_world2pix(ra, dec, 1), data['ID'], data['Tmag']
-        
+
 
         def find_isolated(x, y):
-            """ 
+            """
             Finds isolated sources in the image where an isolated source is >= 8.0 pixels
             away from any other source
             Parameters
-            ---------- 
+            ----------
                 x: a list of x-coordinates for all sources in file
                 y: a list of y-coordinates for all sources in file
             Returns
-            ----------  
+            ----------
                 isolated: a list of isolated source indices
             """
 
@@ -546,14 +554,14 @@ class data_products(find_sources):
                 y_list = np.delete(y, np.where(y==y_source))
                 closest = np.sqrt( (x_source-x_list)**2 + (y_source-y_list)**2 ).argmin()
                 return np.sqrt( (x_source-x_list[closest])**2+ (y_source-y_list[closest])**2 )
-                
+
             isolated = []
             for i in range(len(x)):
                 dist = nearest(x[i], y[i])
                 if dist >= 8.0:
                     isolated.append(i)
             return isolated
-                
+
 
         def calc_shift():
             nonlocal fns, x, y, mast
@@ -612,17 +620,17 @@ class data_products(find_sources):
 
         self.ffi_dir = self.root_dir+'/sector_{}/ffis/'.format(sector)
         self.corrFile = 'pointingModel_{}_{}-{}.txt'.format(sector, camera, chip)
-        
+
         fns, time = self.sort_by_date(camera, chip)
         mast, header = fits.getdata(self.ffi_dir+fns[0], header=True)
         print("Grabbing good sources for the pointing model")
         xy, ids, tmag = pixel_cone(header, 6*np.sqrt(1.2), [0.0, 5e-6])
-        
+
         # Makes sure sources are in the file
         bord = 20.
         inds = np.where( (xy[1]>=44.+bord) & (xy[1]<len(mast)-45.-bord) & (xy[0]>=bord) & (xy[0]<len(mast[0])-41.-bord))[0]
         x, y, ids, tmag = xy[0][inds], xy[1][inds], ids[inds], tmag[inds]
-        
+
         isolated = find_isolated(x, y)
         print("{} isolated sources will be used to create the pointing model".format(len(isolated)))
         x, y, ids, tmag = x[isolated], y[isolated], ids[isolated], tmag[isolated]
@@ -632,7 +640,7 @@ class data_products(find_sources):
         x, y, ids, tmag = x[tmag_inds], y[tmag_inds], ids[tmag_inds], tmag[tmag_inds]
         calc_shift()
         return
-        
+
 
     def make_postcard(self, camera=None, chip=None, sector=None):
         """
@@ -758,7 +766,7 @@ class data_products(find_sources):
 
 
     def find_postcard(self):
-        """ 
+        """
         Finds what postcard a source is located in
         Returns
         ----------
@@ -788,7 +796,7 @@ class data_products(find_sources):
                     in_file[0]=i
                 else:
                     in_file.append(i)
-                # If more than one postcard is found for a single source, choose the postcard where the 
+                # If more than one postcard is found for a single source, choose the postcard where the
                 # source is closer to the center
                 if len(in_file) > 1:
                     dist1 = np.sqrt( (xy[0]-t['POST_CENX'][in_files[0]])**2 + (xy[1]-t['POST_CENY'][in_files[0]])**2  )
@@ -797,7 +805,7 @@ class data_products(find_sources):
                         in_file[0]=in_file[1]
                     else:
                         in_file[0]=in_file[0]
-        # Returns postcard filename & postcard header    
+        # Returns postcard filename & postcard header
         if in_file[0]==None:
             print("Sorry! We don't have a postcard for you. Please double check your source has been observed by TESS")
             return False, False
@@ -844,13 +852,13 @@ class data_products(find_sources):
             Extension[1] = (9x9xn) TPF, where n is the number of cadences in an observing run
             Extension[2] = (3 x n) time, raw flux, systematics corrected flux
         """
-        
+
         def init_shift(xy):
             """ Offsets (x,y) coords of source by pointing model """
             theta, delX, delY = self.pointing[0]['medT'], self.pointing[0]['medX'], self.pointing[0]['medY']
             x = xy[0]*np.cos(theta) - xy[1]*np.sin(theta) - delX
             y = xy[0]*np.sin(theta) + xy[1]*np.cos(theta) - delY
-            return np.array([x,y])     
+            return np.array([x,y])
 
         def add_shift(tpf):
             """ Creates an additional shift to put source at (4,4) of TPF file """
@@ -860,9 +868,9 @@ class data_products(find_sources):
             com = ndimage.measurements.center_of_mass(tpf_com.T -  np.median(tpf_com))
             shift = [2-com[0], 2-com[1]]
             return shift
-        
+
         if self.tic != None:
-            tic_id, pos, tmag = find_sources.tic_pos_by_ID(self) 
+            tic_id, pos, tmag = find_sources.tic_pos_by_ID(self)
             self.pos = pos
             table = find_sources.find_by_position(self)
         elif self.gaia != None:
@@ -871,7 +879,7 @@ class data_products(find_sources):
             table = find_sources.find_by_position(self)
         elif self.pos != None:
             table = find_sources.find_by_position(self)
-    
+
         self.pos = [table['RA'].data[0], table['Dec'].data[0]]
 
         postcard, card_info = self.find_postcard()
@@ -894,7 +902,7 @@ class data_products(find_sources):
         initShift[0] = initShift['medT']
 #        x = xy[0]*np.cos(initShift['medT']) - xy[1]*np.sin(initShift['medT']) - initShift['medX']
 #        y = xy[0]*np.sin(initShift['medT']) + xy[1]*np.cos(initShift['medT']) - initShift['medY']
-        
+
         self.post_dir = self.root_dir + '/postcards/'
         self.post_url = 'http://jet.uchicago.edu/tess_postcards/'
 
@@ -911,7 +919,7 @@ class data_products(find_sources):
         time = (time_info[1]+time_info[0])/2. + time_info[2]
 
         xy = init_shift(xy)
-        
+
         # Moving coordinates to postcard space
         delY, delX = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
         newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
@@ -997,13 +1005,13 @@ class data_products(find_sources):
         plt.show()
         return
 
-        
+
     def aperture_fitting(self, tpf=None):
-        """ 
-        Finds the "best" (i.e. the smallest std) light curve for a range of 
+        """
+        Finds the "best" (i.e. the smallest std) light curve for a range of
         sizes and shapes
         Parameters
-        ---------- 
+        ----------
             sources: list of sources to find apertures for
         """
 
@@ -1026,7 +1034,7 @@ class data_products(find_sources):
             matrix = np.zeros( (len(r_list), 2, len(tpf)) )
             system = np.zeros( (len(r_list), 2, len(tpf)) )
             sigma  = np.zeros( (len(r_list), 2) )
-            
+
             for i in range(len(r_list)):
                 for j in range(len(tpf)):
                     pos = (x_point[j], y_point[j])
@@ -1036,7 +1044,7 @@ class data_products(find_sources):
                     matrix[i][1][j] = aperture_photometry(tpf[j], rect)['aperture_sum'].data[0]
                 matrix[i][0] = matrix[i][0] / np.nanmedian(matrix[i][0])
                 matrix[i][1] = matrix[i][1] / np.nanmedian(matrix[i][1])
-            
+
             print("*************")
             print("Please hold while we do some systematics corrections.")
             print("*************")
@@ -1069,13 +1077,13 @@ class data_products(find_sources):
         print("We're doing our best to find the ideal aperture shape & size for your source.")
         print("*************")
         radius, shape, lc, uncorr = findLC(x, y)
-        
+
         return radius, shape, lc, uncorr
 
 
     def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, t=0.0, pointing=True,
                         jitter=True, roll=True, input_fn=None, pos=[]):
-        """ 
+        """
         Allows the user to input their own aperture of a given shape (either 'circle' or
             'rectangle' are accepted) of a given size {radius of circle: r, length of rectangle: l,
             width of rectangle: w, rotation of rectangle: t}
@@ -1094,7 +1102,7 @@ class data_products(find_sources):
             else:
                 print("Shape of aperture not recognized. Please input: circle or rectangle")
             return
-        
+
         def cust_lc(center, x=None, y=None):
             nonlocal tpf
             """ Creates the light curve for both cases (if pointing model is on or off) """
@@ -1115,14 +1123,14 @@ class data_products(find_sources):
         if shape=='rectangle' and (l==0.0 or w==0.0):
             print("You are missing a dimension of your rectangular aperture. Please set custom_aperture(shape='rectangle', l=#, w=#)")
             return
-        
+
         if self.tic != None:
             hdu = fits.open(self.tic_fn)
         elif self.gaia != None:
             hdu = fits.open(self.gaia_fn)
         else:
             hdu = fits.open(input_fn)
-            
+
         tpf = hdu[0].data
 
         if len(pos) < 2:
@@ -1144,15 +1152,15 @@ class data_products(find_sources):
 
         lc = self.system_corr(lc, x, y, jitter=jitter, roll=roll)
         return lc
-            
+
     def system_corr(self, lc, x_pos, y_pos, jitter=False, roll=False):
-        """ 
-        Allows for systematics correction of a given light curve 
+        """
+        Allows for systematics correction of a given light curve
         Parameters
-        ---------- 
+        ----------
             lc: np.array() of light curve values
             x_pos: np.array() of x positions for the centroid
-            y_posL np.array() of y positions for the centroid 
+            y_posL np.array() of y positions for the centroid
         """
         def jitter_corr(lc, x_pos, y_pos):
             x_pos, y_pos = np.array(x_pos), np.array(y_pos)
@@ -1167,7 +1175,7 @@ class data_products(find_sources):
             for i in range(5):
                 lc_new = []
                 std_mask = np.std(lc[mask])
-                
+
                 inds = np.where(lc <= np.mean(lc)-2.5*std_mask)
                 y_err = np.ones(len(lc))**np.std(lc)
                 for j in inds:
@@ -1184,7 +1192,7 @@ class data_products(find_sources):
                 c1, c2, c3, c4, c5 = test.x
                 lc_new = lc * (c1 + c2*(x_pos-2.5) + c3*(x_pos-2.5)**2 + c4*(y_pos-2.5) + c5*(y_pos-2.5)**2)
             return lc_new
-        
+
 
         def rotation_corr(lc, x_pos, y_pos):
             """ Corrects for spacecraft roll using Lightkurve """
@@ -1215,7 +1223,7 @@ class visualize(data_products, find_sources):
     """
     The main interface for creating figures, movies, and interactive plots
     Allows the user to have a grand ole time playing with their data!
-        
+
     Args:
         tpf: A FITS file that contains stacked cadences for a single source
     """
@@ -1283,7 +1291,7 @@ class visualize(data_products, find_sources):
                     scat.remove()
                 scats = []
                 scats.append(ax.scatter(x[i], y[i], s=16, c='k'))
-            
+
             # Plots aperture around source when the user wants
             if aperture==True:
                 for c in ps:
@@ -1305,7 +1313,7 @@ class visualize(data_products, find_sources):
             # Updates the frame number
             time_text.set_text('Frame {}'.format(i))
 
-        
+
         line, scats, ps = [],[], []
         if plot_lc==True:
             fig  = plt.figure(figsize=(18,5))
@@ -1343,7 +1351,7 @@ class visualize(data_products, find_sources):
             elif self.gaia != None:
                 self.output_fn = '{}.mp4'.format(self.gaia)
                 ax.set_title('{}'.format(self.gaia), fontweight='bold')
-            
+
         plt.tight_layout()
         return ani
 
@@ -1361,7 +1369,7 @@ class visualize(data_products, find_sources):
 
             fig, ax = plt.subplots()
             ax.imshow(tpf[0], origin='lower')
-            
+
             def onclick(event):
                 """ Update figure canvas """
                 nonlocal coords, rectList
@@ -1386,7 +1394,7 @@ class visualize(data_products, find_sources):
             """ Presents a figure for the user to approve of selected pixels """
             fig, ax = plt.subplots(1)
             ax.imshow(tpf[0], origin='lower')
-            
+
             # Recreates patches for confirmation
             for i in range(len(coords)):
                 x, y = coords[i][0], coords[i][1]
@@ -1394,13 +1402,13 @@ class visualize(data_products, find_sources):
                 rect.set_color('red')
                 rect.set_alpha(0.4)
                 ax.add_patch(rect)
-            
+
             # Make Buttons
             plt.text(-3.5, 5.5, 'Are you happy\nwith this\naperture?', fontsize=8)
             axRadio  = plt.axes([0.05, 0.45, 0.10, 0.15])
             butRadio = RadioButtons(axRadio, ('Yes', 'No'), activecolor='red')
             good=True
-            
+
             # Checks if user is happy with custom aperture
             def get_status(value):
                 nonlocal good
@@ -1430,7 +1438,7 @@ class visualize(data_products, find_sources):
         ### do the corrections if asked ###
 
             return custlc
-            
+
         else:
             self.click_aperture()
 
@@ -1463,10 +1471,10 @@ class visualize(data_products, find_sources):
             inds = np.where( (gaiaX >= -0.5) & (gaiaX <= 8.5) &
                              (gaiaY >= -0.5) & (gaiaY <= 8.5) & (gaiaMAG <= 16.5))
             return [gaiaX[inds], gaiaY[inds]], gaiaID[inds], gaiaMAG[inds], gaiaRA[inds], gaiaDEC[inds]
-        
+
         def create_labels(gaia_id):
             ticLabel, tmagLabel = np.zeros(len(gaia_id.data)), np.zeros(len(gaia_id.data))
-            crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)            
+            crossTable = find_sources.crossmatch_multi_to_tic(self, list=gaia_id.data)
             for i in range(len(gaia_id.data)):
                 row = crossTable[i]
                 if row['separation'] <= 1.2 and row['Gmag'] <= 16.5:
@@ -1511,7 +1519,7 @@ class visualize(data_products, find_sources):
         tpf_img = p.image(image=[tpf], x=-0.5, y=-0.5, dw=9, dh=9, color_mapper=color_mapper)
         p.xaxis.ticker = np.arange(0,9,1)
         p.yaxis.ticker = np.arange(0,9,1)
-        
+
         x_overrides, y_overrides = {}, {}
         x_list = np.arange(int(center[0]-4), int(center[0]+5), 1)
         y_list = np.arange(int(center[1]-4), int(center[1]+5), 1)
@@ -1542,9 +1550,9 @@ class visualize(data_products, find_sources):
                                          ("Gaia Source", "@gaia"), ("Gmag", "@gmag"),
                                          ("RA", "@ra"), ("Dec", "@dec")],
                                renderers=[s], mode='mouse', point_policy="snap_to_data"))
-        
+
         output_notebook()
-        
+
 #        show(p)
         return p
 
