@@ -684,6 +684,14 @@ class data_products(find_sources):
                     tempVals.append(m)
                 t.add_row(vals=tempVals)
 
+                time_arrays = np.zeros((3, len(fns)))
+                for f in range(len(fns)):
+                    hdu = fits.open(fns[f])
+                    hdr = hdu[1].header
+                    time_arrays[0][f] = hdr['TSTART']
+                    time_arrays[1][f] = hdr['TSTOP']
+                    time_arrays[2][f] = hdr['BARYCORR']
+
                 hdr = mheader
                 hdr.append(('COMMENT', '***********************'))
                 hdr.append(('COMMENT', '*     ELLIE INFO      *'))
@@ -698,8 +706,20 @@ class data_products(find_sources):
                 hdr.append(('CEN_RA' , float(radec[0])))
                 hdr.append(('CEN_DEC', float(radec[1])))
 
-                hdu1 = fits.PrimaryHDU(header=hdr)
-                hdu1.data = tpf.flux
+                dtype = [
+                    ("TSTART", np.float64),
+                    ("TSTOP", np.float64),
+                    ("BARYCORR", np.float64),
+                    ("FLUX", np.float32, tpf.flux.shape[1:]),
+                ]
+                data = np.empty(len(tpf.flux), dtype=dtype)
+                data["TSTART"] = time_arrays[0]
+                data["TSTOP"] = time_arrays[1]
+                data["BARYCORR"] = time_arrays[2]
+                data["FLUX"] = tpf.flux
+
+                hdu1 = fits.BinTableHDU.from_columns(fits.ColDefs(data), header=hdr)
+                # hdu1 = fits.PrimaryHDU(header=hdr, data = new_postcard)
                 hdu1.writeto(self.post_dir+fn)
 
         ascii.write(t, output='postcard_{}_{}-{}.txt'.format(sector, camera, chip))
@@ -842,7 +862,7 @@ class data_products(find_sources):
             return shift
         
         if self.tic != None:
-            tic_id, pos, tmag = find_sources.tic_pos_by_ID(self)
+            tic_id, pos, tmag = find_sources.tic_pos_by_ID(self) 
             self.pos = pos
             table = find_sources.find_by_position(self)
         elif self.gaia != None:
@@ -872,8 +892,8 @@ class data_products(find_sources):
         # Corrects position with pointing model
         initShift = self.pointing[0]
         initShift[0] = initShift['medT']
-        x = xy[0]*np.cos(initShift['medT']) - xy[1]*np.sin(initShift['medT']) - initShift['medX']
-        y = xy[0]*np.sin(initShift['medT']) + xy[1]*np.cos(initShift['medT']) - initShift['medY']
+#        x = xy[0]*np.cos(initShift['medT']) - xy[1]*np.sin(initShift['medT']) - initShift['medX']
+#        y = xy[0]*np.sin(initShift['medT']) + xy[1]*np.cos(initShift['medT']) - initShift['medY']
         
         self.post_dir = self.root_dir + '/postcards/'
         self.post_url = 'http://jet.uchicago.edu/tess_postcards/'
@@ -902,12 +922,6 @@ class data_products(find_sources):
         xy_new = add_shift(tpf)
         newX, newY = int(newY-xy_new[1]), int(newX-xy_new[0])
         tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
-#        xy_shift = add_shift(tpf)
-#        cutout = Cutout2D(post_fits[0], position=(newY-xy_shift[1],newX-xy_shift[0]), size=(9,9))
-#        fig, (ax1, ax2) = plt.subplots(ncols=2, nrows=1)
-#        ax1.imshow(tpf[0], origin='lower')
-#        ax2.imshow(cutout.data, origin='lower')
-#        plt.show()
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
@@ -1331,9 +1345,6 @@ class visualize(data_products, find_sources):
                 ax.set_title('{}'.format(self.gaia), fontweight='bold')
             
         plt.tight_layout()
-#        plt.show()
-#        from IPython.display import HTML
-#        HTML(ani.to_html5_video())
         return ani
 
 
