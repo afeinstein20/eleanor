@@ -864,7 +864,7 @@ class data_products(find_sources):
 
             return np.array([x,y])
 
-        def center_tpf(tpf):
+        def centering_shift(tpf):
             """ Creates an additional shift to put source at (4,4) of TPF file """
             """                          Returns: TPF                          """
             tpf_init = tpf[0]
@@ -920,29 +920,13 @@ class data_products(find_sources):
         time_info = fits.open(self.post_dir+postcard)[1].data
         time = (time_info[1]+time_info[0])/2. + time_info[2]
 
-        '''
-        xy = init_shift(xy)
-
-        # Moving coordinates to postcard space
-        delX, delY = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
-        newX, newY = int(np.ceil(card_info['POST_SIZE1']/2. + delX)), \
-                     int(np.ceil(card_info['POST_SIZE2']/2. + delY))
-
-        tpf = post_fits[:,newX-4:newX+4, newY-4:newY+4]
-
-        xy_new = center_tpf(tpf)
-        newX, newY = int(newX-xy_new[0]), int(newY-xy_new[1])
-        # newX, newY = int(newY-xy_new[1]), int(newX-xy_new[0])
-
-
-        '''
         delta_pix = np.array(xy[0] - post_cen_xy[0], xy[1] - post_cen_xy[1])
         newX = int(np.ceil(card_info['POST_SIZE1']/2. + delta_pix))
         newY = int(np.ceil(card_info['POST_SIZE2']/2. + delta_pix))
 
         tpf = post_fits[:,newX-4:newX+4, newY-4:newY+4]
 
-        xy_new = center_tpf(tpf)
+        xy_new = centering_shift(tpf)
         X, Y = int(newX-xy_new[0]), int(newY-xy_new[1])
 
         tpf = post_fits[:,X-4:X+5, Y-4:Y+5]
