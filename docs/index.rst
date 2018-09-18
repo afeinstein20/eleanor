@@ -9,7 +9,7 @@ ELLIE: simple light curve extraction from TESS FFIs
 	:height: 300px
 	:width: 600px
 	:align: center
-	
+
 ELLIE is an open-source python framework for downloading, analyzing, and visualizing data from the `TESS`_ Full Frame Images.
 
 .. toctree::
@@ -25,7 +25,7 @@ ELLIE is an open-source python framework for downloading, analyzing, and visuali
    :caption: Documentation
 
    api
-   
+
 Bug Reports & Questions
 -----------------------
 
