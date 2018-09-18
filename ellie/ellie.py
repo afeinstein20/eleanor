@@ -60,6 +60,8 @@ except ImportError: # Python 2.x
     from urllib import urlretrieve
     import httplib
 
+from muchbettermoments import quadratic_2d
+
 
 ##########################
 ##########################
@@ -573,8 +575,8 @@ class data_products(find_sources):
                 nonlocal xy, centroids
                 theta, xT, yT = params
 
-                xRot = xy[:,0]*np.cos(theta) - xy[:,1]*np.sin(theta) + xT
-                yRot = xy[:,0]*np.sin(theta) + xy[:,1]*np.cos(theta) + yT
+                xRot = xy[:,0]*np.cos(theta) - xy[:,1]*np.sin(theta) - xT
+                yRot = xy[:,0]*np.sin(theta) + xy[:,1]*np.cos(theta) - yT
 
                 dist = np.sqrt((xRot-centroids[:,0])**2 + (yRot-centroids[:,1])**2)
                 return np.nansum(np.square(dist))
@@ -856,17 +858,19 @@ class data_products(find_sources):
         def init_shift(xy):
             """ Offsets (x,y) coords of source by pointing model """
             theta, delX, delY = self.pointing[0]['medT'], self.pointing[0]['medX'], self.pointing[0]['medY']
+
             x = xy[0]*np.cos(theta) - xy[1]*np.sin(theta) - delX
             y = xy[0]*np.sin(theta) + xy[1]*np.cos(theta) - delY
+
             return np.array([x,y])
 
-        def add_shift(tpf):
+        def center_tpf(tpf):
             """ Creates an additional shift to put source at (4,4) of TPF file """
             """                          Returns: TPF                          """
             tpf_init = tpf[0]
-            tpf_com  = tpf_init[2:7, 2:7]
-            com = ndimage.measurements.center_of_mass(tpf_com.T -  np.median(tpf_com))
-            shift = [2-com[0], 2-com[1]]
+            # com = ndimage.measurements.center_of_mass(tpf_com.T -  np.median(tpf_com))
+            center = quadratic_2d(tpf_init)
+            shift = [4-center[1], 4-center[0]]
             return shift
 
         if self.tic != None:
@@ -895,13 +899,11 @@ class data_products(find_sources):
         d = dict(zip(card_info.colnames[0:146], data))
         hdr = fits.Header(cards=d)
 
+        # import pdb; pdb.set_trace()
         xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
-
-        # Corrects position with pointing model
-        initShift = self.pointing[0]
-        initShift[0] = initShift['medT']
-#        x = xy[0]*np.cos(initShift['medT']) - xy[1]*np.sin(initShift['medT']) - initShift['medX']
-#        y = xy[0]*np.sin(initShift['medT']) + xy[1]*np.cos(initShift['medT']) - initShift['medY']
+        xy = init_shift(xy)
+        post_cen_xy = WCS(hdr).all_world2pix(card_info['POST_CEN_RA'],
+                                             card_info['POST_CEN_DEC'], 1)
 
         self.post_dir = self.root_dir + '/postcards/'
         self.post_url = 'http://jet.uchicago.edu/tess_postcards/'
@@ -918,18 +920,33 @@ class data_products(find_sources):
         time_info = fits.open(self.post_dir+postcard)[1].data
         time = (time_info[1]+time_info[0])/2. + time_info[2]
 
+        '''
         xy = init_shift(xy)
 
         # Moving coordinates to postcard space
-        delY, delX = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
-        newX, newY = card_info['POST_SIZE1']/2. + delX, card_info['POST_SIZE2']/2. + delY
+        delX, delY = xy[0]-card_info['POST_CEN_X'], xy[1]-card_info['POST_CEN_Y']
+        newX, newY = int(np.ceil(card_info['POST_SIZE1']/2. + delX)), \
+                     int(np.ceil(card_info['POST_SIZE2']/2. + delY))
 
-        newX, newY = int(np.ceil(newX)), int(np.ceil(newY))
-        tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
+        tpf = post_fits[:,newX-4:newX+4, newY-4:newY+4]
 
-        xy_new = add_shift(tpf)
-        newX, newY = int(newY-xy_new[1]), int(newX-xy_new[0])
-        tpf = post_fits[:,newX-4:newX+5, newY-4:newY+5]
+        xy_new = center_tpf(tpf)
+        newX, newY = int(newX-xy_new[0]), int(newY-xy_new[1])
+        # newX, newY = int(newY-xy_new[1]), int(newX-xy_new[0])
+
+
+        '''
+        delta_pix = np.array(xy[0] - post_cen_xy[0], xy[1] - post_cen_xy[1])
+        newX = int(np.ceil(card_info['POST_SIZE1']/2. + delta_pix))
+        newY = int(np.ceil(card_info['POST_SIZE2']/2. + delta_pix))
+
+        tpf = post_fits[:,newX-4:newX+4, newY-4:newY+4]
+
+        xy_new = center_tpf(tpf)
+        X, Y = int(newX-xy_new[0]), int(newY-xy_new[1])
+
+        tpf = post_fits[:,X-4:X+5, Y-4:Y+5]
+        # import pdb; pdb.set_trace()
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
@@ -1461,8 +1478,8 @@ class visualize(data_products, find_sources):
             """ Corrects (x,y) coordinates based on pointing model """
             pm = data_products.get_pointing(self, header=header)
             shift = pm[0]
-            x = xy[0]*np.cos(shift[0]) - xy[1]*np.sin(shift[0]) - shift[1]
-            y = xy[0]*np.sin(shift[0]) + xy[1]*np.cos(shift[0]) - shift[2]
+            x = xy[0]*np.cos(shift[0]) - xy[1]*np.sin(shift[0]) + shift[1]
+            y = xy[0]*np.sin(shift[0]) + xy[1]*np.cos(shift[0]) + shift[2]
             return np.array([x,y])
 
         def in_tpf(xy, gaiaXY, gaiaID, gaiaMAG, gaiaRA, gaiaDEC):
