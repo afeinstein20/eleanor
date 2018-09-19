@@ -37,6 +37,7 @@ from matplotlib.widgets import RadioButtons
 import mplcursors
 
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
+from muchbettermoments import quadratic_2d
 from lightkurve import KeplerTargetPixelFile as ktpf
 from lightkurve import SFFCorrector
 from scipy import ndimage
@@ -59,9 +60,6 @@ except ImportError: # Python 2.x
     from urllib import pathname2url as urlencode
     from urllib import urlretrieve
     import httplib
-
-from muchbettermoments import quadratic_2d
-
 
 ##########################
 ##########################
@@ -859,18 +857,18 @@ class data_products(find_sources):
             """ Offsets (x,y) coords of source by pointing model """
             theta, delX, delY = self.pointing[0]['medT'], self.pointing[0]['medX'], self.pointing[0]['medY']
 
-            x = xy[0]*np.cos(theta) - xy[1]*np.sin(theta) - delX
-            y = xy[0]*np.sin(theta) + xy[1]*np.cos(theta) - delY
+            x = xy[0]*np.cos(theta) - xy[1]*np.sin(theta) + delX
+            y = xy[0]*np.sin(theta) + xy[1]*np.cos(theta) + delY
 
             return np.array([x,y])
 
         def centering_shift(tpf):
             """ Creates an additional shift to put source at (4,4) of TPF file """
-            """                          Returns: TPF                          """
-            tpf_init = tpf[0]
-            # com = ndimage.measurements.center_of_mass(tpf_com.T -  np.median(tpf_com))
-            center = quadratic_2d(tpf_init)
-            shift = [4-center[1], 4-center[0]]
+            """                  Returns: required pixel shift                 """
+            xdim, ydim = len(tpf[0][0]), len(tpf[0][1])
+            center = quadratic_2d(tpf[0])
+            shift = [int(round(xdim/2-center[1])), int(round(xdim/2-center[0]))]
+
             return shift
 
         if self.tic != None:
@@ -899,12 +897,14 @@ class data_products(find_sources):
         d = dict(zip(card_info.colnames[0:146], data))
         hdr = fits.Header(cards=d)
 
-        # import pdb; pdb.set_trace()
+        # Read in FFI pixel coords of target from RA & dec
         xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
-        xy = init_shift(xy)
-        post_cen_xy = WCS(hdr).all_world2pix(card_info['POST_CEN_RA'],
-                                             card_info['POST_CEN_DEC'], 1)
 
+        # Apply initial shift from pointing model
+        xy = init_shift(xy)
+
+        # Check if postcard has been downloaded
+        # If not, download it
         self.post_dir = self.root_dir + '/postcards/'
         self.post_url = 'http://jet.uchicago.edu/tess_postcards/'
 
@@ -916,21 +916,29 @@ class data_products(find_sources):
             print("*************")
             os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.post_url+postcard) )
 
+        # Read in postcard info
         post_fits = fits.open(self.post_dir+postcard)[0].data
         time_info = fits.open(self.post_dir+postcard)[1].data
         time = (time_info[1]+time_info[0])/2. + time_info[2]
 
-        delta_pix = np.array(xy[0] - post_cen_xy[0], xy[1] - post_cen_xy[1])
-        newX = int(np.ceil(card_info['POST_SIZE1']/2. + delta_pix))
-        newY = int(np.ceil(card_info['POST_SIZE2']/2. + delta_pix))
+        # Calculate pixel distance between center of postcard and target in FFI pixel coords
+        delta_pix = np.array([xy[0] - card_info['POST_CEN_X'], xy[1] - card_info['POST_CEN_Y']])
 
-        tpf = post_fits[:,newX-4:newX+4, newY-4:newY+4]
+        # Apply shift to coordinates for center of tpf
+        newX = int(np.ceil(card_info['POST_SIZE2']/2. + delta_pix[1]))
+        newY = int(np.ceil(card_info['POST_SIZE1']/2. + delta_pix[0]))
 
+        # Define tpf as region of postcard around target
+        tpf = post_fits[:,newX-6:newX+7, newY-6:newY+7]
+
+        '''
+        # Grab centroid of brightest object in tpf, force to center
+        # MAYBE NOT A GOOD IDEA
         xy_new = centering_shift(tpf)
-        X, Y = int(newX-xy_new[0]), int(newY-xy_new[1])
-
+        X, Y = int(newX-xy_new[1]), int(newY-xy_new[0])
         tpf = post_fits[:,X-4:X+5, Y-4:Y+5]
-        # import pdb; pdb.set_trace()
+        '''
+
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
