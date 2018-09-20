@@ -896,12 +896,12 @@ class data_products(find_sources):
             data.append(card_info[i])
         d = dict(zip(card_info.colnames[0:146], data))
         hdr = fits.Header(cards=d)
-        print(self.pos)
+
         # Read in FFI pixel coords of target from RA & dec
         xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
 
         # Apply initial shift from pointing model
-        xy_shift = init_shift(xy)
+        xy = init_shift(xy)
 
         # Check if postcard has been downloaded
         # If not, download it
@@ -922,17 +922,14 @@ class data_products(find_sources):
         time = (time_info[1]+time_info[0])/2. + time_info[2]
 
         # Calculate pixel distance between center of postcard and target in FFI pixel coords
-        delta_pix = np.array([xy_shift[0] - card_info['POST_CEN_X'], xy_shift[1] - card_info['POST_CEN_Y']])
-        delta_init = np.array([xy[0] - card_info['POST_CEN_X'], xy[1] - card_info['POST_CEN_Y']])
+        delta_pix = np.array([xy[0] - card_info['POST_CEN_X'], xy[1] - card_info['POST_CEN_Y']])
+
         # Apply shift to coordinates for center of tpf
         newX = int(np.ceil(card_info['POST_SIZE2']/2. + delta_pix[1]))
         newY = int(np.ceil(card_info['POST_SIZE1']/2. + delta_pix[0]))
 
-        init_x = int(np.ceil(card_info['POST_SIZE2']/2. + delta_init[1]))
-        init_y = int(np.ceil(card_info['POST_SIZE2']/2. + delta_init[0]))
         # Define tpf as region of postcard around target
         tpf = post_fits[:,newX-6:newX+7, newY-6:newY+7]
-        init_tpf = post_fits[:,init_x-6:init_x+7, init_y-6:init_y+7]
 
         '''
         # Grab centroid of brightest object in tpf, force to center
@@ -941,7 +938,7 @@ class data_products(find_sources):
         X, Y = int(newX-xy_new[1]), int(newY-xy_new[0])
         tpf = post_fits[:,X-4:X+5, Y-4:Y+5]
         '''
-        import pdb; pdb.set_trace()
+
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
@@ -1077,9 +1074,8 @@ class data_products(find_sources):
         file_cen = len(tpf[0])/2.
         initParams = self.pointing[0]
         theta, delX, delY = self.pointing['medT'].data, self.pointing['medX'].data, self.pointing['medY'].data
-        
         startX, startY = centroidOffset(tpf, file_cen)
-        
+
         x, y = [], []
         for i in range(len(theta)):
             x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) + delX[i] )
@@ -1089,7 +1085,6 @@ class data_products(find_sources):
         print("*************")
         print("We're doing our best to find the ideal aperture shape & size for your source.")
         print("*************")
-
         radius, shape, lc, uncorr = findLC(x, y)
 
         return radius, shape, lc, uncorr
