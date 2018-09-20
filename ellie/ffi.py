@@ -57,8 +57,11 @@ class ffi:
         return
     
 
-    def build_pointing_model(pos_predicted, pos_inferred, outlier_removal = False):
+    def build_pointing_model(self, pos_predicted, pos_inferred, outlier_removal=False):
         """Builds an affine transformation to correct the positions of stars from a possibly incorrect WCS"""
+        """ pos_predicted are positions taken straight from the WCS """
+        """ pos_inferred are positions taken using any centroiding method """
+        """ [[x,y],[x,y],...] format """
         A = np.column_stack([pos_predicted[:,0], pos_predicted[:,1], np.ones_like(pos_predicted[:,0])])
         f = np.column_stack([pos_inferred[:,0], pos_inferred[:,1], np.ones_like(pos_inferred[:,0])])
         
@@ -77,11 +80,26 @@ class ffi:
         return xhat
 
     
-    def use_pointing_model(coords, pointing_model):
+    def use_pointing_model(self, coords, pointing_model):
         """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
         A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
         fhat = np.dot(A, pointing_model)
         return fhat[:,0:2]
 
         
+    def pointing_model_per_cadence(self):
+        """ Step through build_pointing_model for each cadence """
+        from muchbettermoments import quadratic_2d
+        from mast import tic_by_contamination
+        from astropy.wcs import WCS
 
+        hdu = fits.open(self.local_paths[0])
+        hdr = hdu[1].header
+        pos = [hdr['CRVAL1'], hdr['CRVAL2']]
+
+        r = 6.0*np.sqrt(1.2)
+        contam = [0.0, 5e-3]
+        tmag_lim = 12.5
+
+        t = tic_by_contamination(pos, r, contam, tmag_lim)
+        
