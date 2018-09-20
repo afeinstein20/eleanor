@@ -6,8 +6,8 @@ setup(
     version='0.0.1',
     license='MIT',
     long_description=open('README.md').read(),
-    author='Adina Feinstein',
-    author_email='afeinstein@uchicago.edu',
+    author='Adina D. Feinstein',
+    author_email='adina.d.feinstein@gmail.com',
     packages=[
         'ellie',
         ],
