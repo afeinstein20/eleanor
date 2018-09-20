@@ -3,11 +3,11 @@ from setuptools import setup
 
 setup(
     name='ellie',
-    version='1.0',
+    version='0.0.1',
     license='MIT',
     long_description=open('README.md').read(),
-    author='Adina Feinstein',
-    author_email='afeinstein@uchicago.edu',
+    author='Adina D. Feinstein',
+    author_email='adina.d.feinstein@gmail.com',
     packages=[
         'ellie',
         ],
@@ -19,7 +19,7 @@ setup(
         'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
         'astroquery', 'bokeh', 'muchbettermoments'],
     classifiers=[
-        'Development Status :: 5 - Production/Stable',
+        'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',

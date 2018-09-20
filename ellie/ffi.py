@@ -70,4 +70,31 @@ class ffi:
         dates, fns = np.sort(np.array([dates, fns]))
         dates, time = np.sort(np.array([dates, time]))
         return fns, time
+    
+    def build_pointing_model(pos_predicted, pos_inferred, outlier_removal = False):
+        """Builds an affine transformation to correct the positions of stars from a possibly incorrect WCS"""
+        A = np.column_stack([pos_predicted[:,0], pos_predicted[:,1], np.ones_like(pos_predicted[:,0])])
+        f = np.column_stack([pos_inferred[:,0], pos_inferred[:,1], np.ones_like(pos_inferred[:,0])])
+        
+        if outlier_removal == True:
+            dist = np.sqrt(np.sum((A - f)**2, axis=1))
+            mean, std = np.mean(dist), np.std(dist)
+            A = A[dist_orig < mean + 3*std]
+            f = f[dist_orig < mean + 3*std]
+        
+        ATA = np.dot(A.T, A)
+        ATAinv = np.linalg.inv(ATA)
+        ATf = np.dot(A.T, f)
+        xhat = np.dot(ATAinv, ATf)
+        fhat = np.dot(A, xhat)
+        
+        return xhat
+    
+    def use_pointing_model(coords, pointing_model):
+        """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
+        A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
+        fhat = np.dot(A, pointing_model)
+        return fhat[:,0:2]
+
+        
 
