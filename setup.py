@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name='ellie',
-    version='1.0',
+    version='0.0.1',
     license='MIT',
     long_description=open('README.md').read(),
     author='Adina Feinstein',
