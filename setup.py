@@ -13,7 +13,7 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 setup(
     name='ellie',
-    version='0.0.1',
+    version='0.0.2',
     license='MIT',
     author='Adina D. Feinstein',
     author_email='adina.d.feinstein@gmail.com',
