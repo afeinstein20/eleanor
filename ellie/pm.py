@@ -64,10 +64,7 @@ def main():
     ax.scatter(xy[0][good], xy[1][good], c=cenx, vmin=0, vmax=6)
     p = ax1.scatter(xy[0][good], xy[1][good], c=ceny, vmin=0, vmax=6)
     plt.colorbar(p)
-
-    weird = np.where((cenx > 3.5) & (ceny > 3.5))
-    print(tmag[weird])
-
-    plt.show()
+    plt.savefig('centroid_offset.png')
+#    plt.show()
 
 main()
