@@ -863,8 +863,8 @@ class data_products(find_sources):
             return np.array([x,y])
 
         def centering_shift(tpf):
-            """ Creates an additional shift to put source at (4,4) of TPF file """
-            """                  Returns: required pixel shift                 """
+            """ Creates an additional shift to put source at the center of TPF file """
+            """                    Returns: required pixel shift                    """
             xdim, ydim = len(tpf[0][0]), len(tpf[0][1])
             center = quadratic_2d(tpf[0])
             shift = [int(round(xdim/2-center[1])), int(round(xdim/2-center[0]))]
@@ -896,12 +896,12 @@ class data_products(find_sources):
             data.append(card_info[i])
         d = dict(zip(card_info.colnames[0:146], data))
         hdr = fits.Header(cards=d)
-        print(self.pos)
+
         # Read in FFI pixel coords of target from RA & dec
         xy = WCS(hdr).all_world2pix(self.pos[0], self.pos[1], 1)
 
         # Apply initial shift from pointing model
-        xy_shift = init_shift(xy)
+        xy = init_shift(xy)
 
         # Check if postcard has been downloaded
         # If not, download it
@@ -917,22 +917,19 @@ class data_products(find_sources):
             os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.post_url+postcard) )
 
         # Read in postcard info
-        post_fits = fits.open(self.post_dir+postcard)[0].data
-        time_info = fits.open(self.post_dir+postcard)[1].data
+        post_fits = fits.open(self.post_dir+postcard, ignore_missing_end=True)[0].data
+        time_info = fits.open(self.post_dir+postcard, ignore_missing_end=True)[1].data
         time = (time_info[1]+time_info[0])/2. + time_info[2]
 
         # Calculate pixel distance between center of postcard and target in FFI pixel coords
-        delta_pix = np.array([xy_shift[0] - card_info['POST_CEN_X'], xy_shift[1] - card_info['POST_CEN_Y']])
-        delta_init = np.array([xy[0] - card_info['POST_CEN_X'], xy[1] - card_info['POST_CEN_Y']])
+        delta_pix = np.array([xy[0] - card_info['POST_CEN_X'], xy[1] - card_info['POST_CEN_Y']])
+
         # Apply shift to coordinates for center of tpf
         newX = int(np.ceil(card_info['POST_SIZE2']/2. + delta_pix[1]))
         newY = int(np.ceil(card_info['POST_SIZE1']/2. + delta_pix[0]))
 
-        init_x = int(np.ceil(card_info['POST_SIZE2']/2. + delta_init[1]))
-        init_y = int(np.ceil(card_info['POST_SIZE2']/2. + delta_init[0]))
         # Define tpf as region of postcard around target
         tpf = post_fits[:,newX-6:newX+7, newY-6:newY+7]
-        init_tpf = post_fits[:,init_x-6:init_x+7, init_y-6:init_y+7]
 
         '''
         # Grab centroid of brightest object in tpf, force to center
@@ -941,7 +938,7 @@ class data_products(find_sources):
         X, Y = int(newX-xy_new[1]), int(newY-xy_new[0])
         tpf = post_fits[:,X-4:X+5, Y-4:Y+5]
         '''
-        import pdb; pdb.set_trace()
+
         radius, shape, lc, uncorrLC = self.aperture_fitting(tpf=tpf)
 
         if shape == 0:
@@ -995,7 +992,7 @@ class data_products(find_sources):
         return fn
 
 
-    def plot(self):
+    def plot(self, scatter=False):
         """
         Makes a simple plot of the light curve and image of TPF
         """
@@ -1010,8 +1007,12 @@ class data_products(find_sources):
         ax2.imshow(tpf[0], origin='lower')
         ax2.set_xlabel('Pixel Column Number')
         ax2.set_ylabel('Pixel Row Number')
-        ax1.plot(lc[0], lc[1], 'k', label='Uncorrected')
-        ax1.plot(lc[0], lc[2], 'r', label='Corrected')
+        if scatter:
+            ax1.scatter(lc[0], lc[1], color='k', label='Uncorrected')
+            ax1.scatter(lc[0], lc[2], color='r', label='Corrected')
+        else:
+            ax1.plot(lc[0], lc[1], 'k', label='Uncorrected')
+            ax1.plot(lc[0], lc[2], 'r', label='Corrected')
         ax1.set_xlabel('Time')
         ax1.set_ylabel('Normalized Flux')
         plt.show()
@@ -1029,9 +1030,9 @@ class data_products(find_sources):
 
         def centroidOffset(tpf, file_cen):
             """ Finds offset between center of TPF and centroid of first cadence """
-            tpf_com = Cutout2D(tpf[0], position=(len(tpf[0])/2, len(tpf[0])/2), size=(4,4))
-            com = ndimage.measurements.center_of_mass(tpf_com.data.T - np.median(tpf_com.data))
-            return len(tpf_com.data)/2-com[0], len(tpf_com.data)/2-com[1]
+            # tpf_com = Cutout2D(tpf[0], position=(len(tpf[0])/2, len(tpf[0])/2), size=(4,4))
+            com = quadratic_2d(tpf[0])
+            return com
 
         def aperture(r, pos):
             """ Creates circular & rectangular apertures of given size """
@@ -1039,9 +1040,13 @@ class data_products(find_sources):
             rect = RectangularAperture(pos, r, r, 0.0)
             return circ, rect
 
-        def findLC(x_point, y_point):
+        def findLC(center, motion):
             nonlocal tpf
             """ Finds the lightcurve with the least noise by minimizing std """
+
+            x_point, y_point = center
+            dx, dy = motion
+
             r_list = np.arange(1.5, 3.5, 0.5)
             matrix = np.zeros( (len(r_list), 2, len(tpf)) )
             system = np.zeros( (len(r_list), 2, len(tpf)) )
@@ -1051,6 +1056,7 @@ class data_products(find_sources):
                 for j in range(len(tpf)):
                     pos = (x_point[j], y_point[j])
                     circ, rect = aperture(r_list[i], pos)
+
                     # Completes aperture sums for each tpf.flux and each aperture shape
                     matrix[i][0][j] = aperture_photometry(tpf[j], circ)['aperture_sum'].data[0]
                     matrix[i][1][j] = aperture_photometry(tpf[j], rect)['aperture_sum'].data[0]
@@ -1062,10 +1068,10 @@ class data_products(find_sources):
             print("*************")
             # Creates a complete, systematics corrected light curve for each aperture
             for i in range(len(r_list)):
-                lc_circ = self.system_corr(matrix[i][0], x, y, jitter=True, roll=True)
+                lc_circ = self.system_corr(matrix[i][0], dx, dy, jitter=True, roll=True)
                 system[i][0] = lc_circ
                 sigma[i][0] = np.std(lc_circ)
-                lc_rect = self.system_corr(matrix[i][1], x, y, jitter=True, roll=True)
+                lc_rect = self.system_corr(matrix[i][1], dx, dy, jitter=True, roll=True)
                 system[i][1] = lc_rect
                 sigma[i][1] = np.std(lc_rect)
 
@@ -1077,20 +1083,32 @@ class data_products(find_sources):
         file_cen = len(tpf[0])/2.
         initParams = self.pointing[0]
         theta, delX, delY = self.pointing['medT'].data, self.pointing['medX'].data, self.pointing['medY'].data
-        
         startX, startY = centroidOffset(tpf, file_cen)
-        
-        x, y = [], []
+
+
+        dx, dy = [], []
         for i in range(len(theta)):
-            x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) + delX[i] )
-            y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) + delY[i] )
-        x, y = np.array(x), np.array(y)
+            dx.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) + delX[i] )
+            dy.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) + delY[i] )
+        dx, dy = np.array(dx) - startX, np.array(dy) - startY
+
+
+        centroids = [quadratic_2d(t) for t in tpf]
+        xval = np.mean(np.array([cen[1] for cen in centroids]))
+        yval = np.mean(np.array([cen[0] for cen in centroids]))
+
+        x = np.array([xval for i in range(len(centroids))])
+        y = np.array([yval for i in range(len(centroids))])
+
+        center = np.array([x, y])
+        motion = np.array([dx, dy])
+
 
         print("*************")
         print("We're doing our best to find the ideal aperture shape & size for your source.")
         print("*************")
 
-        radius, shape, lc, uncorr = findLC(x, y)
+        radius, shape, lc, uncorr = findLC(center, motion)
 
         return radius, shape, lc, uncorr
 
@@ -1181,7 +1199,7 @@ class data_products(find_sources):
 
             def parabola(params, x, y, f_obs, y_err):
                 c1, c2, c3, c4, c5 = params
-                f_corr = f_obs * (c1 + c2*(x-2.5) + c3*(x-2.5)**2 + c4*(y-2.5) + c5*(y-2.5)**2)
+                f_corr = f_obs * (c1 + c2*(x) + c3*(x)**2 + c4*(y) + c5*(y)**2)
                 return np.sum( ((1-f_corr)/y_err)**2)
 
             # Masks out anything >= 2.5 sigma above the mean
@@ -1204,7 +1222,7 @@ class data_products(find_sources):
                 bnds = ((-15.,15.), (-15.,15.), (-15.,15.), (-15.,15.), (-15.,15.))
                 test = minimize(parabola, initGuess, args=(x_pos, y_pos, lc, y_err), bounds=bnds)
                 c1, c2, c3, c4, c5 = test.x
-                lc_new = lc * (c1 + c2*(x_pos-2.5) + c3*(x_pos-2.5)**2 + c4*(y_pos-2.5) + c5*(y_pos-2.5)**2)
+                lc_new = lc * (c1 + c2*(x_pos) + c3*(x_pos)**2 + c4*(y_pos) + c5*(y_pos)**2)
             return lc_new
 
 
