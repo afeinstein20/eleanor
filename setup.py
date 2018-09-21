@@ -2,14 +2,14 @@ from setuptools import setup
 
 
 setup(
-    name='eleanor',
+    name='ellie',
     version='0.0.1',
     license='MIT',
     long_description=open('README.md').read(),
     author='Adina D. Feinstein',
     author_email='adina.d.feinstein@gmail.com',
     packages=[
-        'eleanor',
+        'ellie',
         ],
     include_package_data=True,
     url='http://github.com/afeinstein20/ELLIE',
