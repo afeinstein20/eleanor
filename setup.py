@@ -2,14 +2,14 @@ from setuptools import setup
 
 
 setup(
-    name='ellie',
+    name='eleanor',
     version='0.0.1',
     license='MIT',
     long_description=open('README.md').read(),
     author='Adina D. Feinstein',
     author_email='adina.d.feinstein@gmail.com',
     packages=[
-        'ellie',
+        'eleanor',
         ],
     include_package_data=True,
     url='http://github.com/afeinstein20/ELLIE',
@@ -17,7 +17,7 @@ setup(
     package_data={'':['README.md', 'LICENSE']},
     install_requires=[
         'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
-        'astroquery', 'bokeh', 'muchbettermoments'],
+        'astroquery>=0.3.8', 'bokeh', 'muchbettermoments'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',

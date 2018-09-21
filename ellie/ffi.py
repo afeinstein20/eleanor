@@ -55,7 +55,7 @@ class ffi:
         self.local_paths = fns
         self.dates = dates
         return
-    
+
 
     def build_pointing_model(self, pos_predicted, pos_inferred, outlier_removal=False):
         """Builds an affine transformation to correct the positions of stars from a possibly incorrect WCS"""
@@ -64,22 +64,22 @@ class ffi:
         """ [[x,y],[x,y],...] format """
         A = np.column_stack([pos_predicted[:,0], pos_predicted[:,1], np.ones_like(pos_predicted[:,0])])
         f = np.column_stack([pos_inferred[:,0], pos_inferred[:,1], np.ones_like(pos_inferred[:,0])])
-        
+
         if outlier_removal == True:
             dist = np.sqrt(np.sum((A - f)**2, axis=1))
             mean, std = np.mean(dist), np.std(dist)
             A = A[dist_orig < mean + 3*std]
             f = f[dist_orig < mean + 3*std]
-        
+
         ATA = np.dot(A.T, A)
         ATAinv = np.linalg.inv(ATA)
         ATf = np.dot(A.T, f)
         xhat = np.dot(ATAinv, ATf)
         fhat = np.dot(A, xhat)
-        
+
         return xhat
 
-    
+
     def use_pointing_model(self, coords, pointing_model):
         """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
         """ pointing_model = (3x3) for each cadence """
@@ -87,7 +87,7 @@ class ffi:
         fhat = np.dot(A, pointing_model)
         return fhat[:,0:2]
 
-        
+
     def pointing_model_per_cadence(self):
         """ Step through build_pointing_model for each cadence """
         from muchbettermoments import quadratic_2d
@@ -104,10 +104,10 @@ class ffi:
                 closest = np.sqrt( (x[i]-x_list)**2 + (y[i]-y_list)**2 ).argmin()
                 dist    = np.sqrt( (x[i]-x_list[closest])**2+ (y[i]-y_list[closest])**2 )
                 if dist > 8.0:
-                    isolated.append(i)            
+                    isolated.append(i)
             return np.array(isolated)
 
-        
+
         def isolated_center(x, y, image):
             """ Finds the center of each isolated TPF with quadratic_2d """
             cenx, ceny, good = [], [], []
@@ -119,7 +119,7 @@ class ffi:
                      good.append(i)
             cenx, ceny = np.array(cenx), np.array(ceny)
             return cenx, ceny, good
-        
+
         pm_fn = 'pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip)
         with open(pm_fn, 'w') as tf:
             tf.write('')
@@ -139,7 +139,7 @@ class ffi:
             hdr = hdu[1].header
             xy = WCS(hdr).all_world2pix(t['ra'], t['dec'], 1)
             # Triple checks the sources are on the FFI
-            onFrame = np.where( (xy[0]>0) & (xy[0]<2092) & (xy[1]>0) & (xy[1]<2048) )[0] 
+            onFrame = np.where( (xy[0]>0) & (xy[0]<2092) & (xy[1]>0) & (xy[1]<2048) )[0]
             xy  = np.array([xy[0][onFrame], xy[1][onFrame]])
             iso = find_isolated(xy[0], xy[1])
             xy  = np.array([xy[0][iso], xy[1][iso]])
@@ -163,6 +163,3 @@ class ffi:
             solution = np.reshape(solution, (9,) )
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in solution) ) )
-
-        
-        

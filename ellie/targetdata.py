@@ -7,6 +7,8 @@ from scipy import ndimage
 from scipy.optimize import minimize
 
 
+__all__ = ['TargetData']
+
 class TargetData(object):
     """
     Object containing the light curve, target pixel file, and related information
@@ -213,7 +215,7 @@ class TargetData(object):
         """
         Extracts a light curve using the given aperture and TPF.
         """
-        lc = aperture_photometry(self.tpf, self.aperture)['aperture_sum'].data[0])
+        lc = aperture_photometry(self.tpf, self.aperture)['aperture_sum'].data[0]
         self.lc = lc
 
 

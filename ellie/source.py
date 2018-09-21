@@ -1,11 +1,10 @@
 import numpy as np
 from astropy.wcs import WCS
-from astropy.table import Table
 
-class source:
-    
+__all__ = ['source']
 
-     def find_postcard(self):
+class source(object):
+    def find_postcard(self):
         """
         Finds what postcard a source is located in
         Returns
