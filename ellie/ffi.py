@@ -83,6 +83,7 @@ class ffi:
     def use_pointing_model(self, coords, pointing_model):
         """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
         """ pointing_model = (3x3) for each cadence """
+        """ Coords given in (x,y) """
         A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
         fhat = np.dot(A, pointing_model)
         return fhat[:,0:2]
