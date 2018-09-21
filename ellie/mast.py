@@ -100,7 +100,7 @@ def cone_search(pos, r, service, multiPos=None):
     return jsonTable(json.loads(outString))
 
 
-def crossmatch_by_position(pos, r, service, multiPos=None):
+def crossmatch_by_position(pos, r, service):
     """
     Crossmatches [RA,Dec] position to a source in the Gaia DR2 catalog and TIC catalog
     Parameters
@@ -115,10 +115,7 @@ def crossmatch_by_position(pos, r, service, multiPos=None):
         gaiaTable: table of crossmatch results in Gaia DR2
         ticTable : table of crossmatch results in TIC
     """
-    if multiPos != None:
-        pos = multiPos
-    else:
-        pos = pos
+
     crossmatchInput = {'fields': [{'name':'ra' , 'type':'float'},
                                   {'name':'dec', 'type':'float'}],
                        'data': [{'ra':pos[0], 'dec':pos[1]}]}
@@ -153,7 +150,7 @@ def gaia_pos_by_ID(gaiaID, multiSource=None):
     return table
 
 
-def tic_pos_by_ID(tic, multiSource=None):
+def coords_from_tic(tic, multiSource=None):
     """
     Finds the RA,Dec for a given TIC source_id
     Parameters
@@ -168,7 +165,41 @@ def tic_pos_by_ID(tic, multiSource=None):
     else:
         source = tic
     ticData = Catalogs.query_criteria(catalog='Tic', ID=source)
-    return ticData['ID'].data, [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
+    return [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
+
+def coords_from_gaia(gaia_id):
+    from astroquery.gaia import Gaia
+    
+    adql = 'SELECT gaia.source_id FROM gaiadr2.gaia_source AS gaia WHERE gaia.source_id={0}'.format(gaia_id)
+
+    job = Gaia.launch_job(adql)
+    table = job.get_results()
+    return table
+
+
+def tic_from_coords(coords):
+    tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
+    tessPos = [tess['MatchRA'], tess['MatchDEC']]
+    sepTess = crossmatch_distance(pos, tessPos)
+    
+    return tess['MatchID']
+
+
+def gaia_from_coords(coords):
+    gaia = crossmatch_by_position(coords, 0.01, 'Mast.GaiaDR2.Crossmatch')[0]
+    
+    pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
+    gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
+    sepGaia = crossmatch_distance(pos, gaiaPos)
+    
+    #t.add_row([gaia['MatchID'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'],
+    #        tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
+        
+    return gaia['MatchID']
+
+
+
+
 
 
 def initialize_table():
