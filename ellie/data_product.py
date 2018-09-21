@@ -6,9 +6,30 @@ from lightkurve import SFFCorrector
 from scipy import ndimage
 from scipy.optimize import minimize
 
-class DataProduct(object):
-    def __init__(self, pos, postcard):
-        self.get_tpf_from_postcard(pos, postcard)
+class TargetData(object):
+    """
+    Object containing the light curve, target pixel file, and related information
+    for any given source.
+    
+    Parameters
+    ----------
+    source : an ellie.Source object
+    
+    Attributes
+    ----------
+    tpf : [lightkurve TargetPixelFile object](https://lightkurve.keplerscience.org/api/targetpixelfile.html)
+        target pixel file
+    best_lightcurve : [lightkurve LightCurve object](https://lightkurve.keplerscience.org/api/lightcurve.html)
+        extracted light curve
+    centroid_trace : (2, N_time) np.ndarray
+        (xs, ys) in TPF pixel coordinates as a function of time
+    best_aperture : 
+     
+    all_lightcurves
+    all_apertures   
+    """
+    def __init__(self, source):
+        self.get_tpf_from_postcard(source.pos, source.postcard)
         self.choose_aperture()
         self.get_lightcurve()
         
