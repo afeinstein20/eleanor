@@ -82,6 +82,7 @@ class ffi:
     
     def use_pointing_model(self, coords, pointing_model):
         """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
+        """ pointing_model = (3x3) for each cadence """
         A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
         fhat = np.dot(A, pointing_model)
         return fhat[:,0:2]
@@ -92,6 +93,36 @@ class ffi:
         from muchbettermoments import quadratic_2d
         from mast import tic_by_contamination
         from astropy.wcs import WCS
+        from astropy.nddata import Cutout2D
+
+        def find_isolated(x, y):
+            """ Finds the most isolated, least contaminated sources for pointing model """
+            isolated = []
+            for i in range(len(x)):
+                x_list  = np.delete(x, np.where(x==x[i]))
+                y_list  = np.delete(y, np.where(y==y[i]))
+                closest = np.sqrt( (x[i]-x_list)**2 + (y[i]-y_list)**2 ).argmin()
+                dist    = np.sqrt( (x[i]-x_list[closest])**2+ (y[i]-y_list[closest])**2 )
+                if dist > 8.0:
+                    isolated.append(i)            
+            return np.array(isolated)
+
+        
+        def isolated_center(x, y, image):
+            """ Finds the center of each isolated TPF with quadratic_2d """
+            cenx, ceny, good = [], [], []
+            for i in range(len(x)):
+                 if x[i] > 0. and y[i] > 0.:
+                     tpf = Cutout2D(image, position=(x[i], y[i]), size=(7,7), mode='partial')
+                     cen = quadratic_2d(tpf.data)
+                     cenx.append(cen[0]); ceny.append(cen[1])
+                     good.append(i)
+            cenx, ceny = np.array(cenx), np.array(ceny)
+            return cenx, ceny, good
+        
+        pm_fn = 'pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip)
+        with open(pm_fn, 'w') as tf:
+            tf.write('')
 
         hdu = fits.open(self.local_paths[0])
         hdr = hdu[1].header
@@ -101,5 +132,37 @@ class ffi:
         contam = [0.0, 5e-3]
         tmag_lim = 12.5
 
-        t = tic_by_contamination(pos, r, contam, tmag_lim)
+        t  = tic_by_contamination(pos, r, contam, tmag_lim)
+
+        for fn in self.local_paths:
+            hdu = fits.open(fn)
+            hdr = hdu[1].header
+            xy = WCS(hdr).all_world2pix(t['ra'], t['dec'], 1)
+            # Triple checks the sources are on the FFI
+            onFrame = np.where( (xy[0]>0) & (xy[0]<2092) & (xy[1]>0) & (xy[1]<2048) )[0] 
+            xy  = np.array([xy[0][onFrame], xy[1][onFrame]])
+            iso = find_isolated(xy[0], xy[1])
+            xy  = np.array([xy[0][iso], xy[1][iso]])
+            pos_predicted = np.reshape(xy, (len(xy[0]),2) )
+
+            cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
+
+            pos_inferred = np.empty( (len(xy[0]),2) )
+            for i in range(len(pos_inferred)):
+                if cenx[i] > 3.5:
+                    newX = pos_predicted[i][0]+cenx[i]
+                else:
+                    newX = pos_predicted[i][0]-cenx[i]
+                if ceny[i] > 3.5:
+                    newY = pos_predicted[i][1]+ceny[i]
+                else:
+                    newY = pos_predicted[i][1]-ceny[i]
+                pos_inferred[i][0] = newX
+                pos_inferred[i][1] = newY
+            solution = self.build_pointing_model(pos_predicted, pos_inferred)
+            solution = np.reshape(solution, (9,) )
+            with open(pm_fn, 'a') as tf:
+                tf.write('{}\n'.format(' '.join(str(e) for e in solution) ) )
+
+        
         
