@@ -3,12 +3,13 @@
 Installation
 ============
 
-To install ELLIE, clone the github repository::
+To install ELLIE with pip::
 
 	pip install eleanor
 	
 
-Then run the setup::
+Alternatively you can install the current development version of ELLIE::
 
-	cd eleanor
+        git clone https://github.com/afeinstein20/ellie
+	cd ellie
 	python setup.py install
