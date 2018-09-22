@@ -3,3 +3,4 @@ ellie.egg-info
 docs/_build
 build
 dist
+.DS_Store
