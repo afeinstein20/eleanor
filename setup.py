@@ -4,7 +4,11 @@
 from __future__ import division, print_function
 
 import os
+import sys
 from setuptools import setup
+
+sys.path.insert(0, "ellie")
+from version import __version__
 
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, "README.md")) as f:
@@ -13,7 +17,7 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 setup(
     name='ellie',
-    version='0.0.2',
+    version=__version__,
     license='MIT',
     author='Adina D. Feinstein',
     author_email='adina.d.feinstein@gmail.com',
@@ -28,7 +32,7 @@ setup(
     package_data={'': ['README.md', 'LICENSE']},
     install_requires=[
         'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
-        'astroquery', 'bokeh', 'muchbettermoments'],
+        'astroquery', 'bokeh', 'muchbettermoments', 'fitsio'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
