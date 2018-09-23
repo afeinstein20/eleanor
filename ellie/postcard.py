@@ -3,8 +3,12 @@ import os, sys
 from astropy.utils.data import download_file
 from astropy.io import fits
 import matplotlib.pyplot as plt
+from astropy.wcs import WCS
 import numpy as np
 import warnings
+import pandas as pd
+import copy
+from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
 ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/'
@@ -27,17 +31,19 @@ class Postcard(object):
     flux : numpy ndarray
         array of matrices containing flux in each pixel
     """
-    def __init__(self, filename):
-        self.filename = '{}{}'.format(ELLIEURL, filename)
+    def __init__(self, filename, location=None):
+        if location is not None:
+            self.filename = '{}{}'.format(location, filename)
+            self.local_path = copy.copy(self.filename)
+            self.hdu = fits.open(self.local_path)
+        else:
+            self.filename = '{}{}'.format(ELLIEURL, filename)
+            local_path = download_file(self.filename, cache=True)
+            self.local_path = local_path
+            self.hdu = fits.open(self.local_path)
 
     def __repr__(self):
         return "ellie postcard ({})".format(self.filename)
-
-    def download_postcard(self):
-        """ Downloads the postcard from the ELLIEURL """
-        local_path = download_file(self.filename, cache=True)
-        self.local_path = local_path
-        self.hdu = fits.open(self.local_path)
 
     def plot(self, frame=0, ax=None, scale='linear', **kwargs):
         ''' Plot a frame of a tpf
@@ -48,10 +54,10 @@ class Postcard(object):
         if scale is 'log':
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
-                dat = np.log10(self.flux[frame])
+                dat = np.log10(self.flux[:, :, frame])
                 dat[~np.isfinite(dat)] = np.nan
         else:
-            dat = self.flux[frame]
+            dat = self.flux[:, :, frame]
 
         if ('vmin' not in kwargs) & ('vmax' not in kwargs):
             kwargs['vmin'] = np.nanpercentile(dat, 1)
@@ -73,13 +79,23 @@ class Postcard(object):
         ax.set_yticklabels(yticks)
         return ax
 
-    @property
-    def dimensions(self):
-        return (self.hdu[0].header['NAXIS1'], self.hdu[0].header['NAXIS2'], self.hdu[0].header['NAXIS3'])
+    def find_sources(self):
+        '''Find the sources in a postcard
+
+        Returns
+        -------
+        result : astropy.table.Table
+            All the sources in a postcard with tic ids, gaia ids and others...
+        '''
+        result = crossmatch_by_position(self.center_radec, 0.5, 'Mast.Tic.Crossmatch').to_pandas()
+        result = result[['MatchID', 'MatchRA', 'MatchDEC', 'pmRA', 'pmDEC', 'Tmag']]
+        result.columns = ['TessID', 'RA', 'Dec', 'pmRA', 'pmDEC', 'Tmag']
+        return result
+
 
     @property
     def header(self):
-        return self.hdu[0].header
+        return self.hdu[1].header
 
     @property
     def center_radec(self):
@@ -91,4 +107,20 @@ class Postcard(object):
 
     @property
     def flux(self):
-        return self.hdu[0].data
+        return self.hdu[2].data
+
+    @property
+    def dimensions(self):
+        return self.flux.shape
+
+    @property
+    def flux_err(self):
+        return self.hdu[3].data
+
+    @property
+    def time(self):
+        return self.hdu[1].data['TSTOP'] - self.hdu[1].data['TSTART']
+
+    @property
+    def wcs(self):
+        raise NotImplementedError('Not yet implemented.')

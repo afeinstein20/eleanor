@@ -1,9 +1,12 @@
 import numpy as np
 from astropy.wcs import WCS
 from astropy.table import Table
-import urllib
+from astropy.io import fits
 
-from mast import *
+import urllib
+from .mast import *
+
+__all__ = ['Source']
 
 class Source(object):
     """
@@ -17,7 +20,7 @@ class Source(object):
         The Gaia DR2 source_id
     coords : (float, float); optional
         The (RA, Dec) coords of the object in degrees
-    
+
     Additional Attributes
     ---------------------
     tess_mag : float
@@ -50,7 +53,7 @@ class Source(object):
             self.gaia = gaia_from_coords(self.coords)
         self.locate_on_tess() # sets sector, camera, chip, chip_position
 
-     def locate_on_tess(self):
+    def locate_on_tess(self):
         """
         Finds what TESS postcard(s) the source was observed in.
         Sets attributes sector, camera, chip, postcard, position_on_postcard, and all_postcards.
@@ -67,7 +70,7 @@ class Source(object):
 
         in_file=[]
         # Searches through rows of the table
-        for i in range(len(postcard_guide)):
+        for i in range(len(guide)):
             x_cen, y_cen= guide['POST_CEN_X'][i], guide['POST_CEN_Y'][i]
             l, w = guide['POST_SIZE1'][i]/2., guide['POST_SIZE2'][i]/2.
             # Checks to see if xy coordinates of source falls within postcard
