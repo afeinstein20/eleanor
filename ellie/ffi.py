@@ -2,7 +2,13 @@ import numpy as np
 from astropy.io import fits
 
 class ffi:
-
+    """
+    This class allows the user to download all full-frame images for a given sector,
+         camera, and chip. It also allows the user to create their own pointing model
+         based on each cadence for a given combination of sector, camera, and chip.
+    No individual user should have to download all of the full-frame images because 
+         stacked postcards will be available for the user to download from MAST.
+    """
     def __init__(self, sector=None, camera=None, chip=None):
         self.sector = sector
         self.camera = camera
@@ -83,6 +89,7 @@ class ffi:
     def use_pointing_model(self, coords, pointing_model):
         """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
         """ pointing_model = (3x3) for each cadence """
+        """ Coords given in (x,y) """
         A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
         fhat = np.dot(A, pointing_model)
         return fhat[:,0:2]
