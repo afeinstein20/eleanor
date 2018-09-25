@@ -8,7 +8,7 @@ from astropy.nddata import Cutout2D
 
 
 def pixel_cone(header, r, contam):
-    """ Completes a cone search around center of FITS file """
+#    Completes a cone search around center of FITS file 
     pos = [header['CRVAL1'], header['CRVAL2']]
     data = find_sources.tic_by_contamination(find_sources(), pos, r, contam)
     ra, dec = data['ra'], data['dec']
@@ -19,9 +19,9 @@ def pixel_cone(header, r, contam):
 
 
 def find_isolated(x, y):
-    """ Find the most isolated, least contaminated sources """
+#   Find the most isolated, least contaminated sources
     def nearest(x_source, y_source):
-        """ Calculates distance to the nearest source """
+#       Calculates distance to the nearest source
         nonlocal x, y
         x_list = np.delete(x, np.where(x==x_source))
         y_list = np.delete(y, np.where(y==y_source))
@@ -36,7 +36,7 @@ def find_isolated(x, y):
 
 
 def isolated_center(x, y, image):
-    """ Finds the center of each isolated TPF with quadratic_2d """
+#   Finds the center of each isolated TPF with quadratic_2d
     cenx, ceny, good = [], [], []
     for i in range(len(x)):
         if x[i] > 0. and y[i] > 0.:
@@ -56,7 +56,7 @@ def main():
     hdu    = fits.open(dir+post)
     xy, id, tmag, ra, dec = pixel_cone(hdu[1].header, r, contam)
     isolated = find_isolated(xy[0], xy[1])
-    xy = np.array([xy[0][isolated], xy[1][isolated]])
+    xy = np.array([xy[0][isolated], xy[1][isolated]]) 
     cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
     good = np.array(good)
 
