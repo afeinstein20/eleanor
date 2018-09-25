@@ -33,6 +33,7 @@ setup(
     install_requires=[
         'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
         'astroquery', 'bokeh', 'muchbettermoments', 'fitsio'],
+
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',

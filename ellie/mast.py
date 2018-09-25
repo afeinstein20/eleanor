@@ -8,6 +8,7 @@ from astroquery.mast import Catalogs
 from astropy.table import Table, Column, Row
 from astropy.wcs import WCS
 
+
 try: # Python 3.x
     from urllib.parse import quote as urlencode
     from urllib.request import urlretrieve
@@ -17,6 +18,7 @@ except ImportError: # Python 2.x
     from urllib import urlretrieve
     import httplib
 
+__all__ = ['coords_from_tic', 'gaia_from_coords']
 
 def mastQuery(request):
     """
@@ -48,7 +50,7 @@ def mastQuery(request):
     resp = conn.getresponse()
     head = resp.getheaders()
     content = resp.read().decode('utf-8')
-    
+
     # Close the https connection
     conn.close()
     return head, content
@@ -123,7 +125,7 @@ def crossmatch_by_position(pos, r, service):
                'data':crossmatchInput,
                'params': {'raColumn':'ra', 'decColumn':'dec', 'radius':r},
                'format':'json'}
-    headers, outString = self.mastQuery(request)
+    headers, outString = mastQuery(request)
     return jsonTable(json.loads(outString))
 
 
@@ -169,7 +171,7 @@ def coords_from_tic(tic, multiSource=None):
 
 def coords_from_gaia(gaia_id):
     from astroquery.gaia import Gaia
-    
+
     adql = 'SELECT gaia.source_id FROM gaiadr2.gaia_source AS gaia WHERE gaia.source_id={0}'.format(gaia_id)
 
     job = Gaia.launch_job(adql)
@@ -181,24 +183,21 @@ def tic_from_coords(coords):
     tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
     sepTess = crossmatch_distance(pos, tessPos)
-    
+
     return tess['MatchID']
 
 
 def gaia_from_coords(coords):
     gaia = crossmatch_by_position(coords, 0.01, 'Mast.GaiaDR2.Crossmatch')[0]
-    
-    pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
+
+#    pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
     gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
-    sepGaia = crossmatch_distance(pos, gaiaPos)
-    
+#    sepGaia = crossmatch_distance(pos, gaiaPos)
+
     #t.add_row([gaia['MatchID'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'],
     #        tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
-        
+
     return gaia['MatchID']
-
-
-
 
 
 
@@ -267,7 +266,7 @@ def crossmatch_multi_to_tic(fn, r=0.1):
         row = tic[min]
         t.add_row([sID, row['MatchID'], (pos[0]).to(u.arcsec), (pos[1]).to(u.arcsec), separation[min], gmag, row['Tmag'], pmra, pmdec, parallax])
     t.remove_row(0)
-    
+
     return t
 
 
@@ -294,7 +293,7 @@ def find_by_position(pos):
         sepGaia = crossmatch_distance(pos, gaiaPos)
         tessPos = [tess['MatchRA'], tess['MatchDEC']]
         sepTess = crossmatch_distance(pos, tessPos)
-        
+
         t.add_row([gaia['MatchID'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'],
                    tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
 

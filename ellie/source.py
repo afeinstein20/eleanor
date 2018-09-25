@@ -1,9 +1,12 @@
 import numpy as np
 from astropy.wcs import WCS
 from astropy.table import Table
+from astropy.io import fits
+
 import urllib
-    
-from mast import *
+from .mast import *
+
+__all__ = ['Source']
 
 def load_guide():
     """
@@ -17,7 +20,7 @@ def load_guide():
 class Source(object):
     """
     A single source observed by TESS.
-    
+
     Parameters
     ----------
     tic : int; optional
@@ -26,7 +29,7 @@ class Source(object):
         The Gaia DR2 source_id
     coords : (float, float); optional
         The (RA, Dec) coords of the object in degrees
-    
+
     Additional Attributes
     ---------------------
     tess_mag : float
@@ -61,12 +64,27 @@ class Source(object):
             self.tic, self.tess_mag = tic_from_coords(self.coords)
             self.gaia = gaia_from_coords(self.coords)
         self.locate_on_tess() # sets sector, camera, chip, chip_position
+
+    def locate_on_tess(self):
+
         
     def locate_on_chip(self, guide):
+
         """
         Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
+
+        guide_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.txt')
+        guide = guide_link.read().decode('utf-8')
+        guide = Table.read(guide, format='ascii.basic')
+
+        d = {}
+        for j,col in enumerate(guide.colnames):
+            d[col] = guide[0][j]
+        hdr = fits.Header(cards=d) # make WCS info from one postcard header
+        xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
+
         self.sector = None
         for sec in np.unique(guide['SECTOR']):
             for cam in np.unique(guide['CAMERA']):
@@ -101,13 +119,19 @@ class Source(object):
         guide = load_guide()
         self.locate_on_chip(guide)
 
+
         # Searches through postcards for the given sector, camera, chip
         in_file=[]
+
+        # Searches through rows of the table
+        for i in range(len(guide)):
+
         postcard_inds = np.arange(len(guide))[(guide['SECTOR'] == self.sector) & (guide['CAMERA'] == self.camera) 
                                                 & (guide['CCD'] == self.chip)]
         xy = self.position_on_chip
         # Finds postcards containing the source
         for i in postcard_inds: # loop rows
+
             x_cen, y_cen= guide['POST_CEN_X'][i], guide['POST_CEN_Y'][i]
             l, w = guide['POST_SIZE1'][i]/2., guide['POST_SIZE2'][i]/2.
             print("postcard #{0}: x: {1} - {2}, y: {3} - {4}".format(i,x_cen-l,x_cen+l,y_cen-w,y_cen+w))
@@ -126,12 +150,22 @@ class Source(object):
             best_ind = np.argmin(dists)
         else:
             best_ind = 0
-                
+
         self.all_postcards = guide['POST_FILE'][in_file]
         self.postcard = guide['POST_FILE'][in_file[best_ind]]
-        
+
+        self.sector = guide['SECTOR'][in_file[best_ind]] # WILL BREAK FOR MULTI-SECTOR TARGETS
+        self.camera = guide['CAMERA'][in_file[best_ind]]
+        self.chip = guide['CCD'][in_file[best_ind]]
+
+        i = in_file[best_ind]
+        postcard_pos_on_ffi = (guide['POST_CENX'][i] - guide['POST_SIZE1'][i]/2.,
+                                guide['POST_CENY'][i] - guide['POST_SIZE2'][i]/2.)
+        self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
+
         i = in_file[best_ind]
         postcard_pos_on_ffi = (guide['POST_CEN_X'][i] - guide['POST_SIZE1'][i]/2., 
                               guide['POST_CEN_Y'][i] - guide['POST_SIZE2'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
         
+

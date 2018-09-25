@@ -64,6 +64,10 @@ except ImportError: # Python 2.x
 ##########################
 ##########################
 ##########################
+
+__all__ = []
+
+
 class find_sources:
     """
     The main interface to the ELLIE image extraction package
