@@ -170,16 +170,16 @@ def coords_from_tic(tic, multiSource=None):
     return [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
 
 def coords_from_gaia(gaia_id):
+    """ Grabs coordinates of input Gaia ID from Gaia DR2 Catalog """
     from astroquery.gaia import Gaia
-
     adql = 'SELECT gaia.source_id FROM gaiadr2.gaia_source AS gaia WHERE gaia.source_id={0}'.format(gaia_id)
-
     job = Gaia.launch_job(adql)
     table = job.get_results()
     return table
 
 
 def tic_from_coords(coords):
+    """ Grabs coordinates of input TIC ID from Tess Input Catalog v7 """
     tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
     sepTess = crossmatch_distance(pos, tessPos)
