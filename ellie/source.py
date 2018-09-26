@@ -66,7 +66,7 @@ class Source(object):
         self.locate_on_tess() # sets sector, camera, chip, chip_position
 
     def locate_on_tess(self):
-
+        return
         
     def locate_on_chip(self, guide):
 
