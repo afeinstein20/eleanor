@@ -1,6 +1,16 @@
 import numpy as np
 from astropy.io import fits
 
+
+def use_pointing_model(self, coords, pointing_model):
+    """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
+    """ pointing_model = (3x3) for each cadence """
+    """ Coords given in (x,y) """
+    A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
+    fhat = np.dot(A, pointing_model)
+    return fhat[:,0:2]
+
+
 class ffi:
     """
     This class allows the user to download all full-frame images for a given sector,
@@ -86,15 +96,6 @@ class ffi:
         return xhat
 
 
-    def use_pointing_model(self, coords, pointing_model):
-        """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
-        """ pointing_model = (3x3) for each cadence """
-        """ Coords given in (x,y) """
-        A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
-        fhat = np.dot(A, pointing_model)
-        return fhat[:,0:2]
-
-
     def pointing_model_per_cadence(self):
         """ Step through build_pointing_model for each cadence """
         from muchbettermoments import quadratic_2d
@@ -170,3 +171,6 @@ class ffi:
             solution = np.reshape(solution, (9,) )
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in solution) ) )
+        return
+    
+    
