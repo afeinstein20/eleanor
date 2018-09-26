@@ -4,18 +4,18 @@ from astropy.table import Table
 from astropy.io import fits
 
 import urllib
-from .mast import *
+from mast import *
 
 __all__ = ['Source']
 
-def load_guide():
-    """
-    Load and return the postcard coordinates guide.
-    """
+
+def load_postcard_guide():
+    """ Load and return the postcard coordinates guide """
     guide_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.txt')
     guide = guide_link.read().decode('utf-8')
-    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
+    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations                                                                     
     return guide
+
 
 class Source(object):
     """
@@ -65,7 +65,12 @@ class Source(object):
             self.gaia = gaia_from_coords(self.coords)
         self.locate_on_tess() # sets sector, camera, chip, chip_position
 
+
+
     def locate_on_tess(self):
+        """ 
+        Finds all files for sources in the continuous viewing zone
+        """
         return
         
     def locate_on_chip(self, guide):
@@ -75,9 +80,7 @@ class Source(object):
         Sets attributes sector, camera, chip, position_on_chip.
         """
 
-        guide_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.txt')
-        guide = guide_link.read().decode('utf-8')
-        guide = Table.read(guide, format='ascii.basic')
+        guide = load_postcard_guide()
 
         d = {}
         for j,col in enumerate(guide.colnames):
@@ -89,8 +92,8 @@ class Source(object):
         for sec in np.unique(guide['SECTOR']):
             for cam in np.unique(guide['CAMERA']):
                 for chip in np.unique(guide['CCD']):
-                    mask = (guide['SECTOR'] == sec) & (guide['CAMERA'] == cam) 
-                                            & (guide['CCD'] == chip)                    
+                    mask = ((guide['SECTOR'] == sec) & (guide['CAMERA'] == cam) 
+                            & (guide['CCD'] == chip))
                     if np.sum(mask) == 0:
                         continue # this camera-chip combo is not in the postcard database yet
                     else:
@@ -125,9 +128,8 @@ class Source(object):
 
         # Searches through rows of the table
         for i in range(len(guide)):
-
-        postcard_inds = np.arange(len(guide))[(guide['SECTOR'] == self.sector) & (guide['CAMERA'] == self.camera) 
-                                                & (guide['CCD'] == self.chip)]
+            postcard_inds = np.arange(len(guide))[(guide['SECTOR'] == self.sector) & (guide['CAMERA'] == self.camera) 
+                                                  & (guide['CCD'] == self.chip)]
         xy = self.position_on_chip
         # Finds postcards containing the source
         for i in postcard_inds: # loop rows
