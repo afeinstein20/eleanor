@@ -2,11 +2,13 @@ import numpy as np
 from astropy.io import fits
 
 
-def use_pointing_model(self, coords, pointing_model):
-    """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
-    """ pointing_model = (3x3) for each cadence """
+def use_pointing_model(coords, pointing_model):
+    """ Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
+    """ pointing_model is passed in as an astropy.table.Table row and reshaped into a (3x3) matrix """
+    """ pointing_model is for ONE cadence at a time """
     """ Coords given in (x,y) """
-    A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
+    pointing_model = np.reshape(list(pointing_model), (3,3))
+    A = np.column_stack([coords[0], coords[1], np.ones_like(coords[0])])
     fhat = np.dot(A, pointing_model)
     return fhat[:,0:2]
 
