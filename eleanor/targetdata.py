@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import KeplerTargetPixelFile as ktpf
@@ -6,6 +7,8 @@ from lightkurve import SFFCorrector
 from scipy import ndimage
 from scipy.optimize import minimize
 
+from ffi import use_pointing_model
+from postcard import Postcard
 
 __all__ = ['TargetData']
 
@@ -32,123 +35,118 @@ class TargetData(object):
     all_apertures
     """
     def __init__(self, source):
-        self.get_tpf_from_postcard(source.pos, source.postcard)
-        self.choose_aperture()
-        self.get_lightcurve()
+        self.post_obj = Postcard(source.postcard)
+        self.load_pointing_model(source.sector, source.camera, source.chip)
+        self.get_tpf_from_postcard(source.coords, source.postcard)
+        self.fit_apertures()
+#        self.get_lightcurve()
 
+
+    def load_pointing_model(self, sector, camera, chip):
+        from astropy.table import Table
+        import urllib
+        pointing_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
+                                                                                                                          camera,
+                                                                                                                          chip))
+        pointing = pointing_link.read().decode('utf-8')
+        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations  
+        self.pointing_model = pointing
+        return
+                                                                                                                          
+        
     def get_tpf_from_postcard(self, pos, postcard):
         """
         Creates a FITS file for a given source that includes:
             Extension[0] = header
             Extension[1] = (9x9xn) TPF, where n is the number of cadences in an observing run
             Extension[2] = (3 x n) time, raw flux, systematics corrected flux
+        Defines
+            self.tpf     = flux cutout from postcard
+            self.tpf_err = flux error cutout from postcard
+            self.centroid_xs = pointing model corrected x pixel positions
+            self.centroid_ys = pointing model corrected y pixel positions
         """
+        from astropy.wcs import WCS
+        from muchbettermoments import quadratic_2d
+        from astropy.nddata import Cutout2D
+
         self.tpf = None
         self.centroid_xs = None
         self.centroid_ys = None
 
-        def init_shift(xy, postcard):
-            """ Offsets (x,y) coords of source by pointing model """
-            theta, delX, delY = postcard.pointing[0]['medT'], postcard.pointing[0]['medX'], postcard.pointing[0]['medY']
+        def apply_pointing_model(xy):
+            centroid_xs, centroid_ys = [], []
+            for i in range(len(self.pointing_model)):
+                new_coords = use_pointing_model(xy, self.pointing_model[i])
+                centroid_xs.append(new_coords[0][0])
+                centroid_ys.append(new_coords[0][1])
+            self.centroid_xs = centroid_xs
+            self.centroid_ys = centroid_ys
+            return
 
-            x = xy[0]*np.cos(theta) - xy[1]*np.sin(theta) + delX
-            y = xy[0]*np.sin(theta) + xy[1]*np.cos(theta) + delY
+        xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
+        apply_pointing_model(xy)
 
-            return np.array([x,y])
-
-        def centering_shift(tpf):
-            """ Creates an additional shift to put source at (4,4) of TPF file """
-            """                  Returns: required pixel shift                 """
-            xdim, ydim = len(tpf[0][0]), len(tpf[0][1])
-            center = quadratic_2d(tpf[0])
-            shift = [int(round(xdim/2-center[1])), int(round(xdim/2-center[0]))]
-
-            return shift
-
-        # Calculate pixel distance between center of postcard and target in FFI pixel coords
-        delta_pix = np.array([xy_shift[0] - postcard.center_pos[0], xy_shift[1] - postcard.center_pos[1]])
-        delta_init = np.array([xy[0] - postcard.center_pos[0], xy[1] - postcard.center_pos[1]])
-        # Apply shift to coordinates for center of tpf
-        newX = int(np.ceil(postcard.dims[1]/2. + delta_pix[1]))
-        newY = int(np.ceil(postcard.dims[0]/2. + delta_pix[0]))
-
-        init_x = int(np.ceil(postcard.dims[0]/2. + delta_init[1]))
-        init_y = int(np.ceil(postcard.dims[1]/2. + delta_init[0]))
         # Define tpf as region of postcard around target
-        post_fits = postcard.data  # ??
-        tpf = post_fits[:, newX-6:newX+7, newY-6:newY+7]
-        init_tpf = post_fits[:, init_x-6:init_x+7, init_y-6:init_y+7]
+        med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
+        med_x, med_y = int(np.floor(med_x)), int(np.floor(med_y))
 
-        self.tpf = tpf
+        post_flux = np.transpose(self.post_obj.flux, (2,0,1))        
+        post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
+        self.tpf  = post_flux[:, med_y-4:med_y+5, med_x-4:med_x+5]
+        self.tpf_err = post_err[:, med_y-4:med_y+5, med_x-4:med_x+5]
+        return
 
 
-    def choose_aperture(self):
+    def fit_apertures(self):
         """
         Finds the "best" aperture (i.e. the one that produces the smallest std light curve) for a range of
         sizes and shapes.
+        Defines
+            self.lc = the resulting light curve from the "best" aperture
+            self.aperture = the "best" aperture
+            self.all_lc = an array of light curves from all apertures tested
+            self.all_aperture = an array of masks for all apertures tested
         """
-        self.aperture = None
+        from photutils import CircularAperture, RectangularAperture, aperture_photometry, ApertureMask
+        from astropy.table import Table
 
-        r_list = np.arange(1.5, 3.5, 0.5) # aperture radii to try
-        matrix = np.zeros( (len(r_list), 2) )
-        system = np.zeros( (len(r_list), 2) )
-        sigma  = np.zeros( (len(r_list), 2) )
+        self.aperture     = None
+        self.lc           = None
+        self.all_lc       = None
+        self.all_aperture = None
 
-        for i in range(len(r_list)):
-            pos = (x_point, y_point)
-            circ, rect = aperture(r_list[i], pos)
-            # Completes aperture sums for each tpf.flux and each aperture shape
-            matrix[i][0] = aperture_photometry(self.tpf, circ)['aperture_sum'].data[0]
-            matrix[i][1] = aperture_photometry(self.tpf, rect)['aperture_sum'].data[0]
-            matrix[i][0] = matrix[i][0] / np.nanmedian(matrix[i][0])
-            matrix[i][1] = matrix[i][1] / np.nanmedian(matrix[i][1])
+        # Creates a circular and rectangular aperture
+        def circle(pos,r):
+            return CircularAperture(pos,r)
+        def rectangle(pos, l, w, t):
+            return RectangularAperture(pos, l, w, t)
 
-        # Creates a complete, systematics corrected light curve for each aperture
-        for i in range(len(r_list)):
-            lc_circ = self.system_corr(matrix[i][0], x, y, jitter=True, roll=True)
-            system[i][0] = lc_circ
-            sigma[i][0] = np.std(lc_circ)
-            lc_rect = self.system_corr(matrix[i][1], x, y, jitter=True, roll=True)
-            system[i][1] = lc_rect
-            sigma[i][1] = np.std(lc_rect)
+        # Completes either binary or weighted aperture photometry
+        def binary(data, apertures, err):
+            return aperture_photometry(data, apertures, error=err, method='center')
+        def weighted(data, apertures, err):
+            return aperture_photometry(data, apertures, error=err, method='exact')
 
-        best = np.where(sigma==np.min(sigma))
-        r_ind, s_ind = best[0][0], best[1][0]
+        r_list = np.arange(1,4,0.5)
+        circles, rectangles = [], []
+        plt.imshow(self.tpf[0], origin='lower')
+        plt.show()
+        for r in r_list:
+            circles.append(circle((4,4),r))
+            rectangles.append(rectangle((4,4),r,r,0.0))
+            
+        for i in range(len(self.tpf)):
+            bc = binary(self.tpf[i], circles, self.tpf_err[i])
+            br = binary(self.tpf[i], rectangles, self.tpf_err[i])
+            wc = weighted(self.tpf[i], circles, self.tpf_err[i])
+            if i == 0:
+                binary_circ = Table(names=bc.colnames)
+                binary_rect = Table(names=br.colnames)
+                weight_circ = Table(names=wc.colnames)
+            binary_circ.add_row(bc[0])
+        print(len(binary_circ['aperture_sum_3']))
 
-        def centroidOffset(tpf, file_cen):
-            """ Finds offset between center of TPF and centroid of first cadence """
-            tpf_com = Cutout2D(tpf[0], position=(len(tpf[0])/2, len(tpf[0])/2), size=(4,4))
-            com = ndimage.measurements.center_of_mass(tpf_com.data.T - np.median(tpf_com.data))
-            return len(tpf_com.data)/2-com[0], len(tpf_com.data)/2-com[1]
-
-        def aperture(r, pos):
-            """ Creates circular & rectangular apertures of given size """
-            circ = CircularAperture(pos, r)
-            rect = RectangularAperture(pos, r, r, 0.0)
-            return circ, rect
-
-        file_cen = len(self.tpf[0])/2.
-        initParams = self.pointing[0]
-        theta, delX, delY = self.pointing['medT'].data, self.pointing['medX'].data, self.pointing['medY'].data
-
-        startX, startY = centroidOffset(tpf, file_cen)
-
-        x, y = [], []
-        for i in range(len(theta)):
-            x.append( startX*np.cos(theta[i]) - startY*np.sin(theta[i]) + delX[i] )
-            y.append( startX*np.sin(theta[i]) + startY*np.cos(theta[i]) + delY[i] )
-        x, y = np.array(x), np.array(y)
-
-        print("*************")
-        print("We're doing our best to find the ideal aperture shape & size for your source.")
-        print("*************")
-
-        radius, shape, lc, uncorr = findLC(x, y)
-
-        self.lc = lc
-        self.aperture = (radius, shape) # ?
-        self.centroid_xs = x
-        self.centroid_ys = y
 
 
     def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, t=0.0, pointing=True,
@@ -211,12 +209,12 @@ class TargetData(object):
         lc = self.system_corr(lc, x, y, jitter=jitter, roll=roll)
         return lc
 
-    def get_lightcurve(self):
-        """
-        Extracts a light curve using the given aperture and TPF.
-        """
-        lc = aperture_photometry(self.tpf, self.aperture)['aperture_sum'].data[0]
-        self.lc = lc
+#    def get_lightcurve(self):
+#        """
+#        Extracts a light curve using the given aperture and TPF.
+#        """
+#        lc = aperture_photometry(self.tpf, self.aperture)['aperture_sum'].data[0]
+#        self.lc = lc
 
 
     def jitter_corr(self):
