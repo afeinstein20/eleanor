@@ -8,7 +8,7 @@ import numpy as np
 import warnings
 import pandas as pd
 import copy
-from .mast import crossmatch_by_position
+from mast import crossmatch_by_position
 
 __all__ = ['Postcard']
 ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/'
@@ -16,8 +16,6 @@ ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/'
 
 class Postcard(object):
     """
-
-
     Attributes
     ----------
     dimensions : tuple
@@ -46,8 +44,7 @@ class Postcard(object):
         return "ellie postcard ({})".format(self.filename)
 
     def plot(self, frame=0, ax=None, scale='linear', **kwargs):
-        ''' Plot a frame of a tpf
-        '''
+        """ Plot a frame of a tpf """
 
         if ax is None:
             _, ax = plt.subplots(figsize=(8, 7))
@@ -80,13 +77,14 @@ class Postcard(object):
         return ax
 
     def find_sources(self):
-        '''Find the sources in a postcard
+        """
+        Find the sources in a postcard
 
         Returns
         -------
         result : astropy.table.Table
             All the sources in a postcard with tic ids, gaia ids and others...
-        '''
+        """
         result = crossmatch_by_position(self.center_radec, 0.5, 'Mast.Tic.Crossmatch').to_pandas()
         result = result[['MatchID', 'MatchRA', 'MatchDEC', 'pmRA', 'pmDEC', 'Tmag']]
         result.columns = ['TessID', 'RA', 'Dec', 'pmRA', 'pmDEC', 'Tmag']
