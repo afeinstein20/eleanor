@@ -13,7 +13,7 @@ import numpy as np
 from time import strftime
 from astropy.wcs import WCS
 
-from .version import __version__
+from version import __version__
 
 
 def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
@@ -52,7 +52,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     # Set the output filename format
     info = (primary_header["CAMERA"], primary_header["CCD"],
             primary_header["IMAGTYPE"].strip())
-    outfn_fmt = "elliepostcard-{0}-{{0:02d}}-{{1:02d}}.fits".format(
+    outfn_fmt = "hlsp_ellie_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}.fits".format(
         "-".join(map("{0}".format, info)))
     outfn_fmt = os.path.join(outdir, outfn_fmt).format
 
@@ -125,7 +125,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
             for j, w in enumerate(ws):
                 dw = min(width, total_width - w)
                 dh = min(height, total_height - h)
-                outfn = outfn_fmt(i+1, j+1)
+#                outfn = outfn_fmt(i+1, j+1)
 
                 hdr = fitsio.FITSHDR(primary_header)
 
@@ -148,6 +148,9 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
 
                 xcen = h + 0.5*dh
                 ycen = w + 0.5*dw
+
+                outfn = outfn_fmt(xcen, ycen)
+
                 rd = primary_wcs.all_pix2world(xcen, ycen, 1)
                 hdr.add_record(
                     dict(name="CEN_X", value=xcen,
