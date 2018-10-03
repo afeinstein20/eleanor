@@ -108,7 +108,7 @@ class TargetData(object):
             self.all_lc = an array of light curves from all apertures tested
             self.all_aperture = an array of masks for all apertures tested
         """
-        from photutils import CircularAperture, RectangularAperture, aperture_photometry, ApertureMask
+        from photutils import aperture_photometry, PixelAperture, CircularAperture, RectangularAperture
         from astropy.table import Table
 
         self.aperture     = None
@@ -132,20 +132,26 @@ class TargetData(object):
         circles, rectangles = [], []
         plt.imshow(self.tpf[0], origin='lower')
         plt.show()
+
+        test = circle((4,4),2)
+        mask = test.to_mask()
+        print(mask)
+        return
+
         for r in r_list:
             circles.append(circle((4,4),r))
             rectangles.append(rectangle((4,4),r,r,0.0))
             
-        for i in range(len(self.tpf)):
-            bc = binary(self.tpf[i], circles, self.tpf_err[i])
-            br = binary(self.tpf[i], rectangles, self.tpf_err[i])
-            wc = weighted(self.tpf[i], circles, self.tpf_err[i])
-            if i == 0:
-                binary_circ = Table(names=bc.colnames)
-                binary_rect = Table(names=br.colnames)
-                weight_circ = Table(names=wc.colnames)
-            binary_circ.add_row(bc[0])
-        print(len(binary_circ['aperture_sum_3']))
+#        for i in range(len(self.tpf)):
+#            bc = binary(self.tpf[i], circles, self.tpf_err[i])
+#            br = binary(self.tpf[i], rectangles, self.tpf_err[i])
+#            wc = weighted(self.tpf[i], circles, self.tpf_err[i])
+#            if i == 0:
+#                binary_circ = Table(names=bc.colnames)
+#                binary_rect = Table(names=br.colnames)
+#                weight_circ = Table(names=wc.colnames)
+#            binary_circ.add_row(bc[0])
+#        print(len(binary_circ['aperture_sum_3']))
 
 
 
