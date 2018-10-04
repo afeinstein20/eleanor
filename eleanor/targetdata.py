@@ -109,6 +109,7 @@ class TargetData(object):
             self.all_aperture = an array of masks for all apertures tested
         """
         from photutils import aperture_photometry, PixelAperture, CircularAperture, RectangularAperture
+        from photutils import ApertureMask, BoundingBox
         from astropy.table import Table
 
         self.aperture     = None
@@ -128,30 +129,36 @@ class TargetData(object):
         def weighted(data, apertures, err):
             return aperture_photometry(data, apertures, error=err, method='exact')
 
-        r_list = np.arange(1,4,0.5)
-        circles, rectangles = [], []
-        plt.imshow(self.tpf[0], origin='lower')
-        plt.show()
+        r_list = np.arange(1.5,4,0.5)
 
-        test = circle((4,4),2)
-        mask = test.to_mask()
-        print(mask)
-        return
-
+        # Center gives binary mask; exact gives weighted mask
+        circles, rectangles, self.all_apertures = [], [], []
         for r in r_list:
-            circles.append(circle((4,4),r))
-            rectangles.append(rectangle((4,4),r,r,0.0))
+            ap_circ = circle( (4,4), r )
+            ap_rect = rectangle( (4,4), r, r, 0.0)
+            circles.append(ap_circ); rectangles.append(ap_rect)
+            for method in ['center', 'exact']:
+                circ_mask = ap_circ.to_mask(method=method)[0].to_image(shape=((
+                            np.shape( self.tpf[0]))))
+                rect_mask = ap_rect.to_mask(method=method)[0].to_image(shape=((
+                            np.shape( self.tpf[0]))))
+                self.all_apertures.append(circ_mask)
+                self.all_apertures.append(rect_mask)
             
 #        for i in range(len(self.tpf)):
 #            bc = binary(self.tpf[i], circles, self.tpf_err[i])
 #            br = binary(self.tpf[i], rectangles, self.tpf_err[i])
 #            wc = weighted(self.tpf[i], circles, self.tpf_err[i])
+#            wr = weighted(self.tpf[i], rectangles, self.tpf_err[i])
+#            print(bc)
+#            sys.exit()
 #            if i == 0:
 #                binary_circ = Table(names=bc.colnames)
 #                binary_rect = Table(names=br.colnames)
 #                weight_circ = Table(names=wc.colnames)
+#                weight_rect = Table(names=wr.colnames)
 #            binary_circ.add_row(bc[0])
-#        print(len(binary_circ['aperture_sum_3']))
+#        print(binary_circ['aperture_sum_3'])
 
 
 
