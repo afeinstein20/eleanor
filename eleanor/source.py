@@ -17,6 +17,7 @@ def load_postcard_guide():
     return guide
 
 
+
 class Source(object):
     """
     A single source observed by TESS.
@@ -124,7 +125,7 @@ class Source(object):
 
 
         # Searches through postcards for the given sector, camera, chip
-        in_file=[]
+        in_file, dists=[], []
 
         # Searches through rows of the table
         for i in range(len(guide)):
@@ -136,20 +137,22 @@ class Source(object):
 
             x_cen, y_cen= guide['CEN_X'][i], guide['CEN_Y'][i]
             l, w = guide['POST_HEIGHT'][i]/2., guide['POST_WIDTH'][i]/2.
-#            print("postcard #{0}: x: {1} - {2}, y: {3} - {4}".format(i,x_cen-l,x_cen+l,y_cen-w,y_cen+w))
+
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
                 in_file.append(i)
+                dists.append( np.min([xy[0]-(x_cen-l), (x_cen+l)-xy[0], xy[1]-(y_cen-w), (y_cen+w)-xy[1]]))
+
         # If more than one postcard is found for a single source, choose the postcard where the
         # source is closer to the center
         if in_file == []:
             print("Sorry! We don't have a postcard for you at the moment.")
             return
         elif len(in_file) > 1:
-            dists = np.zeros_like(in_file)
-            for i,j in enumerate(in_file):
-                dists[i] = np.sqrt( (xy[0]-guide['CEN_X'][j])**2 + (xy[1]-guide['CEN_Y'][j])**2  )
-            best_ind = np.argmin(dists)
+#            dists = np.zeros_like(in_file)
+#            for i,j in enumerate(in_file):
+#                dists[i] = np.sqrt( (xy[0]-guide['CEN_X'][j])**2 + (xy[1]-guide['CEN_Y'][j])**2  )
+            best_ind = np.argmax(dists)
         else:
             best_ind = 0
 
