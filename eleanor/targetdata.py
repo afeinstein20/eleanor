@@ -93,6 +93,10 @@ class TargetData(object):
 
         post_flux = np.transpose(self.post_obj.flux, (2,0,1))        
         post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
+
+        for i in range(len(post_flux)):
+            print(post_flux[i]-post_flux[i+1])
+        
         self.tpf  = post_flux[:, med_y-4:med_y+5, med_x-4:med_x+5]
         self.tpf_err = post_err[:, med_y-4:med_y+5, med_x-4:med_x+5]
         return
@@ -113,7 +117,7 @@ class TargetData(object):
         from astropy.table import Table
 
         self.aperture     = None
-        self.lc           = None
+        self.flux         = None
         self.all_lc       = None
         self.all_aperture = None
 
@@ -144,21 +148,47 @@ class TargetData(object):
                             np.shape( self.tpf[0]))))
                 self.all_apertures.append(circ_mask)
                 self.all_apertures.append(rect_mask)
+
+        for i in range(len(self.tpf)):
             
-#        for i in range(len(self.tpf)):
-#            bc = binary(self.tpf[i], circles, self.tpf_err[i])
-#            br = binary(self.tpf[i], rectangles, self.tpf_err[i])
-#            wc = weighted(self.tpf[i], circles, self.tpf_err[i])
-#            wr = weighted(self.tpf[i], rectangles, self.tpf_err[i])
-#            print(bc)
-#            sys.exit()
-#            if i == 0:
-#                binary_circ = Table(names=bc.colnames)
-#                binary_rect = Table(names=br.colnames)
-#                weight_circ = Table(names=wc.colnames)
-#                weight_rect = Table(names=wr.colnames)
-#            binary_circ.add_row(bc[0])
-#        print(binary_circ['aperture_sum_3'])
+            bc = binary(self.tpf[i], circles, self.tpf_err[i])
+            br = binary(self.tpf[i], rectangles, self.tpf_err[i])
+            wc = weighted(self.tpf[i], circles, self.tpf_err[i])
+            wr = weighted(self.tpf[i], rectangles, self.tpf_err[i])
+            if i == 0:
+                binary_circ = Table(names=bc.colnames)
+                binary_rect = Table(names=br.colnames)
+                weight_circ = Table(names=wc.colnames)
+                weight_rect = Table(names=wr.colnames)
+
+            binary_circ.add_row(bc[0])
+            binary_rect.add_row(br[0])
+            weight_circ.add_row(wc[0])
+            weight_rect.add_row(wr[0])
+
+        self.all_lc = []
+        self.all_lc_errs = []
+        for i in binary_circ.colnames[3:]:
+            if i[-5:-2] == 'sum':
+                self.all_lc.append(np.array(list(binary_circ[i])))
+                self.all_lc.append(np.array(list(binary_rect[i])))
+                self.all_lc.append(np.array(list(weight_circ[i])))
+                self.all_lc.append(np.array(list(weight_rect[i])))
+            else:
+                self.all_lc_errs.append(np.array(list(binary_circ[i])))
+                self.all_lc_errs.append(np.array(list(binary_rect[i])))
+                self.all_lc_errs.append(np.array(list(weight_circ[i])))
+                self.all_lc_errs.append(np.array(list(weight_rect[i])))
+        plt.plot(np.arange(0,len(self.tpf),1), self.all_lc[0], 'k')
+        plt.plot(np.arange(0,len(self.tpf),1), self.all_lc[2], 'k--')
+        plt.plot(np.arange(0,len(self.tpf),1), self.all_lc[1], 'r')
+        plt.plot(np.arange(0,len(self.tpf),1), self.all_lc[3], 'r--')
+        plt.show()
+        stds = []
+        for lc in self.all_lc:
+            stds.append(np.std(lc))
+        print(np.where(stds==np.min(stds)))
+        return
 
 
 
