@@ -2,6 +2,7 @@ import numpy as np
 from astropy.wcs import WCS
 from astropy.table import Table
 from astropy.io import fits
+import sys
 
 import urllib
 from mast import *
@@ -67,12 +68,6 @@ class Source(object):
         self.locate_on_tess() # sets sector, camera, chip, chip_position
 
 
-
-    def locate_on_tess(self):
-        """ 
-        Finds all files for sources in the continuous viewing zone
-        """
-        return
         
     def locate_on_chip(self, guide):
 
@@ -109,10 +104,11 @@ class Source(object):
                         self.camera = cam
                         self.chip = chip
                         self.position_on_chip = np.ravel(xy)
-                        return
+                    #    return
         if self.sector is None:
             print("TESS has not (yet) observed your target.")
-            return
+            sys.exit()
+        return
         
         
     def locate_on_tess(self):
@@ -122,7 +118,7 @@ class Source(object):
         """
         guide = load_postcard_guide()
         self.locate_on_chip(guide)
-
+        
 
         # Searches through postcards for the given sector, camera, chip
         in_file, dists=[], []
@@ -149,9 +145,6 @@ class Source(object):
             print("Sorry! We don't have a postcard for you at the moment.")
             return
         elif len(in_file) > 1:
-#            dists = np.zeros_like(in_file)
-#            for i,j in enumerate(in_file):
-#                dists[i] = np.sqrt( (xy[0]-guide['CEN_X'][j])**2 + (xy[1]-guide['CEN_Y'][j])**2  )
             best_ind = np.argmax(dists)
         else:
             best_ind = 0
