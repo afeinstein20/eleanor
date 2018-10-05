@@ -98,8 +98,8 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     # Make sure that the sector, camera, chip, and dimensions are the
     # same for all the files
     for i, name in tqdm.tqdm(enumerate(fns), total=num_times):
-        # data, hdr = fitsio.read(name, 1, header=True)
-        hdr = fitsio.read_header(name, 1)
+        data, hdr = fitsio.read(name, 1, header=True)
+        #hdr = fitsio.read_header(name, 1)
 
         # FIXME: when `sector` is added to the header, we should check
         # it too!
