@@ -38,8 +38,8 @@ class TargetData(object):
         self.post_obj = Postcard(source.postcard)
         self.load_pointing_model(source.sector, source.camera, source.chip)
         self.get_tpf_from_postcard(source.coords, source.postcard)
-        self.fit_apertures()
-#        self.get_lightcurve()
+        self.create_apertures()
+        self.get_lightcurve()
 
 
     def load_pointing_model(self, sector, camera, chip):
@@ -93,22 +93,17 @@ class TargetData(object):
 
         post_flux = np.transpose(self.post_obj.flux, (2,0,1))        
         post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
-
-        for i in range(len(post_flux)):
-            print(post_flux[i]-post_flux[i+1])
         
         self.tpf  = post_flux[:, med_y-4:med_y+5, med_x-4:med_x+5]
         self.tpf_err = post_err[:, med_y-4:med_y+5, med_x-4:med_x+5]
         return
 
 
-    def fit_apertures(self):
+    def create_apertures(self):
         """
         Finds the "best" aperture (i.e. the one that produces the smallest std light curve) for a range of
         sizes and shapes.
         Defines
-            self.lc = the resulting light curve from the "best" aperture
-            self.aperture = the "best" aperture
             self.all_lc = an array of light curves from all apertures tested
             self.all_aperture = an array of masks for all apertures tested
         """
@@ -116,8 +111,6 @@ class TargetData(object):
         from photutils import ApertureMask, BoundingBox
         from astropy.table import Table
 
-        self.aperture     = None
-        self.flux         = None
         self.all_lc       = None
         self.all_aperture = None
 
@@ -148,47 +141,64 @@ class TargetData(object):
                             np.shape( self.tpf[0]))))
                 self.all_apertures.append(circ_mask)
                 self.all_apertures.append(rect_mask)
-
-        for i in range(len(self.tpf)):
-            
-            bc = binary(self.tpf[i], circles, self.tpf_err[i])
-            br = binary(self.tpf[i], rectangles, self.tpf_err[i])
-            wc = weighted(self.tpf[i], circles, self.tpf_err[i])
-            wr = weighted(self.tpf[i], rectangles, self.tpf_err[i])
-            if i == 0:
-                binary_circ = Table(names=bc.colnames)
-                binary_rect = Table(names=br.colnames)
-                weight_circ = Table(names=wc.colnames)
-                weight_rect = Table(names=wr.colnames)
-
-            binary_circ.add_row(bc[0])
-            binary_rect.add_row(br[0])
-            weight_circ.add_row(wc[0])
-            weight_rect.add_row(wr[0])
-
-        self.all_lc = []
-        self.all_lc_errs = []
-        for i in binary_circ.colnames[3:]:
-            if i[-5:-2] == 'sum':
-                self.all_lc.append(np.array(list(binary_circ[i])))
-                self.all_lc.append(np.array(list(binary_rect[i])))
-                self.all_lc.append(np.array(list(weight_circ[i])))
-                self.all_lc.append(np.array(list(weight_rect[i])))
-            else:
-                self.all_lc_errs.append(np.array(list(binary_circ[i])))
-                self.all_lc_errs.append(np.array(list(binary_rect[i])))
-                self.all_lc_errs.append(np.array(list(weight_circ[i])))
-                self.all_lc_errs.append(np.array(list(weight_rect[i])))
-        plt.plot(np.arange(0,len(self.tpf),1), self.all_lc[0], 'k')
-        plt.plot(np.arange(0,len(self.tpf),1), self.all_lc[2], 'k--')
-        plt.plot(np.arange(0,len(self.tpf),1), self.all_lc[1], 'r')
-        plt.plot(np.arange(0,len(self.tpf),1), self.all_lc[3], 'r--')
-        plt.show()
-        stds = []
-        for lc in self.all_lc:
-            stds.append(np.std(lc))
-        print(np.where(stds==np.min(stds)))
         return
+
+
+
+    def get_lightcurve(self, mask=None):
+        """   
+        Extracts a light curve using the given aperture and TPF.
+        Allows the user to pass in a mask to use, otherwise sets
+            "best" lightcurve and aperture (min std)    
+        Mask is a 2D array of the same shape as TPF (9x9)
+        Defines:     
+            self.lc  
+            self.lc_err
+            self.aperture
+            self.all_lc     (if mask=None)
+            self.all_lc_err (if mask=None
+        """
+
+        self.lc         = None
+        self.lc_err     = None
+        self.aperture   = None
+
+        if mask is None:
+
+            self.all_lc     = None
+            self.all_lc_err = None
+
+            all_lc     = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_lc_err = np.zeros((len(self.all_apertures), len(self.tpf)))
+
+            stds = []
+            for a in range(len(self.all_apertures)):
+                for cad in range(len(self.tpf)):
+                    all_lc_err[a][cad] = np.sum( self.tpf_err[cad] * self.all_apertures[a] )
+                    all_lc[a][cad]     = np.sum( self.tpf[cad]     * self.all_apertures[a] )
+                stds.append( np.std(all_lc[a]) )
+            self.all_lc     = all_lc
+            self.all_lc_err = all_lc_err
+
+            best_ind = np.where(stds == np.min(stds))
+            print(best_ind)
+            self.lc       = self.all_lc[best_ind]
+            self.aperture = self.all_apertures[best_ind]
+            self.lc_err   = self.all_lc_err[best_ind]
+
+        else:
+            lc = np.zeros(len(self.tpf))
+            for cad in range(len(self.tpf)):
+                lc[cad]     = np.sum( self.tpf[cad]     * mask )
+                lc_err[cad] = np.sum( self.tpf_err[cad] * mask )
+            self.lc       = lc
+            self.lc_err   = lc_err
+            self.aperture = mask
+
+        return
+
+
+
 
 
 
@@ -252,12 +262,6 @@ class TargetData(object):
         lc = self.system_corr(lc, x, y, jitter=jitter, roll=roll)
         return lc
 
-#    def get_lightcurve(self):
-#        """
-#        Extracts a light curve using the given aperture and TPF.
-#        """
-#        lc = aperture_photometry(self.tpf, self.aperture)['aperture_sum'].data[0]
-#        self.lc = lc
 
 
     def jitter_corr(self):
@@ -295,6 +299,7 @@ class TargetData(object):
             lc_new = lc * (c1 + c2*(x_pos-2.5) + c3*(x_pos-2.5)**2 + c4*(y_pos-2.5) + c5*(y_pos-2.5)**2)
 
         self.lc = np.copy(lc_new)
+
 
     def rotation_corr(self):
         """ Corrects for spacecraft roll using Lightkurve """
