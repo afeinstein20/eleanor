@@ -36,6 +36,7 @@ class TargetData(object):
     """
     def __init__(self, source):
         self.post_obj = Postcard(source.postcard)
+        self.time = self.post_obj.time
         self.load_pointing_model(source.sector, source.camera, source.chip)
         self.get_tpf_from_postcard(source.coords, source.postcard)
         self.create_apertures()
@@ -107,9 +108,7 @@ class TargetData(object):
             self.all_lc = an array of light curves from all apertures tested
             self.all_aperture = an array of masks for all apertures tested
         """
-        from photutils import aperture_photometry, PixelAperture, CircularAperture, RectangularAperture
-        from photutils import ApertureMask, BoundingBox
-        from astropy.table import Table
+        from photutils import CircularAperture, RectangularAperture
 
         self.all_lc       = None
         self.all_aperture = None
@@ -145,7 +144,7 @@ class TargetData(object):
 
 
 
-    def get_lightcurve(self, mask=None):
+    def get_lightcurve(self, custom_mask=False):
         """   
         Extracts a light curve using the given aperture and TPF.
         Allows the user to pass in a mask to use, otherwise sets
@@ -159,11 +158,11 @@ class TargetData(object):
             self.all_lc_err (if mask=None
         """
 
-        self.lc         = None
-        self.lc_err     = None
+        self.flux       = None
+        self.flux_err   = None
         self.aperture   = None
 
-        if mask is None:
+        if custom_mask is False:
 
             self.all_lc     = None
             self.all_lc_err = None
@@ -174,93 +173,67 @@ class TargetData(object):
             stds = []
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
-                    all_lc_err[a][cad] = np.sum( self.tpf_err[cad] * self.all_apertures[a] )
-                    all_lc[a][cad]     = np.sum( self.tpf[cad]     * self.all_apertures[a] )
+                    all_lc_err[a][cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
+                    all_lc[a][cad]     = np.sum( self.tpf[cad] * self.all_apertures[a] )
                 stds.append( np.std(all_lc[a]) )
-            self.all_lc     = all_lc
-            self.all_lc_err = all_lc_err
-
-            best_ind = np.where(stds == np.min(stds))
-            print(best_ind)
+            self.all_lc     = np.array(all_lc)
+            self.all_lc_err = np.array(all_lc_err)
+            
+            best_ind = np.where(stds == np.min(stds))[0][0]
             self.lc       = self.all_lc[best_ind]
             self.aperture = self.all_apertures[best_ind]
             self.lc_err   = self.all_lc_err[best_ind]
 
         else:
-            lc = np.zeros(len(self.tpf))
-            for cad in range(len(self.tpf)):
-                lc[cad]     = np.sum( self.tpf[cad]     * mask )
-                lc_err[cad] = np.sum( self.tpf_err[cad] * mask )
-            self.lc       = lc
-            self.lc_err   = lc_err
-            self.aperture = mask
+            if self.custom_aperture is None:
+                print("You have not defined a custom aperture. You can do this by calling the function .custom_aperture")
+            else:
+                lc = np.zeros(len(self.tpf))
+                for cad in range(len(self.tpf)):
+                    lc[cad]     = np.sum( self.tpf[cad]     * self.custom_aperture )
+                    lc_err[cad] = np.sum( self.tpf_err[cad] * self.custom_aperture )
+                self.flux       = lc
+                self.flux_err   = lc_err
+                self.aperture   = mask
 
         return
 
 
 
-
-
-
-    def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, t=0.0, pointing=True,
-                        jitter=True, roll=True, input_fn=None, pos=[]):
-        # NOTE: this should probably return a pixel mask rather than a light curve
+    def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=(4,4), method='exact'):
         """
         Allows the user to input their own aperture of a given shape (either 'circle' or
             'rectangle' are accepted) of a given size {radius of circle: r, length of rectangle: l,
             width of rectangle: w, rotation of rectangle: t}
-        The user can have the aperture not follow the pointing model by setting pointing=False
-        The user can determine which kinds of corrections would like to be applied to their light curve
-            jitter & roll are automatically set to True
         Pos is the position given in pixel space
+        Method defaults to 'exact'
+        Defines
+            self.custom_aperture: 2D array of shape (9x9)
         """
-        def create_ap(pos):
-            """ Defines the custom aperture, as inputted by the user """
-            nonlocal shape, r, l, w, t
-            if shape=='circle':
-                return CircularAperture(pos, r)
-            elif shape=='rectangle':
-                return RectangularAperture(pos, l, w, t)
+        from photutils import CircularAperture, RectangularAperture
+
+        self.custom_aperture = None
+
+        shape = shape.lower()
+
+        if shape == 'circle':
+            if r == 0.0:
+                print ("Please set a radius (in pixels) for your aperture")
             else:
-                print("Shape of aperture not recognized. Please input: circle or rectangle")
-            return
+                aperture = CircularAperture(pos=pos, r=r)
+                self.custom_aperture = aperture.to_mask(method=method)[0].to_image(shape=((
+                            np.shape(self.tpf[0]))))
 
-        # Checks for all of the correct inputs to create an aperture
-        if shape=='circle' and r==0.0:
-            print("Please input a radius of your aperture when calling custom_aperture(shape='circle', r=#)")
-            return
-        if shape=='rectangle' and (l==0.0 or w==0.0):
-            print("You are missing a dimension of your rectangular aperture. Please set custom_aperture(shape='rectangle', l=#, w=#)")
-            return
-
-        if self.tic != None:
-            hdu = fits.open(self.tic_fn)
-        elif self.gaia != None:
-            hdu = fits.open(self.gaia_fn)
+        elif shape == 'rectangle':
+            if l==0.0 or w==0.0:
+                print("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', l=#, w=#)")
+            else:
+                aperture = RectangularAperture(pos=pos, l=l, w=w, t=theta)
+                self.custom_aperture = aperture.to_mask(method=method)[0].to_image(shape=((
+                            np.shape(self.tpf[0]))))
         else:
-            hdu = fits.open(input_fn)
-
-        tpf = hdu[0].data
-
-        if len(pos) < 2:
-            center = [4,4]
-        else:
-            center = pos
-        # Grabs the pointing model if the user has set pointing==True
-        if pointing==True:
-            pm  = self.get_pointing(header = hdu[0].header)
-            x = center[0]*np.cos(pm['medT'].data) - center[1]*np.sin(pm['medT'].data) + pm['medX'].data
-            y = center[0]*np.sin(pm['medT'].data) + center[1]*np.cos(pm['medT'].data) + pm['medY'].data
-
-        x, y = x-np.median(x)+center[0], y-np.median(y)+center[1]
-        lc = cust_lc(center, x, y)
-
-        if pointing==False and roll==True:
-            print("Sorry, our roll correction, lightkurve.SFFCorrector, only works when you use the pointing model.\nFor now, we're turning roll corrections off.")
-            roll=False
-
-        lc = self.system_corr(lc, x, y, jitter=jitter, roll=roll)
-        return lc
+            print("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
+        return
 
 
 
