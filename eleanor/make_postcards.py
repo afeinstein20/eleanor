@@ -125,7 +125,6 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
             for j, w in enumerate(ws):
                 dw = min(width, total_width - w)
                 dh = min(height, total_height - h)
-#                outfn = outfn_fmt(i+1, j+1)
 
                 hdr = fitsio.FITSHDR(primary_header)
 
@@ -164,6 +163,15 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 hdr.add_record(
                     dict(name="CEN_DEC", value=float(rd[1]),
                          comment="Dec of central pixel"))
+                hdr.add_record(
+                    dict(name="POST_HEIGHT", value=float(height),
+                        comment="Height of postcard in pixels"))
+                hdr.add_record(
+                    dict(name="POST_WIDTH", value=float(width),
+                         comment="Width of postcard in pixels"))
+                hdr.add_record(
+                    dict(name="SECTOR", value=1,
+                         comment="TESS sector (temporary)"))
 
                 # Save the primary HDU
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
