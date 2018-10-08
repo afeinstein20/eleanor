@@ -117,7 +117,7 @@ class Postcard(object):
 
     @property
     def time(self):
-        return self.hdu[1].data['TSTOP'] - self.hdu[1].data['TSTART']
+        return (self.hdu[1].data['TSTOP'] + self.hdu[1].data['TSTART'])/2
 
     @property
     def wcs(self):
