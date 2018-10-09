@@ -18,7 +18,7 @@ except ImportError: # Python 2.x
     from urllib import urlretrieve
     import httplib
 
-__all__ = ['coords_from_tic', 'gaia_from_coords']
+__all__ = ['coords_from_tic', 'gaia_from_coords', 'coords_from_gaia', 'tic_from_coords']
 
 def mastQuery(request):
     """
@@ -180,6 +180,7 @@ def coords_from_gaia(gaia_id):
 
 def tic_from_coords(coords):
     """ Grabs coordinates of input TIC ID from Tess Input Catalog v7 """
+    print(coords)
     tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
     sepTess = crossmatch_distance(pos, tessPos)
@@ -189,14 +190,7 @@ def tic_from_coords(coords):
 
 def gaia_from_coords(coords):
     gaia = crossmatch_by_position(coords, 0.01, 'Mast.GaiaDR2.Crossmatch')[0]
-
-#    pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
     gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
-#    sepGaia = crossmatch_distance(pos, gaiaPos)
-
-    #t.add_row([gaia['MatchID'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'],
-    #        tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
-
     return gaia['MatchID']
 
 

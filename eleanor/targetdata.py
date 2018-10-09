@@ -82,8 +82,8 @@ class TargetData(object):
                 new_coords = use_pointing_model(xy, self.pointing_model[i])
                 centroid_xs.append(new_coords[0][0])
                 centroid_ys.append(new_coords[0][1])
-            self.centroid_xs = centroid_xs
-            self.centroid_ys = centroid_ys
+            self.centroid_xs = np.array(centroid_xs)
+            self.centroid_ys = np.array(centroid_ys)
             return
 
         xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
@@ -170,21 +170,28 @@ class TargetData(object):
             self.all_lc_err  = None
 #*****            self.all_quality = None
 
-            all_lc     = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_raw_lc     = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_lc_err = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_corr_lc = np.copy(all_raw_lc)
 
             stds = []
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
                     all_lc_err[a][cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                    all_lc[a][cad]     = np.sum( self.tpf[cad] * self.all_apertures[a] )
-                stds.append( np.std(all_lc[a]) )
-            self.all_lc     = np.array(all_lc)
-            self.all_lc_err = np.array(all_lc_err)
-            
+                    all_raw_lc[a][cad] = np.sum( self.tpf[cad] * self.all_apertures[a] )
+
+                all_corr_lc[a] = self.jitter_corr(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))*np.nanmedian(all_raw_lc[a])
+                stds.append( np.std(all_corr_lc[a]) )
+
+            self.all_raw_lc  = np.array(all_raw_lc)
+            self.all_lc_err  = np.array(all_lc_err)
+            self.all_corr_lc = np.array(all_corr_lc)
+
             best_ind = np.where(stds == np.min(stds))[0][0]
+
             self.best_ind = best_ind
-            self.flux     = self.all_lc[best_ind]
+            self.corr_flux= self.all_corr_lc[best_ind]
+            self.raw_flux = self.all_raw_lc[best_ind]
             self.aperture = self.all_apertures[best_ind]
             self.flux_err = self.all_lc_err[best_ind]
 
@@ -196,8 +203,9 @@ class TargetData(object):
                 for cad in range(len(self.tpf)):
                     lc[cad]     = np.sum( self.tpf[cad]     * self.custom_aperture )
                     lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.custom_aperture ))
-                self.flux       = lc
-                self.flux_err   = lc_err
+                self.raw_flux   = np.array(lc)
+                self.corr_flux  = self.jitter_corr(flux=lc)
+                self.flux_err   = np.array(lc_err)
 
         return
 
@@ -240,23 +248,27 @@ class TargetData(object):
 
 
 
-    def jitter_corr(self):
+    def jitter_corr(self, cen=0.0, flux=None):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         """
+
         def parabola(params, x, y, f_obs, y_err):
+            nonlocal cen
             c1, c2, c3, c4, c5 = params
-            f_corr = f_obs * (c1 + c2*(x-2.5) + c3*(x-2.5)**2 + c4*(y-2.5) + c5*(y-2.5)**2)
+            f_corr = f_obs * (c1 + c2*(x-cen) + c3*(x-cen)**2 + c4*(y-cen) + c5*(y-cen)**2)
             return np.sum( ((1-f_corr)/y_err)**2)
 
+        flux=np.array(flux)
+
         # Masks out anything >= 2.5 sigma above the mean
-        mask = np.ones(len(self.flux), dtype=bool)
+        mask = np.ones(len(flux), dtype=bool)
         for i in range(5):
             lc_new = []
-            std_mask = np.std(self.flux[mask])
+            std_mask = np.std(flux[mask])
 
-            inds = np.where(self.flux <= np.mean(self.flux)-2.5*std_mask)
-            y_err = np.ones(len(self.flux))**np.std(self.flux)
+            inds = np.where(flux <= np.mean(flux)-2.5*std_mask)
+            y_err = np.ones(len(flux))**np.std(flux)
             for j in inds:
                 y_err[j] = np.inf
                 mask[j]  = False
@@ -267,11 +279,11 @@ class TargetData(object):
                 initGuess = test.x
 
             bnds = ((-15.,15.), (-15.,15.), (-15.,15.), (-15.,15.), (-15.,15.))
-            test = minimize(parabola, initGuess, args=(self.centroid_xs, self.centroid_ys, self.flux, y_err), bounds=bnds)
+            centroid_xs, centroid_ys = self.centroid_xs-np.median(self.centroid_xs), self.centroid_ys-np.median(self.centroid_ys)
+            test = minimize(parabola, initGuess, args=(centroid_xs, centroid_ys, flux, y_err), bounds=bnds)
             c1, c2, c3, c4, c5 = test.x
-            lc_new = self.flux * (c1 + c2*(self.centroid_xs-2.5) + c3*(self.centroid_xs-2.5)**2 + c4*(self.centroid_ys-2.5) + c5*(self.centroid_ys-2.5)**2)
-
-        self.flux = np.copy(lc_new)
+        lc_new = flux * (c1 + c2*(centroid_xs-cen) + c3*(centroid_xs-cen)**2 + c4*(centroid_ys-cen) + c5*(centroid_ys-cen)**2)
+        return np.copy(lc_new)
 
 
     def rotation_corr(self):
@@ -279,18 +291,7 @@ class TargetData(object):
         sff = SFFCorrector()
         lc_new = sff.correct(self.time, self.flux, self.centroid_xs, self.centroid_ys, niters=1,
                                    windows=1, polyorder=5)
-        self.flux = np.copy(lc_new)
-
-
-    def system_corr(self, jitter=False, roll=False):
-        """
-        Allows for systematics correction of a given light curve
-        """
-        if jitter==True:
-            self.jitter_corr()
-        if roll==True:
-            self.rotation_corr()
-       
+        self.flux = np.copy(lc_new.flux)
 
 
     def save(self, output_fn=None):
@@ -344,17 +345,18 @@ class TargetData(object):
             colnames.append('_'.join(str(e) for e in ['rectangle', 'binary', i]))
             colnames.append('_'.join(str(e) for e in ['circle', 'weighted', i]))
             colnames.append('_'.join(str(e) for e in ['rectangle', 'weighted', i]))
-        errors   = [e+'_err' for e in colnames[1::]]
-        quality  = [e+'_quality' for e in colnames[1::]]
+        errors    = [e+'_err' for e in colnames[1::]]
+        corrected = [e+'_corr' for e in colnames[1::]]
+        quality   = [e+'_quality' for e in colnames[1::]]
         t = Table()
         for i in range(len(errors)):
             if i == 0:
                 t[colnames[i]] = self.time
-                t[colnames[self.best_ind+1]] = self.flux
+                t[colnames[self.best_ind+1]] = self.raw_flux
                 t[errors[self.best_ind]]     = self.flux_err
 #                t[quality[self.best_ind]]    = self.quality
             if i != self.best_ind:
-                t[colnames[i+1]] = self.all_lc[i]
+                t[colnames[i+1]] = self.all_raw_lc[i]
                 t[errors[i]]     = self.all_lc_err[i]
 
 
