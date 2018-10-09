@@ -210,6 +210,58 @@ class TargetData(object):
         return
 
 
+    def psf_lightcurve(self, nstars=1, model='gaussian', xc=4.0, yc=4.0):
+        import tensorflow as tf
+        from vaneska.models import Gaussian
+        
+        flux = tf.Variable(np.ones(nstars)*1000, dtype=tf.float64)
+        bkg = tf.Variable(np.nanmedian(tpf.flux[0]), dtype=tf.float64)
+        xshift = tf.Variable(0.0, dtype=tf.float64)
+        yshift = tf.Variable(0.0, dtype=tf.float64)
+        
+        if model == 'gaussian':
+        
+            gaussian = Gaussian(shape=self.tpf.shape[1:], col_ref=0, row_ref=0)
+
+            a = tf.Variable(initial_value=1., dtype=tf.float64)
+            b = tf.Variable(initial_value=0., dtype=tf.float64)
+            c = tf.Variable(initial_value=1., dtype=tf.float64)
+
+            mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+xshift, a, b, c) for j in range(len(nstars))]
+        else:
+            raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually, 
+                                                                    # and a gentle return
+            
+        mean += bkg
+        
+        data = tf.placeholder(dtype=tf.float64, shape=tpf.flux[0].shape)
+        nll = tf.reduce_sum(tf.squared_difference(mean, data))
+
+        var_list = [flux, xshift, yshfit, a, b, c, bkg]
+        grad = tf.gradients(nll, var_list)
+        
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
+
+        optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4)
+        
+        fout = np.zeros((len(self.tpf), nstars))
+        xout = np.zeros(len(self.tpf))
+        yout = np.zeros(len(self.tpf))
+
+        for i in tqdm(range(len(self.tpf))):
+            optimizer.minimize(session=sess, feed_dict={data:self.tpf[i]}) # we could also pass a pointing model here
+                                                                           # and just fit a single offset in all frames
+            
+            fout[i] = sess.run(flux)
+            xout[i] = sess.run(xshift)
+            yout[i] = sess.run(yshift)
+            
+        sess.close()
+            
+        self.psf_flux = fout[:,0]
+        
+        return
 
     def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=(4,4), method='exact'):
         """
