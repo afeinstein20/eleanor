@@ -32,7 +32,8 @@ setup(
     package_data={'': ['README.md', 'LICENSE']},
     install_requires=[
         'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
-        'astroquery', 'bokeh', 'muchbettermoments', 'fitsio'],
+        'astroquery', 'bokeh', 'muchbettermoments', 'fitsio',
+        'tensorflow', 'vaneska'],
 
     classifiers=[
         'Development Status :: 3 - Alpha',
