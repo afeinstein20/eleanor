@@ -365,10 +365,10 @@ class TargetData(object):
         
         self.header = self.post_obj.header
         self.header.update({'CREATED':strftime('%Y-%m-%d'),
-                            'CEN_X'  : np.median(self.centroid_xs),
-                            'CRPIX1' : np.median(self.centroid_xs),
-                            'CEN_Y'  : np.median(self.centroid_ys),
-                            'CRPIX2' : np.median(self.centroid_ys),
+                            'CEN_X'  : np.nanmedian(self.centroid_xs),
+                            'CRPIX1' : np.nanmedian(self.centroid_xs),
+                            'CEN_Y'  : np.nanmedian(self.centroid_ys),
+                            'CRPIX2' : np.nanmedian(self.centroid_ys),
                             'CEN_RA' : self.source_info.coords[0],
                             'CEN_DEC': self.source_info.coords[1],
                             })
