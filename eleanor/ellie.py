@@ -1296,89 +1296,90 @@ class visualize(data_products, find_sources):
         ----------
             Creates an MP4 file
         """
-        hdu = fits.open(self.fn)
-        tp  = hdu[0].data
-        lc_dat = hdu[1].data
-        time = lc_dat[0]
-        lc = lc_dat[2]
-        lc = lc/np.nanmedian(lc)
+#        hdu = fits.open(self.fn)
+#        tp  = hdu[0].data
+#        lc_dat = hdu[1].data
+#        time = lc_dat[0]
+#        lc = lc_dat[2]
+#        lc = lc/np.nanmedian(lc)
 
-        if com==True or aperture==True:
-            pm = data_products.get_pointing(self, header=hdu[0].header)
-            x, y = [], []
-            for i in range(len(tp)):
-                tp_com = Cutout2D(tp[i], position=(4,4), size=(4,4))
-                tp_com = tp_com.data
-                centroid = ndimage.measurements.center_of_mass(tp_com.T - np.median(tp_com))
-                x.append(centroid[0]+2.)
-                y.append(centroid[1]+2.)
+#        if com==True or aperture==True:
+#            pm = data_products.get_pointing(self, header=hdu[0].header)
+#            x, y = [], []
+#            for i in range(len(tp)):
+#                tp_com = Cutout2D(tp[i], position=(4,4), size=(4,4))
+#                tp_com = tp_com.data
+#                centroid = ndimage.measurements.center_of_mass(tp_com.T - np.median(tp_com))
+#                x.append(centroid[0]+2.)
+#                y.append(centroid[1]+2.)
 
-        if 'vmax' not in kwargs:
-            kwargs['vmax'] = np.max(tp[0])
-        if 'vmin' not in kwargs:
-            kwargs['vmin'] = np.min(tp[0])
+#        if 'vmax' not in kwargs:
+#            kwargs['vmax'] = np.max(tp[0])
+#        if 'vmin' not in kwargs:
+#            kwargs['vmin'] = np.min(tp[0])
 
-        def animate(i):
-            nonlocal line, x, y, scats, line, ps
-            ax.imshow(tp[i], origin='lower', **kwargs)
+#        def animate(i):
+#            nonlocal line, x, y, scats, line, ps
+#            ax.imshow(tp[i], origin='lower', **kwargs)
             # Plots motion of COM when the user wants
-            if com==True:
-                for scat in scats:
-                    scat.remove()
-                scats = []
-                scats.append(ax.scatter(x[i], y[i], s=16, c='k'))
+
+#            if com==True:
+#                for scat in scats:
+#                    scat.remove()
+#                scats = []
+#                scats.append(ax.scatter(x[i], y[i], s=16, c='k'))
 
             # Plots aperture around source when the user wants
-            if aperture==True:
-                for c in ps:
-                    c.remove()
-                ps=[]
-                circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
-                p = PatchCollection([circleShape], alpha=0.4)
-                p.set_array(np.array([0]))
-                p.set_edgecolor('face')
-                ps.append(ax.add_collection(p))
+#            if aperture==True:
+#                for c in ps:
+#                    c.remove()
+#                ps=[]
+#                circleShape = patches.Circle((x[i],y[i]), 1.5, fill=False, alpha=0.4)
+#                p = PatchCollection([circleShape], alpha=0.4)
+#                p.set_array(np.array([0]))
+#                p.set_edgecolor('face')
+#                ps.append(ax.add_collection(p))
 
             # Plots moving point along light curve when the user wants
-            if plot_lc==True:
-                for l in line:
-                    l.remove()
-                line = []
-                line.append(ax1.scatter(time[i], lc[i], s=20, c='r'))
+ #           if plot_lc==True:
+ #               for l in line:
+ #                   l.remove()
+ #               line = []
+ #               line.append(ax1.scatter(time[i], lc[i], s=20, c='r'))
 
             # Updates the frame number
-            time_text.set_text('Frame {}'.format(i))
+ #           time_text.set_text('Frame {}'.format(i))
 
 
-        line, scats, ps = [],[], []
-        if plot_lc==True:
-            fig  = plt.figure(figsize=(18,5))
-            spec = gridspec.GridSpec(ncols=3, nrows=1)
-            ax   = fig.add_subplot(spec[0,2])
-            ax1  = fig.add_subplot(spec[0, 0:2])
-            ax1.plot(time, lc, 'k')
-            ax1.set_ylabel('Normalized Flux')
-            ax1.set_xlabel('Time (Days)')
-            ax1.set_xlim([np.min(time)-0.05, np.max(time)+0.05])
-            ax1.set_ylim([np.min(lc)-0.05, np.max(lc)+0.05])
+#        line, scats, ps = [],[], []
+#        if plot_lc==True:
+#            fig  = plt.figure(figsize=(18,5))
+#            spec = gridspec.GridSpec(ncols=3, nrows=1)
+#            ax   = fig.add_subplot(spec[0,2])
+#            ax1  = fig.add_subplot(spec[0, 0:2])
+#            ax1.plot(time, lc, 'k')
+#            ax1.set_ylabel('Normalized Flux')
+#            ax1.set_xlabel('Time (Days)')
+#            ax1.set_xlim([np.min(time)-0.05, np.max(time)+0.05])
+#            ax1.set_ylim([np.min(lc)-0.05, np.max(lc)+0.05])
 
-        elif plot_lc==False:
-            fig  = plt.figure()
-            spec = gridspec.GridSpec(ncols=1, nrows=1)
-            ax   = fig.add_subplot(spec[0,0])
+#        elif plot_lc==False:
+#            fig  = plt.figure()
+#            spec = gridspec.GridSpec(ncols=1, nrows=1)
+#            ax   = fig.add_subplot(spec[0,0])
 
         # Writes frame number on TPF movie
-        time_text = ax.text(5.5, -0.25, '', color='white', fontweight='bold')
-        time_text.set_text('')
+#        time_text = ax.text(5.5, -0.25, '', color='white', fontweight='bold')
+#        time_text.set_text('')
 
         # Allows TPF movie to be saved as mp4
-        Writer = animation.writers['ffmpeg']
-        writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
+#        Writer = animation.writers['ffmpeg']
+#        writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1800)
 
-        ani = animation.FuncAnimation(fig, animate, frames=len(tp))
+#        ani = animation.FuncAnimation(fig, animate, frames=len(tp))
 
-        if cbar==True:
-            plt.colorbar(ax.imshow(tp[0], **kwargs), ax=ax)
+#        if cbar==True:
+#            plt.colorbar(ax.imshow(tp[0], **kwargs), ax=ax)
 
         if output_fn == None:
             if self.tic != None:
@@ -1388,7 +1389,7 @@ class visualize(data_products, find_sources):
                 self.output_fn = '{}.mp4'.format(self.gaia)
                 ax.set_title('{}'.format(self.gaia), fontweight='bold')
 
-        plt.tight_layout()
+#        plt.tight_layout()
         return ani
 
 
