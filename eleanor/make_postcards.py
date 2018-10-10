@@ -148,9 +148,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 xcen = h + 0.5*dh
                 ycen = w + 0.5*dw
 
-                outfn = outfn_fmt(xcen, ycen)
-
-                ## ADD QUALITY ARRAY (called quality?)
+                outfn = outfn_fmt(int(xcen), int(ycen))
 
                 rd = primary_wcs.all_pix2world(xcen, ycen, 1)
                 hdr.add_record(
