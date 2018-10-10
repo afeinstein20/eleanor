@@ -21,8 +21,11 @@ class Visualize(object):
         self.obj = object
         if self.obj.tpf is not None:
             self.flux   = self.obj.tpf
+            self.center = (np.nanmedian(self.obj.centroid_xs), 
+                             np.nanmedian(self.obj.centroid_ys))
         else:
-            self.flux = self.obj.flux
+            self.flux   = self.obj.flux
+            self.center = self.obj.center_xy
 
 
 
@@ -45,8 +48,8 @@ class Visualize(object):
                 print("Sorry, you can only track the pointing model on TPFs, not postcards\n",
                       "Please set pointing_model=False or remove when calling .movie()")
             else:
-                xs = self.obj.centroid_xs-np.nanmedian(self.obj.centroid_xs)+4.0
-                ys = self.obj.centroid_ys-np.nanmedian(self.obj.centroid_ys)+4.0
+                xs = self.obj.centroid_xs-self.center[0]+4.0
+                ys = self.obj.centroid_ys-self.center[1]+4.0
         
 
         if 'vmax' not in kwargs:
@@ -101,8 +104,8 @@ class Visualize(object):
 
         # Plots axes in correct (x,y) coordinate space
         if self.obj.centroid_ys is not None:
-            mid_x = int(np.round( np.nanmedian(self.obj.centroid_xs) , 0))
-            mid_y = int(np.round( np.nanmedian(self.obj.centroid_ys) , 0))
+            mid_x = int(np.round(self.center[0], 0))
+            mid_y = int(np.round(self.center[1], 0))
             ax.set_yticklabels([str(e) for e in np.arange(mid_x-4, mid_x+6,1)])
             ax.set_xticklabels([str(e) for e in np.arange(mid_y-4, mid_y+6,1)])
 
@@ -121,3 +124,11 @@ class Visualize(object):
         mpl.pyplot.tight_layout()
 
         return ani
+
+
+    def mark_gaia_sources(self):
+        """
+        Allows the user to mark other Gaia sources within a given TPF or postcard
+        Hover over the points to reveal the source's TIC ID, Gaia ID, Tmag, and Gmag
+        """
+        return
