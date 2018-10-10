@@ -369,6 +369,10 @@ class TargetData(object):
             self.header.remove(keyword)
         
         # Adds TPF specific header information
+        self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag[0],
+                                     comment='TESS magnitude'))
+        self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
+                                     comment='Associated Gaia ID'))
         self.header.append(fits.Card(keyword='TPF_HEIGHT', value=np.shape(self.tpf[0])[0], 
                                      comment='Height of the TPF in pixels'))
         self.header.append(fits.Card(keyword='TPF_WIDTH', value=np.shape(self.tpf[0])[1],
@@ -401,14 +405,18 @@ class TargetData(object):
         corrected = [e+'_corr' for e in colnames[1::]]
         quality   = [e+'_quality' for e in colnames[1::]]
         t = Table()
+        t['x_centroid'] = self.centroid_xs
+        t['y_centroid'] = self.centroid_ys
         for i in range(len(errors)):
             if i == 0:
                 t[colnames[i]] = self.time
                 t[colnames[self.best_ind+1]] = self.raw_flux
+                t[corrected[self.best_ind+1]] = self.corr_flux
                 t[errors[self.best_ind]]     = self.flux_err
 #                t[quality[self.best_ind]]    = self.quality
             if i != self.best_ind:
                 t[colnames[i+1]] = self.all_raw_lc[i]
+                t[corrected[i]]  = self.all_corr_lc[i]
                 t[errors[i]]     = self.all_lc_err[i]
 
 
