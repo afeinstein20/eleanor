@@ -210,9 +210,15 @@ class TargetData(object):
         return
 
 
-    def psf_lightcurve(self, nstars=1, model='gaussian', xc=4.5, yc=4.5):
+    def psf_lightcurve(self, nstars=1, model='gaussian', xc=[4.5], yc=[4.5]):
         import tensorflow as tf
         from vaneska.models import Gaussian
+        
+        if len(xc) != nstars:
+            raise ValueError('xc must have length nstars')
+        if len(yc) != nstars:
+            raise ValueError('yc must have length nstars')
+            
         
         flux = tf.Variable(np.ones(nstars)*1000, dtype=tf.float64)
         bkg = tf.Variable(np.nanmedian(self.tpf[0]), dtype=tf.float64)
@@ -227,7 +233,10 @@ class TargetData(object):
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
 
-            mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+xshift, a, b, c) for j in range(nstars)]
+            if nstars == 1:
+                mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
+            else:
+                mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
         else:
             raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually, 
                                                                     # and a gentle return
