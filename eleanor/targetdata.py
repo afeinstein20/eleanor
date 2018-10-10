@@ -35,13 +35,16 @@ class TargetData(object):
     def __init__(self, source):
         self.source_info = source
 
-        self.post_obj = Postcard(source.postcard)
-        self.time = self.post_obj.time
+        if source.premade is not None:
+            self.load()
 
-        self.load_pointing_model(source.sector, source.camera, source.chip)
-        self.get_tpf_from_postcard(source.coords, source.postcard)
-        self.create_apertures()
-        self.get_lightcurve()
+        else:
+            self.post_obj = Postcard(source.postcard)
+            self.time = self.post_obj.time
+            self.load_pointing_model(source.sector, source.camera, source.chip)
+            self.get_tpf_from_postcard(source.coords, source.postcard)
+            self.create_apertures()
+            self.get_lightcurve()
 
 
     def load_pointing_model(self, sector, camera, chip):
@@ -378,6 +381,8 @@ class TargetData(object):
             self.header.remove(keyword)
         
         # Adds TPF specific header information
+        self.header.append(fits.Card(keyword='TIC_ID', value=self.source_info.tic,
+                                     comment='TESS Input Catalog ID'))
         self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag[0],
                                      comment='TESS magnitude'))
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
@@ -420,7 +425,7 @@ class TargetData(object):
             if i == 0:
                 t[colnames[i]] = self.time
                 t[colnames[self.best_ind+1]] = self.raw_flux
-                t[corrected[self.best_ind+1]] = self.corr_flux
+                t[corrected[self.best_ind]]  = self.corr_flux
                 t[errors[self.best_ind]]     = self.flux_err
 #                t[quality[self.best_ind]]    = self.quality
             if i != self.best_ind:
@@ -446,4 +451,42 @@ class TargetData(object):
         else:
             hdu.writeto(output_fn)
 
+
+
+    def load(self):
+        """
+        Loads in and sets all the attributes for a pre-created TPF file
+        """
+        from astropy.io import fits
+        from astropy.table import Table
+
+        hdu = fits.open(self.source_info.fn)
+        hdr = hdu[0].header
+        self.tpf = hdu[1].data
+        self.aperture = hdu[2].data
+
+        self.all_apertures=[]
+        for i in np.arange(3,22,1):
+            self.all_apertures.append(hdu[i].data)
+        self.all_apertures = np.array(self.all_apertures)
+
+        cols  = hdu[22].columns.names
+        table = hdu[22].data
+        self.centroid_xs = table[cols[0]]
+        self.centroid_ys = table[cols[1]]
+        self.time        = table[cols[2]]
+        self.raw_flux    = table[cols[3]]
+        self.corr_flux   = table[cols[4]]
+        self.flux_err    = table[cols[5]]
+
+        self.all_raw_lc  = []
+        self.all_corr_lc = []
+        self.all_lc_err  = []
+        for i in cols[6::]:
+            if i[-4::] == 'corr':
+                self.all_corr_lc.append(table[i])
+            elif i[-3::] == 'err':
+                self.all_lc_err.append(table[i])
+            else:
+                self.all_raw_lc.append(table[i])
         return
