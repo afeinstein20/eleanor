@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 
-
 def use_pointing_model(coords, pointing_model):
     """ Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
     """ pointing_model is passed in as an astropy.table.Table row and reshaped into a (3x3) matrix """
@@ -13,7 +12,6 @@ def use_pointing_model(coords, pointing_model):
     A = np.column_stack([coords[0], coords[1], np.ones_like(coords[0])])
     fhat = np.dot(A, pointing_model)
     return fhat[:,0:2]
-
 
 class ffi:
     """
@@ -93,10 +91,9 @@ class ffi:
         """ [[x,y],[x,y],...] format """
         A = np.column_stack([pos_predicted[:,0], pos_predicted[:,1], np.ones_like(pos_predicted[:,0])])
         f = np.column_stack([pos_inferred[:,0], pos_inferred[:,1], np.ones_like(pos_inferred[:,0])])
-
         if outlier_removal == True:
             dist = np.sqrt(np.sum((A - f)**2, axis=1))
-            mean, std = np.mean(dist), np.std(dist)
+            mean, std = np.nanmean(dist), np.nanstd(dist)
             lim = 1.0
             A = A[dist < mean + lim*std]
             f = f[dist < mean + lim*std]
@@ -174,7 +171,7 @@ class ffi:
 
         t  = tic_by_contamination(pos, r, contam, tmag_lim)
 
-        for fn in self.local_paths[82:83]:
+        for fn in self.local_paths:
             print(fn)
             hdu = fits.open(fn)
             hdr = hdu[1].header
@@ -184,9 +181,9 @@ class ffi:
             xy  = np.array([xy[0][onFrame], xy[1][onFrame]])
             iso = find_isolated(xy[0], xy[1])
             xy  = np.array([xy[0][iso], xy[1][iso]])
-
             cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
 
+            # Triple checks there are no nans; Nans make people sad
             no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
             pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
             xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
@@ -194,11 +191,10 @@ class ffi:
             solution = self.build_pointing_model(xy.T, pos_inferred.T)
 
             xy = apply_pointing_model(xy.T, solution)
+            matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
 
-            pos_predicted = np.column_stack([xy[0], xy[1]])
-            matrix = self.build_pointing_model(pos_predicted, pos_inferred)#, outlier_removal=True)
             sol    = np.dot(matrix, solution)
             sol    = sol.flatten()
-
+            
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
