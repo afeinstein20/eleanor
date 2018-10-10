@@ -52,19 +52,34 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None):
-        self.tic = tic
-        self.gaia = gaia
-        self.coords = coords
+    def __init__(self, tic=None, gaia=None, coords=None, fn=None):
+        self.tic     = tic
+        self.gaia    = gaia
+        self.coords  = coords
+        self.fn      = fn
+        self.premade = None
+
         if self.tic is not None:
             self.coords, self.tess_mag = coords_from_tic(self.tic)
             self.gaia = gaia_from_coords(self.coords)
+
         elif self.gaia is not None:
             self.coords = coords_from_gaia(self.gaia)
             self.tic, self.tess_mag = tic_from_coords(self.coords)
+
         elif self.coords is not None:
             self.tic, self.tess_mag = tic_from_coords(self.coords)
             self.gaia = gaia_from_coords(self.coords)
+
+        elif self.fn is not None:
+            hdu = fits.open(self.fn)
+            hdr = hdu[0].header
+            self.tic      = hdr['TIC_ID']
+            self.tess_mag = hdr['TMAG']
+            self.gaia     = hdr['GAIA_ID']
+            self.coords   = (hdr['CEN_RA'], hdr['CEN_DEC'])
+            self.premade  = True
+
         self.locate_on_tess() # sets sector, camera, chip, chip_position
 
 
