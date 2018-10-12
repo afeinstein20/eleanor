@@ -23,9 +23,9 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     # We'll assume that the filenames can be sorted like this (it is true for
     # the ETE-6 test data
     fns = list(sorted(fns))
-
+    total_ffis = len(fns)
     # Save the middle header as the primary header
-    middle_fn = fns[len(fns)//2]
+    middle_fn = fns[total_ffis//2]
     data, primary_header = fitsio.read(middle_fn, 1, header=True)
 
     # Add the ELLIE info to the header
@@ -75,8 +75,8 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     hstep = int(hstep)
 
     # Make a grid of postcard origin coordinates
-    ws = np.arange(0, total_width - width + wstep + 1, wstep)
-    hs = np.arange(0, total_height - height + hstep + 1, hstep)
+    ws = np.arange(0, 2049, wstep)#total_width - width + wstep + 1, wstep)
+    hs = np.arange(44, 2093, hstep)#total_height - height + hstep + 1, hstep)
 
     # Compute the total numbers for progress bars
     num_times = len(fns)
@@ -119,15 +119,24 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
         if not is_raw:
             all_errs[:, :, i] = fitsio.read(name, 2)
 
+
+    wmax, hmax = 2048, 2092
+
     # Loop over postcards
     with tqdm.tqdm(total=total_num_postcards) as bar:
         for i, h in enumerate(hs):
             for j, w in enumerate(ws):
-                dw = min(width, total_width - w)
-                dh = min(height, total_height - h)
+                dw = width#min(width, total_width - w)
+                dh = height#min(height, total_height - h)
 
                 hdr = fitsio.FITSHDR(primary_header)
-
+            
+                if np.shape(all_ffis[w:w+dw, h:h+dh, :]) != (width,height,total_ffis):
+                    if w+dw > wmax:
+                        w = wmax-dw
+                    if h+dh > hmax:
+                        h = hmax-dh
+                
                 # Shift the reference pixel for the WCS to
                 # account for the postcard location
                 hdr.add_record(
@@ -176,8 +185,9 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 # Save the primary HDU
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
 
-                # Save the image data
+                # Save the image data          
                 fitsio.write(outfn, all_ffis[w:w+dw, h:h+dh, :])
+
                 if not is_raw:
                     fitsio.write(outfn, all_errs[w:w+dw, h:h+dh, :])
 
