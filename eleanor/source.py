@@ -93,12 +93,6 @@ class Source(object):
 
         guide = load_postcard_guide()
 
-        d = {}
-        for j,col in enumerate(guide.colnames):
-            d[col] = guide[0][j]
-        hdr = fits.Header(cards=d) # make WCS info from one postcard header
-        xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
-
         self.sector = None
         for sec in np.unique(guide['SECTOR']):
             for cam in np.unique(guide['CAMERA']):
@@ -114,6 +108,9 @@ class Source(object):
                         d[col] = random_postcard[j]
                     hdr = fits.Header(cards=d) # make WCS info from one postcard header
                     xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
+                    x_zero, y_zero = hdr['POSTPIX1'], hdr['POSTPIX2']
+                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
+
                     if (0 <= xy[0] < 2048) & (44 <= xy[1] < 2092):
                         self.sector = sec
                         self.camera = cam
@@ -154,6 +151,7 @@ class Source(object):
                 in_file.append(i)
                 dists.append( np.min([xy[0]-(x_cen-l), (x_cen+l)-xy[0], xy[1]-(y_cen-w), (y_cen+w)-xy[1]]))
 
+
         # If more than one postcard is found for a single source, choose the postcard where the
         # source is closer to the center
         if in_file == []:
@@ -163,10 +161,10 @@ class Source(object):
             best_ind = np.argmax(dists)
         else:
             best_ind = 0
-
+        
         self.all_postcards = guide['POST_NAME'][in_file]
         self.postcard = guide['POST_NAME'][in_file[best_ind]]
-
+        
         self.sector = guide['SECTOR'][in_file[best_ind]] # WILL BREAK FOR MULTI-SECTOR TARGETS
         self.camera = guide['CAMERA'][in_file[best_ind]]
         self.chip = guide['CCD'][in_file[best_ind]]
