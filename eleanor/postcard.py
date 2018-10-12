@@ -102,6 +102,10 @@ class Postcard(object):
     @property
     def center_xy(self):
         return (self.header['CEN_X'],  self.header['CEN_Y'])
+    
+    @property
+    def origin_xy(self):
+        return (self.header['POSTPIX1'], self.header['POSTPIX2'])
 
     @property
     def flux(self):
