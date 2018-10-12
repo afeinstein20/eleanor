@@ -396,8 +396,6 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='TPF_WIDTH', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
 
-        primary_hdu = fits.PrimaryHDU(header=self.header)
-
         # Creates column names for FITS tables
         r = np.arange(1.5,4,0.5)
         colnames=[]
@@ -434,6 +432,12 @@ class TargetData(object):
             ext3[corrected[i]] = self.all_corr_lc[i]
             ext3[errors[i]]    = self.all_lc_err[i]
 
+        # Appends aperture to header
+        self.header.append(fits.Card(keyword='APERTURE', value=colnames[self.best_ind],
+                                     comment='Best aperture used for lightcurves in extension 1'))
+
+        # Writes TPF to FITS file
+        primary_hdu = fits.PrimaryHDU(header=self.header)
         data_list = [fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
 
