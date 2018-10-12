@@ -94,11 +94,12 @@ class TargetData(object):
 
         # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
-        med_x, med_y = int(np.floor(med_x)), int(np.floor(med_y))
+        med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
 
         post_flux = np.transpose(self.post_obj.flux, (2,0,1))        
         post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
         
+        self.cen_x, self.cen_y = med_x, med_y
         self.tpf  = post_flux[:, med_y-4:med_y+5, med_x-4:med_x+5]
         self.tpf_err = post_err[:, med_y-4:med_y+5, med_x-4:med_x+5]
         return
@@ -216,7 +217,8 @@ class TargetData(object):
     def psf_lightcurve(self, nstars=1, model='gaussian', xc=[4.5], yc=[4.5]):
         import tensorflow as tf
         from vaneska.models import Gaussian
-        
+        from tqdm import tqdm
+
         if len(xc) != nstars:
             raise ValueError('xc must have length nstars')
         if len(yc) != nstars:
@@ -246,10 +248,10 @@ class TargetData(object):
             
         mean += bkg
         
-        data = tf.placeholder(dtype=tf.float64, shape=tpf.flux[0].shape)
+        data = tf.placeholder(dtype=tf.float64, shape=self.tpf[0].shape)
         nll = tf.reduce_sum(tf.squared_difference(mean, data))
 
-        var_list = [flux, xshift, yshfit, a, b, c, bkg]
+        var_list = [flux, xshift, yshift, a, b, c, bkg]
         grad = tf.gradients(nll, var_list)
         
         sess = tf.Session()
@@ -368,16 +370,10 @@ class TargetData(object):
         
         self.header = self.post_obj.header
         self.header.update({'CREATED':strftime('%Y-%m-%d'),
-                            'CEN_X'  : np.nanmedian(self.centroid_xs),
-                            'CRPIX1' : np.nanmedian(self.centroid_xs),
-                            'CEN_Y'  : np.nanmedian(self.centroid_ys),
-                            'CRPIX2' : np.nanmedian(self.centroid_ys),
-                            'CEN_RA' : self.source_info.coords[0],
-                            'CEN_DEC': self.source_info.coords[1],
                             })
 
         # Removes postcard specific header information
-        for keyword in ['POSTPIX1', 'POSTPIX2', 'POST_HEIGHT', 'POST_WIDTH']:
+        for keyword in ['POSTPIX1', 'POSTPIX2', 'POST_HEIGHT', 'POST_WIDTH', 'CEN_X', 'CEN_Y', 'CEN_RA', 'CEN_DEC']:
             self.header.remove(keyword)
         
         # Adds TPF specific header information
@@ -387,64 +383,59 @@ class TargetData(object):
                                      comment='TESS magnitude'))
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
                                      comment='Associated Gaia ID'))
+        self.header.append(fits.Card(keyword='CEN_X', value=self.cen_x + self.post_obj.origin_xy[0],
+                                     comment='central pixel of TPF in FFI'))
+        self.header.append(fits.Card(keyword='CEN_Y', value=self.cen_y + self.post_obj.origin_xy[1],
+                                     comment='central pixel of TPF in FFI'))
+        self.header.append(fits.Card(keyword='CEN_RA', value = self.source_info.coords[0],
+                                     comment='RA of TPF source'))
+        self.header.append(fits.Card(keyword='CEN_DEC', value=self.source_info.coords[1],
+                                     comment='DEC of TPF source'))
         self.header.append(fits.Card(keyword='TPF_HEIGHT', value=np.shape(self.tpf[0])[0], 
                                      comment='Height of the TPF in pixels'))
         self.header.append(fits.Card(keyword='TPF_WIDTH', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
 
         primary_hdu = fits.PrimaryHDU(header=self.header)
-        
-        # Creates an extension for the TPF
-        hdu_tpf  = fits.ImageHDU()
-        hdu_tpf.data = self.tpf
 
-        # Places the "best" aperture first in aperture extensions
-        hdu_best = fits.ImageHDU()
-        hdu_best.data = self.aperture
-
-        ## TIME, Flux, Flux_err, quality
-
-        hdu_list    = [primary_hdu, hdu_tpf, hdu_best]
-        lightcurves = [self.flux]
-        lc_errors   = [self.flux_err]
-
+        # Creates column names for FITS tables
         r = np.arange(1.5,4,0.5)
-        colnames = ['time']
+        colnames=[]
         for i in r:
             colnames.append('_'.join(str(e) for e in ['circle', 'binary', i]))
             colnames.append('_'.join(str(e) for e in ['rectangle', 'binary', i]))
             colnames.append('_'.join(str(e) for e in ['circle', 'weighted', i]))
             colnames.append('_'.join(str(e) for e in ['rectangle', 'weighted', i]))
-        errors    = [e+'_err' for e in colnames[1::]]
-        corrected = [e+'_corr' for e in colnames[1::]]
-        quality   = [e+'_quality' for e in colnames[1::]]
-        t = Table()
-        t['x_centroid'] = self.centroid_xs
-        t['y_centroid'] = self.centroid_ys
-        for i in range(len(errors)):
-            if i == 0:
-                t[colnames[i]] = self.time
-                t[colnames[self.best_ind+1]] = self.raw_flux
-                t[corrected[self.best_ind]]  = self.corr_flux
-                t[errors[self.best_ind]]     = self.flux_err
-#                t[quality[self.best_ind]]    = self.quality
-            if i != self.best_ind:
-                t[colnames[i+1]] = self.all_raw_lc[i]
-                t[corrected[i]]  = self.all_corr_lc[i]
-                t[errors[i]]     = self.all_lc_err[i]
+        raw       = [e+'_raw' for e in colnames]
+        errors    = [e+'_err' for e in colnames]
+        corrected = [e+'_corr' for e in colnames]
 
+        # Creates table for first extension (tpf, tpf_err, best lc, time, centroids)
+        ext1 = Table()
+        ext1['time']       = self.time
+        ext1['tpf']        = self.tpf
+        ext1['tpf_err']    = self.tpf_err
+        ext1['raw_flux']   = self.raw_flux
+        ext1['corr_flux']  = self.corr_flux
+        ext1['flux_err']   = self.flux_err
+        ext1['quality']    = self.quality
+        ext1['x_centroid'] = self.centroid_xs
+        ext1['y_centroid'] = self.centroid_ys
 
+        # Creates table for second extension (all apertures)
+        ext2 = Table()
         for i in range(len(self.all_apertures)):
-            # Doesn't re-add "best" aperture
-            if i == self.best_ind:
-                continue
-            else:
-                temp = fits.ImageHDU()
-                temp.data = self.all_apertures[i]
-                hdu_list.append(temp)
+            ext2[colnames[i]] = self.all_apertures[i]
 
-        hdu_list.append(fits.BinTableHDU(t))
-        hdu = fits.HDUList(hdu_list)
+        # Creates table for third extention (all raw & corrected fluxes and errors)
+        ext3 = Table()
+        for i in range(len(raw)):
+            ext3[raw[i]]       = self.all_raw_lc[i]
+            ext3[corrected[i]] = self.all_corr_lc[i]
+            ext3[errors[i]]    = self.all_lc_err[i]
+
+        data_list = [fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
+        hdu = fits.HDUList(data_list)
 
         if output_fn==None:
             hdu.writeto('hlsp_ellie_tess_ffi_lc_TIC{}.fits'.format(self.source_info.tic))
