@@ -40,6 +40,7 @@ class TargetData(object):
 
         else:
             self.post_obj = Postcard(source.postcard)
+            print(self.post_obj.hdu[4].data)#.columns.names)
             self.time = self.post_obj.time
             self.load_pointing_model(source.sector, source.camera, source.chip)
             self.get_tpf_from_postcard(source.coords, source.postcard)
@@ -369,7 +370,11 @@ class TargetData(object):
         from astropy.table import Table, Column
         
         self.header = self.post_obj.header
-        self.header.update({'CREATED':strftime('%Y-%m-%d'),
+        self.header.update({'CREATED' : strftime('%Y-%m-%d'),
+                            'TSTART'  : self.post_obj.hdu[1].data['TSTART'][0],
+                            'TSTOP'   : self.post_obj.hdu[1].data['TSTOP'][-1],
+                            'DATE-OBS': self.post_obj.hdu[1].data['DATE-OBS'][0],
+                            'DATE-END': self.post_obj.hdu[1].data['DATE-END'][-1]
                             })
 
         # Removes postcard specific header information
@@ -391,9 +396,9 @@ class TargetData(object):
                                      comment='RA of TPF source'))
         self.header.append(fits.Card(keyword='CEN_DEC', value=self.source_info.coords[1],
                                      comment='DEC of TPF source'))
-        self.header.append(fits.Card(keyword='TPF_HEIGHT', value=np.shape(self.tpf[0])[0], 
+        self.header.append(fits.Card(keyword='HEIGHT', value=np.shape(self.tpf[0])[0], 
                                      comment='Height of the TPF in pixels'))
-        self.header.append(fits.Card(keyword='TPF_WIDTH', value=np.shape(self.tpf[0])[1],
+        self.header.append(fits.Card(keyword='WIDTH', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
 
         # Creates column names for FITS tables
