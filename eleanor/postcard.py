@@ -11,7 +11,7 @@ import copy
 from mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/postcards/'
+ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/'
 
 
 class Postcard(object):
@@ -35,10 +35,15 @@ class Postcard(object):
             self.local_path = copy.copy(self.filename)
             self.hdu = fits.open(self.local_path)
         else:
-            self.filename = '{}{}'.format(ELLIEURL, filename)
-            local_path = download_file(self.filename, cache=True)
-            self.local_path = local_path
-            self.hdu = fits.open(self.local_path)
+            if os.path.isdir('./.ellie/sector_1/postcards')==True:
+                self.filename = './.ellie/sector_1/postcards/{}'.format(filename)
+                self.local_path = self.filename
+                self.hdu = fits.open(self.local_path)
+            else:
+                self.filename = '{}{}'.format(ELLIEURL, filename)
+                local_path = download_file(self.filename, cache=True)
+                self.local_path = local_path
+                self.hdu = fits.open(self.local_path)
 
     def __repr__(self):
         return "ellie postcard ({})".format(self.filename)
