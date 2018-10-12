@@ -40,7 +40,6 @@ class TargetData(object):
 
         else:
             self.post_obj = Postcard(source.postcard)
-            print(self.post_obj.hdu[4].data)#.columns.names)
             self.time = self.post_obj.time
             self.load_pointing_model(source.sector, source.camera, source.chip)
             self.get_tpf_from_postcard(source.coords, source.postcard)
@@ -91,16 +90,19 @@ class TargetData(object):
             return
 
         xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
+
         apply_pointing_model(xy)
 
         # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
+
         med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
 
         post_flux = np.transpose(self.post_obj.flux, (2,0,1))        
         post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
         
         self.cen_x, self.cen_y = med_x, med_y
+
         self.tpf  = post_flux[:, med_y-4:med_y+5, med_x-4:med_x+5]
         self.tpf_err = post_err[:, med_y-4:med_y+5, med_x-4:med_x+5]
         return
@@ -370,11 +372,7 @@ class TargetData(object):
         from astropy.table import Table, Column
         
         self.header = self.post_obj.header
-        self.header.update({'CREATED' : strftime('%Y-%m-%d'),
-                            'TSTART'  : self.post_obj.hdu[1].data['TSTART'][0],
-                            'TSTOP'   : self.post_obj.hdu[1].data['TSTOP'][-1],
-                            'DATE-OBS': self.post_obj.hdu[1].data['DATE-OBS'][0],
-                            'DATE-END': self.post_obj.hdu[1].data['DATE-END'][-1]
+        self.header.update({'CREATED':strftime('%Y-%m-%d'),
                             })
 
         # Removes postcard specific header information
@@ -396,9 +394,9 @@ class TargetData(object):
                                      comment='RA of TPF source'))
         self.header.append(fits.Card(keyword='CEN_DEC', value=self.source_info.coords[1],
                                      comment='DEC of TPF source'))
-        self.header.append(fits.Card(keyword='HEIGHT', value=np.shape(self.tpf[0])[0], 
+        self.header.append(fits.Card(keyword='TPF_HEIGHT', value=np.shape(self.tpf[0])[0], 
                                      comment='Height of the TPF in pixels'))
-        self.header.append(fits.Card(keyword='WIDTH', value=np.shape(self.tpf[0])[1],
+        self.header.append(fits.Card(keyword='TPF_WIDTH', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
 
         # Creates column names for FITS tables
@@ -421,7 +419,7 @@ class TargetData(object):
         ext1['raw_flux']   = self.raw_flux
         ext1['corr_flux']  = self.corr_flux
         ext1['flux_err']   = self.flux_err
-        ext1['quality']    = self.quality
+#        ext1['quality']    = self.quality
         ext1['x_centroid'] = self.centroid_xs
         ext1['y_centroid'] = self.centroid_ys
 
@@ -443,11 +441,11 @@ class TargetData(object):
 
         # Writes TPF to FITS file
         primary_hdu = fits.PrimaryHDU(header=self.header)
-        data_list = [fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
+        data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
 
         if output_fn==None:
-            hdu.writeto('hlsp_ellie_tess_ffi_lc_TIC{}.fits'.format(self.source_info.tic))
+            hdu.writeto('hlsp_ellie_tess_ffi_lc_TIC{}.fits'.format(self.source_info.tic), overwrite=True)
         else:
             hdu.writeto(output_fn)
 
