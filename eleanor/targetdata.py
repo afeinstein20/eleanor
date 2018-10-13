@@ -8,7 +8,7 @@ from scipy.optimize import minimize
 from ffi import use_pointing_model
 from postcard import Postcard
 
-__all__ = ['TargetData']
+__all__  = ['TargetData']
 
 class TargetData(object):
     """
@@ -32,7 +32,7 @@ class TargetData(object):
     all_lightcurves
     all_apertures
     """
-    def __init__(self, source):
+    def __init__(self, source, height=9, width=9):
         self.source_info = source
 
         if source.premade is not None:
@@ -40,7 +40,8 @@ class TargetData(object):
 
         else:
             self.post_obj = Postcard(source.postcard)
-            self.time = self.post_obj.time
+            self.shape = (height, width) 
+            self.time  = self.post_obj.time
             self.load_pointing_model(source.sector, source.camera, source.chip)
             self.get_tpf_from_postcard(source.coords, source.postcard)
             self.create_apertures()
@@ -103,8 +104,11 @@ class TargetData(object):
         
         self.cen_x, self.cen_y = med_x, med_y
 
-        self.tpf  = post_flux[:, med_y-4:med_y+5, med_x-4:med_x+5]
-        self.tpf_err = post_err[:, med_y-4:med_y+5, med_x-4:med_x+5]
+        y_length, x_length = int(np.floor(self.shape[0]/2.)), int(np.floor(self.shape[1]/2.))
+
+        self.tpf     = post_flux[:, med_y-y_length:med_y+y_length+1, med_x-x_length:med_x+x_length+1]
+        self.tpf_err = post_err[: , med_y-y_length:med_y+y_length+1, med_x-x_length:med_x+x_length+1]
+
         return
 
 
@@ -113,41 +117,50 @@ class TargetData(object):
         Finds the "best" aperture (i.e. the one that produces the smallest std light curve) for a range of
         sizes and shapes.
         Defines
-            self.all_lc = an array of light curves from all apertures tested
             self.all_aperture = an array of masks for all apertures tested
         """
         from photutils import CircularAperture, RectangularAperture
 
-        self.all_lc        = None
         self.all_apertures = None
 
-        # Creates a circular and rectangular aperture
-        def circle(pos,r):
-            return CircularAperture(pos,r)
-        def rectangle(pos, l, w, t):
-            return RectangularAperture(pos, l, w, t)
+        # Saves some time by pre-loading apertures for 9x9 TPFs
+        if self.shape == (9,9):
+            self.all_apertures = np.load('default_apertures.npy')
+            
+        # Creates aperture based on the requested size of TPF
+        else:
+            # Creates a circular and rectangular aperture
+            def circle(pos,r):
+                return CircularAperture(pos,r)
+            def rectangle(pos, l, w, t):
+                return RectangularAperture(pos, l, w, t)
 
-        # Completes either binary or weighted aperture photometry
-        def binary(data, apertures, err):
-            return aperture_photometry(data, apertures, error=err, method='center')
-        def weighted(data, apertures, err):
-            return aperture_photometry(data, apertures, error=err, method='exact')
+            # Completes either binary or weighted aperture photometry
+            def binary(data, apertures, err):
+                return aperture_photometry(data, apertures, error=err, method='center')
+            def weighted(data, apertures, err):
+                return aperture_photometry(data, apertures, error=err, method='exact')
 
-        r_list = np.arange(1.5,4,0.5)
+            r_list = np.arange(1.5,4,0.5)
 
-        # Center gives binary mask; exact gives weighted mask
-        circles, rectangles, self.all_apertures = [], [], []
-        for r in r_list:
-            ap_circ = circle( (4,4), r )
-            ap_rect = rectangle( (4,4), r, r, 0.0)
-            circles.append(ap_circ); rectangles.append(ap_rect)
-            for method in ['center', 'exact']:
-                circ_mask = ap_circ.to_mask(method=method)[0].to_image(shape=((
-                            np.shape( self.tpf[0]))))
-                rect_mask = ap_rect.to_mask(method=method)[0].to_image(shape=((
-                            np.shape( self.tpf[0]))))
-                self.all_apertures.append(circ_mask)
-                self.all_apertures.append(rect_mask)
+            # Center gives binary mask; exact gives weighted mask
+            circles, rectangles, self.all_apertures = [], [], []
+
+            center = (self.shape[1]/2, self.shape[0]/2)
+            
+            for r in r_list:
+                ap_circ = circle( center, r )
+                ap_rect = rectangle( center, r, r, 0.0)
+                circles.append(ap_circ); rectangles.append(ap_rect)
+                for method in ['center', 'exact']:
+                    circ_mask = ap_circ.to_mask(method=method)[0].to_image(shape=((
+                                np.shape( self.tpf[0]))))
+                    rect_mask = ap_rect.to_mask(method=method)[0].to_image(shape=((
+                                np.shape( self.tpf[0]))))
+                    self.all_apertures.append(circ_mask)
+                    self.all_apertures.append(rect_mask)
+            self.all_apertures = np.array(self.all_apertures)
+
         return
 
 
@@ -276,11 +289,11 @@ class TargetData(object):
             
         sess.close()
             
-        self.psf_flux = fout[:,0]
-        
+        self.psf_flux = fout[:,0]        
         return
 
-    def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=(4,4), method='exact'):
+
+    def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """
         Allows the user to input their own aperture of a given shape (either 'circle' or
             'rectangle' are accepted) of a given size {radius of circle: r, length of rectangle: l,
@@ -295,12 +308,16 @@ class TargetData(object):
         self.custom_aperture = None
 
         shape = shape.lower()
+        if pos is None:
+            pos = (self.shape[1]/2, self.shape[0]/2)
+        else:
+            pos = pos
 
         if shape == 'circle':
             if r == 0.0:
                 print ("Please set a radius (in pixels) for your aperture")
             else:
-                aperture = CircularAperture(pos=pos, r=r)
+                aperture = CircularAperture(pos, r=r)
                 self.custom_aperture = aperture.to_mask(method=method)[0].to_image(shape=((
                             np.shape(self.tpf[0]))))
 
@@ -308,12 +325,13 @@ class TargetData(object):
             if l==0.0 or w==0.0:
                 print("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', l=#, w=#)")
             else:
-                aperture = RectangularAperture(pos=pos, l=l, w=w, t=theta)
+                aperture = RectangularAperture(pos, l=l, w=w, t=theta)
                 self.custom_aperture = aperture.to_mask(method=method)[0].to_image(shape=((
                             np.shape(self.tpf[0]))))
         else:
             print("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
-        return
+        plt.imshow(self.custom_aperture, origin='lower')
+        plt.show()
 
 
 
@@ -386,10 +404,10 @@ class TargetData(object):
                                      comment='TESS magnitude'))
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
                                      comment='Associated Gaia ID'))
-        self.header.append(fits.Card(keyword='CEN_X', value=self.cen_x + self.post_obj.origin_xy[0],
-                                     comment='central pixel of TPF in FFI'))
-        self.header.append(fits.Card(keyword='CEN_Y', value=self.cen_y + self.post_obj.origin_xy[1],
-                                     comment='central pixel of TPF in FFI'))
+#        self.header.append(fits.Card(keyword='CEN_X', value=self.cen_x + self.post_obj.origin_xy[0],
+#                                     comment='central pixel of TPF in FFI'))
+#        self.header.append(fits.Card(keyword='CEN_Y', value=self.cen_y + self.post_obj.origin_xy[1],
+#                                     comment='central pixel of TPF in FFI'))
         self.header.append(fits.Card(keyword='CEN_RA', value = self.source_info.coords[0],
                                      comment='RA of TPF source'))
         self.header.append(fits.Card(keyword='CEN_DEC', value=self.source_info.coords[1],
