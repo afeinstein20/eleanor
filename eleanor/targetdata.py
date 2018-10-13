@@ -47,6 +47,7 @@ class TargetData(object):
             self.get_tpf_from_postcard(source.coords, source.postcard)
             self.create_apertures()
             self.get_lightcurve()
+            self.set_quality()
 
 
     def load_pointing_model(self, sector, camera, chip):
@@ -182,14 +183,12 @@ class TargetData(object):
 
         self.flux       = None
         self.flux_err   = None
-#*****        self.quality    = None
         self.aperture   = None
 
         if custom_mask is False:
 
             self.all_lc      = None
             self.all_lc_err  = None
-#*****            self.all_quality = None
 
             all_raw_lc     = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_lc_err = np.zeros((len(self.all_apertures), len(self.tpf)))
@@ -229,6 +228,21 @@ class TargetData(object):
                 self.flux_err   = np.array(lc_err)
 
         return
+
+
+    def set_quality(self):
+        """
+        Currently (10/13/2018), this function sets a flag for when the centroid is
+            3 sigma away from the mean either in the x or y direction
+        Hopefully in the future, MAST will put in some quality flags for us
+        Our flags and their flags will be combnied, if they create flags
+        """
+        bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+3*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+3*np.std(self.centroid_ys)))
+
+        quality = np.zeros(np.shape(self.time))
+        quality[bad] = 1
+        self.quality = quality
+
 
 
     def psf_lightcurve(self, nstars=1, model='gaussian', xc=[4.5], yc=[4.5]):
@@ -438,7 +452,7 @@ class TargetData(object):
         ext1['raw_flux']   = self.raw_flux
         ext1['corr_flux']  = self.corr_flux
         ext1['flux_err']   = self.flux_err
-#        ext1['quality']    = self.quality
+        ext1['quality']    = self.quality
         ext1['x_centroid'] = self.centroid_xs
         ext1['y_centroid'] = self.centroid_ys
 
@@ -447,7 +461,7 @@ class TargetData(object):
         for i in range(len(self.all_apertures)):
             ext2[colnames[i]] = self.all_apertures[i]
 
-        # Appends custom aperture to the end
+        # Appends custom aperture to the end, if there is one
         if self.custom_aperture is not None:
             ext2['custom'] = self.custom_aperture
 
@@ -482,18 +496,19 @@ class TargetData(object):
 
         hdu = fits.open(self.source_info.fn)
         hdr = hdu[0].header
-        print(hdr['aperture'])
+
         # Loads in everything from the first extension
         cols  = hdu[1].columns.names
         table = hdu[1].data
         self.time        = table[cols[0]]
         self.tpf         = table[cols[1]]
         self.tpf_err     = table[cols[2]]
-        self.centroid_xs = table[cols[6]]
-        self.centroid_ys = table[cols[7]]
         self.raw_flux    = table[cols[3]]
         self.corr_flux   = table[cols[4]]
         self.flux_err    = table[cols[5]]
+        self.quality     = table[cols[6]]
+        self.centroid_xs = table[cols[7]]
+        self.centroid_ys = table[cols[8]]
 
         # Loads in apertures from second extension
         self.all_apertures = []
