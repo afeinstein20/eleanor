@@ -34,6 +34,7 @@ class TargetData(object):
     """
     def __init__(self, source, height=9, width=9):
         self.source_info = source
+        self.custom_aperture = None
 
         if source.premade is not None:
             self.load()
@@ -446,6 +447,10 @@ class TargetData(object):
         for i in range(len(self.all_apertures)):
             ext2[colnames[i]] = self.all_apertures[i]
 
+        # Appends custom aperture to the end
+        if self.custom_aperture is not None:
+            ext2['custom'] = self.custom_aperture
+
         # Creates table for third extention (all raw & corrected fluxes and errors)
         ext3 = Table()
         for i in range(len(raw)):
@@ -468,7 +473,6 @@ class TargetData(object):
             hdu.writeto(output_fn)
 
 
-
     def load(self):
         """
         Loads in and sets all the attributes for a pre-created TPF file
@@ -478,27 +482,38 @@ class TargetData(object):
 
         hdu = fits.open(self.source_info.fn)
         hdr = hdu[0].header
-        self.tpf = hdu[1].data
-        self.aperture = hdu[2].data
-
-        self.all_apertures=[]
-        for i in np.arange(3,22,1):
-            self.all_apertures.append(hdu[i].data)
-        self.all_apertures = np.array(self.all_apertures)
-
-        cols  = hdu[22].columns.names
-        table = hdu[22].data
-        self.centroid_xs = table[cols[0]]
-        self.centroid_ys = table[cols[1]]
-        self.time        = table[cols[2]]
+        print(hdr['aperture'])
+        # Loads in everything from the first extension
+        cols  = hdu[1].columns.names
+        table = hdu[1].data
+        self.time        = table[cols[0]]
+        self.tpf         = table[cols[1]]
+        self.tpf_err     = table[cols[2]]
+        self.centroid_xs = table[cols[6]]
+        self.centroid_ys = table[cols[7]]
         self.raw_flux    = table[cols[3]]
         self.corr_flux   = table[cols[4]]
         self.flux_err    = table[cols[5]]
 
+        # Loads in apertures from second extension
+        self.all_apertures = []
+        cols  = hdu[2].columns.names
+        table = hdu[2].data
+        for i in cols:
+            if i == 'custom':
+                self.custom_aperture = table[i]
+            elif i == hdr['aperture']:
+                self.aperture = table[i]
+            else:
+                self.all_apertures.append(table[i])
+
+        # Loads in remaining light curves from third extension
+        cols  = hdu[3].columns.names
+        table = hdu[3].data
         self.all_raw_lc  = []
         self.all_corr_lc = []
         self.all_lc_err  = []
-        for i in cols[6::]:
+        for i in cols:
             if i[-4::] == 'corr':
                 self.all_corr_lc.append(table[i])
             elif i[-3::] == 'err':
