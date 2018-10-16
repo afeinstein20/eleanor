@@ -1494,13 +1494,13 @@ class visualize(data_products, find_sources):
             xy = WCS(hdr).all_world2pix(sources['ra'], sources['dec'], 1)
             return xy, sources['source_id'], sources['phot_g_mean_mag'], sources['ra'], sources['dec']
 
-        def pointingCorr(xy, header):
-            """ Corrects (x,y) coordinates based on pointing model """
-            pm = data_products.get_pointing(self, header=header)
-            shift = pm[0]
-            x = xy[0]*np.cos(shift[0]) - xy[1]*np.sin(shift[0]) + shift[1]
-            y = xy[0]*np.sin(shift[0]) + xy[1]*np.cos(shift[0]) + shift[2]
-            return np.array([x,y])
+#        def pointingCorr(xy, header):
+#            """ Corrects (x,y) coordinates based on pointing model """
+#            pm = data_products.get_pointing(self, header=header)
+#            shift = pm[0]
+#            x = xy[0]*np.cos(shift[0]) - xy[1]*np.sin(shift[0]) + shift[1]
+#            y = xy[0]*np.sin(shift[0]) + xy[1]*np.cos(shift[0]) + shift[2]
+#            return np.array([x,y])
 
         def in_tpf(xy, gaiaXY, gaiaID, gaiaMAG, gaiaRA, gaiaDEC):
             """ Pushes the gaia sources to the appropriate place in the TPF """

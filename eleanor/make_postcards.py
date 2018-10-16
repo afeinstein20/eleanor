@@ -91,7 +91,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
 
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
-    primary_cols = ["TSTART", "TSTOP", "BARYCORR"]
+    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END"]
     primary_dtype = [np.float32, np.float32, np.float32]
     primary_data = np.empty(len(fns), list(zip(primary_cols, primary_dtype)))
 

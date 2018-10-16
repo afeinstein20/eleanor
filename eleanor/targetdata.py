@@ -47,6 +47,7 @@ class TargetData(object):
             self.get_tpf_from_postcard(source.coords, source.postcard)
             self.create_apertures()
             self.get_lightcurve()
+            self.center_of_mass()
             self.set_quality()
 
 
@@ -75,7 +76,6 @@ class TargetData(object):
             self.centroid_ys = pointing model corrected y pixel positions
         """
         from astropy.wcs import WCS
-        from muchbettermoments import quadratic_2d
         from astropy.nddata import Cutout2D
 
         self.tpf = None
@@ -208,7 +208,7 @@ class TargetData(object):
             self.all_corr_lc = np.array(all_corr_lc)
 
             best_ind = np.where(stds == np.min(stds))[0][0]
-
+            print(best_ind)
             self.best_ind = best_ind
             self.corr_flux= self.all_corr_lc[best_ind]
             self.raw_flux = self.all_raw_lc[best_ind]
@@ -228,6 +228,41 @@ class TargetData(object):
                 self.flux_err   = np.array(lc_err)
 
         return
+
+
+    def center_of_mass(self):
+        """
+        Calculates the center of mass of the source across all cadences using muchbettermoments
+            and self.best_aperture
+        Finds the brightest pixel in a (9x9) region summed up over all cadences
+        Searches a smaller (3x3) region around this pixel at each cadence and uses muchbettermoments
+            to find the maximum
+        Sets:
+            self.x_com
+            self.y_com
+        """
+        from muchbettermoments import quadratic_2d
+        from astropy.nddata.utils import Cutout2D
+
+        self.x_com = None
+        self.y_com = None
+        print(self.aperture)
+        summed_pixels = np.sum(self.aperture * self.tpf, axis=0)
+        brightest = np.where(summed_pixels == np.max(summed_pixels))
+        cen = (brightest[0][0], brightest[1][0])
+#        for a in range(len(self.tpf)):
+        a=9
+        data = self.tpf[a, cen[0]-3:cen[0]+2, cen[1]-3:cen[1]+2]
+        c_0  = quadratic_2d(data)
+        c_frame = [cen[0]+c_0[0], cen[1]+c_0[1]]
+        print(c_0, c_frame)
+
+
+        
+        
+
+        return
+
 
 
     def set_quality(self):
@@ -345,8 +380,7 @@ class TargetData(object):
                             np.shape(self.tpf[0]))))
         else:
             print("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
-        plt.imshow(self.custom_aperture, origin='lower')
-        plt.show()
+
 
 
 
