@@ -103,13 +103,34 @@ class TargetData(object):
 
         post_flux = np.transpose(self.post_obj.flux, (2,0,1))        
         post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
-        
+
         self.cen_x, self.cen_y = med_x, med_y
 
         y_length, x_length = int(np.floor(self.shape[0]/2.)), int(np.floor(self.shape[1]/2.))
+        
+        y_low_lim = med_y-y_length
+        y_upp_lim = med_y+y_length+1
+        x_low_lim = med_x-x_length
+        x_upp_lim = med_x+x_length+1
 
-        self.tpf     = post_flux[:, med_y-y_length:med_y+y_length+1, med_x-x_length:med_x+x_length+1]
-        self.tpf_err = post_err[: , med_y-y_length:med_y+y_length+1, med_x-x_length:med_x+x_length+1]
+        post_y_upp, post_x_upp = self.post_obj.dimensions[0], self.post_obj.dimensions[1]
+
+        # Fixes the postage stamp if the user requests a size that is too big for the postcard
+        if y_low_lim <= 0:
+            y_low_lim = 0
+        if x_low_lim <= 0:
+            x_low_lim = 0
+        if y_upp_lim  > post_y_upp:
+            y_upp_lim = post_y_upp+1
+        if x_upp_lim >  post_x_upp:
+            x_upp_lim = post_x_upp+1
+
+        if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
+            print("The size postage stamp you are requesting falls off the edge of the postcard.")
+            print("WARNING: Your postage stamp may not be centered.")
+
+        self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+        self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
 
         return
 
