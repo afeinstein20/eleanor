@@ -265,23 +265,18 @@ class TargetData(object):
         from muchbettermoments import quadratic_2d
         from astropy.nddata.utils import Cutout2D
 
-        self.x_com = None
-        self.y_com = None
-        print(self.aperture)
+        self.x_com = []
+        self.y_com = []
+
         summed_pixels = np.sum(self.aperture * self.tpf, axis=0)
         brightest = np.where(summed_pixels == np.max(summed_pixels))
         cen = (brightest[0][0], brightest[1][0])
-#        for a in range(len(self.tpf)):
-        a=9
-        data = self.tpf[a, cen[0]-3:cen[0]+2, cen[1]-3:cen[1]+2]
-        c_0  = quadratic_2d(data)
-        c_frame = [cen[0]+c_0[0], cen[1]+c_0[1]]
-        print(c_0, c_frame)
-
-
-        
-        
-
+        for a in range(len(self.tpf)):
+            data = self.tpf[a, cen[0]-3:cen[0]+2, cen[1]-3:cen[1]+2]
+            c_0  = quadratic_2d(data)
+            c_frame = [cen[0]+c_0[0], cen[1]+c_0[1]]
+            self.x_com.append(c_frame[0])
+            self.y_com.append(c_frame[0])
         return
 
 
