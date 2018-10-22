@@ -41,14 +41,14 @@ class TargetData(object):
 
         else:
             self.post_obj = Postcard(source.postcard)
-            self.shape = (height, width) 
             self.time  = self.post_obj.time
             self.load_pointing_model(source.sector, source.camera, source.chip)
-            self.get_tpf_from_postcard(source.coords, source.postcard)
-            self.create_apertures()
+            self.get_tpf_from_postcard(source.coords, source.postcard, height, width)
+            self.create_apertures(height, width)
             self.get_lightcurve()
             self.center_of_mass()
             self.set_quality()
+            self.set_header()
 
 
     def load_pointing_model(self, sector, camera, chip):
@@ -63,7 +63,7 @@ class TargetData(object):
         return
                                                                                                                           
         
-    def get_tpf_from_postcard(self, pos, postcard):
+    def get_tpf_from_postcard(self, pos, postcard, height, width):
         """
         Creates a FITS file for a given source that includes:
             Extension[0] = header
@@ -106,7 +106,7 @@ class TargetData(object):
 
         self.cen_x, self.cen_y = med_x, med_y
 
-        y_length, x_length = int(np.floor(self.shape[0]/2.)), int(np.floor(self.shape[1]/2.))
+        y_length, x_length = int(np.floor(height/2.)), int(np.floor(width/2.))
         
         y_low_lim = med_y-y_length
         y_upp_lim = med_y+y_length+1
@@ -131,11 +131,11 @@ class TargetData(object):
 
         self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-
+        self.dimensions = np.shape(self.tpf)
         return
 
 
-    def create_apertures(self):
+    def create_apertures(self, height, width):
         """
         Finds the "best" aperture (i.e. the one that produces the smallest std light curve) for a range of
         sizes and shapes.
@@ -147,7 +147,7 @@ class TargetData(object):
         self.all_apertures = None
 
         # Saves some time by pre-loading apertures for 9x9 TPFs
-        if self.shape == (9,9):
+        if (height,width) == (9,9):
             self.all_apertures = np.load('default_apertures.npy')
             
         # Creates aperture based on the requested size of TPF
@@ -169,7 +169,7 @@ class TargetData(object):
             # Center gives binary mask; exact gives weighted mask
             circles, rectangles, self.all_apertures = [], [], []
 
-            center = (self.shape[1]/2, self.shape[0]/2)
+            center = (width/2, height/2)
             
             for r in r_list:
                 ap_circ = circle( center, r )
@@ -229,7 +229,6 @@ class TargetData(object):
             self.all_corr_lc = np.array(all_corr_lc)
 
             best_ind = np.where(stds == np.min(stds))[0][0]
-            print(best_ind)
             self.best_ind = best_ind
             self.corr_flux= self.all_corr_lc[best_ind]
             self.raw_flux = self.all_raw_lc[best_ind]
@@ -359,7 +358,8 @@ class TargetData(object):
         return
 
 
-    def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
+    def custom_aperture(self, height, width, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
+                       
         """
         Allows the user to input their own aperture of a given shape (either 'circle' or
             'rectangle' are accepted) of a given size {radius of circle: r, length of rectangle: l,
@@ -375,7 +375,7 @@ class TargetData(object):
 
         shape = shape.lower()
         if pos is None:
-            pos = (self.shape[1]/2, self.shape[0]/2)
+            pos = (width/2, height/2)
         else:
             pos = pos
 
@@ -446,22 +446,22 @@ class TargetData(object):
         self.flux = np.copy(lc_new.flux)
 
 
-    def save(self, output_fn=None):
+    def set_header(self):
         """
-        Saves a created TPF object to a FITS file
+        Defines the header for the TPF
+        Sets:
+            self.header
         """
-        from astropy.io import fits
         from time import strftime
-        from astropy.table import Table, Column
-        
-        self.header = self.post_obj.header
-        self.header.update({'CREATED':strftime('%Y-%m-%d'),
-                            })
+        from astropy.io import fits
 
+        self.header = self.post_obj.header
+        self.header.update({'CREATED':strftime('%Y-%m-%d')})
+                       
         # Removes postcard specific header information
-        for keyword in ['POSTPIX1', 'POSTPIX2', 'POST_HEIGHT', 'POST_WIDTH', 'CEN_X', 'CEN_Y', 'CEN_RA', 'CEN_DEC']:
+        for keyword in ['POST_HEIGHT', 'POST_WIDTH', 'CEN_X', 'CEN_Y', 'CEN_RA', 'CEN_DEC', 'POSTPIX1', 'POSTPIX2']:
             self.header.remove(keyword)
-        
+
         # Adds TPF specific header information
         self.header.append(fits.Card(keyword='TIC_ID', value=self.source_info.tic,
                                      comment='TESS Input Catalog ID'))
@@ -469,18 +469,32 @@ class TargetData(object):
                                      comment='TESS magnitude'))
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
                                      comment='Associated Gaia ID'))
-#        self.header.append(fits.Card(keyword='CEN_X', value=self.cen_x + self.post_obj.origin_xy[0],
+#        self.header.append(fits.Card(keyword='CRPIX1', value=self.cen_x + self.post_obj.origin_xy[0],
 #                                     comment='central pixel of TPF in FFI'))
-#        self.header.append(fits.Card(keyword='CEN_Y', value=self.cen_y + self.post_obj.origin_xy[1],
+#        self.header.append(fits.Card(keyword='CRPIX2', value=self.cen_y + self.post_obj.origin_xy[1],
 #                                     comment='central pixel of TPF in FFI'))
+        self.header.append(fits.Card(keyword='POSTPIX1', value= self.source_info.coords[0]-self.dimensions[1],
+                                     comment='origin of postcard axis 1'))
+        self.header.append(fits.Card(keyword='POSTPIX2', value= self.source_info.coords[1]-self.dimensions[2],
+                                     comment='origin of postcard axis 2'))
         self.header.append(fits.Card(keyword='CEN_RA', value = self.source_info.coords[0],
                                      comment='RA of TPF source'))
         self.header.append(fits.Card(keyword='CEN_DEC', value=self.source_info.coords[1],
                                      comment='DEC of TPF source'))
-        self.header.append(fits.Card(keyword='TPF_HEIGHT', value=np.shape(self.tpf[0])[0], 
+        self.header.append(fits.Card(keyword='TPF_HEIGHT', value=np.shape(self.tpf[0])[0],
                                      comment='Height of the TPF in pixels'))
         self.header.append(fits.Card(keyword='TPF_WIDTH', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
+
+
+
+    def save(self, output_fn=None):
+        """
+        Saves a created TPF object to a FITS file
+        """
+        from astropy.io import fits
+        from astropy.table import Table, Column
+        
 
         # Creates column names for FITS tables
         r = np.arange(1.5,4,0.5)
@@ -537,6 +551,7 @@ class TargetData(object):
             hdu.writeto(output_fn)
 
 
+
     def load(self):
         """
         Loads in and sets all the attributes for a pre-created TPF file
@@ -546,7 +561,7 @@ class TargetData(object):
 
         hdu = fits.open(self.source_info.fn)
         hdr = hdu[0].header
-
+        self.header = hdr
         # Loads in everything from the first extension
         cols  = hdu[1].columns.names
         table = hdu[1].data
@@ -559,7 +574,7 @@ class TargetData(object):
         self.quality     = table[cols[6]]
         self.centroid_xs = table[cols[7]]
         self.centroid_ys = table[cols[8]]
-
+        
         # Loads in apertures from second extension
         self.all_apertures = []
         cols  = hdu[2].columns.names
