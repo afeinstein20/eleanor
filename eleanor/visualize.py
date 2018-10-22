@@ -2,7 +2,7 @@ import matplotlib as mpl
 import numpy as np
 import bokeh.io
 import bokeh.models
-
+from mast import *
 
 __all__ = []
 
@@ -19,13 +19,17 @@ class Visualize(object):
 
     def __init__(self, object):
         self.obj = object
+        self.header = self.obj.header
+
         if self.obj.tpf is not None:
             self.flux   = self.obj.tpf
             self.center = (np.nanmedian(self.obj.centroid_xs), 
                              np.nanmedian(self.obj.centroid_ys))
+            self.pointing_model = self.obj.pointing_model
         else:
             self.flux   = self.obj.flux
             self.center = self.obj.center_xy
+            
 
 
 
@@ -130,5 +134,109 @@ class Visualize(object):
         """
         Allows the user to mark other Gaia sources within a given TPF or postcard
         Hover over the points to reveal the source's TIC ID, Gaia ID, Tmag, and Gmag
+        Also crossmatches with TIC and identifies closest TIC object
         """
-        return
+        from astropy.wcs import WCS
+        from ffi import use_pointing_model
+        from bokeh.models import (ColumnDataSource, HoverTool, BasicTicker,
+                          Slider, Button, Label, LinearColorMapper, Span,
+                          ColorBar)
+        from bokeh.plotting import figure, show, output_file
+        from bokeh.palettes import Viridis256
+
+        def create_labels(gaia_ra, gaia_dec):
+            ticLabel, tmagLabel = np.zeros(len(gaia_id)), np.zeros(len(gaia_id))
+            for i in range(len(gaia_ra)):
+                tic, tmag, sep = tic_from_coords([gaia_ra[i], gaia_dec[i]])
+                if sep < 1.0:
+                    ticLabel[i]  = tic
+                    tmagLabel[i] = tmag
+            return ticLabel, tmagLabel
+
+        center = [self.header['CEN_RA'], self.header['CEN_DEC']]
+        center_xy = WCS(self.header).all_world2pix(center[0], center[1], 1)
+
+        sources    = cone_search(pos=center, r=0.5, service='Mast.Catalogs.GaiaDR2.Cone')
+        sources_xy = WCS(self.header).all_world2pix(sources['ra'], sources['dec'], 1)
+        new_coords = []
+        for i in range(len(sources_xy[0])):
+            xy = [sources_xy[0][i], sources_xy[1][i]]
+            coords_corr = use_pointing_model(xy, self.pointing_model[0])
+            new_coords.append([coords_corr[0][0],coords_corr[0][1]])
+        new_coords = np.array(new_coords)
+
+        # Finds sources that lie in the frame
+        in_frame = np.where( (new_coords[:,0] >= center_xy[0]-self.obj.dimensions[1]/2.) &
+                             (new_coords[:,0] <= center_xy[0]+self.obj.dimensions[1]/2.) &
+                             (new_coords[:,1] >= center_xy[1]-self.obj.dimensions[2]/2.) &
+                             (new_coords[:,1] <= center_xy[1]+self.obj.dimensions[2]/2.) )
+        gaia_pos_x = new_coords[:,1][in_frame] - center_xy[1] + self.obj.dimensions[1]/2.
+        gaia_pos_y = new_coords[:,0][in_frame] - center_xy[0] + self.obj.dimensions[2]/2.
+        gaia_g_mag = sources['phot_g_mean_mag'][in_frame]
+        gaia_id    = sources['source_id'][in_frame]
+
+        ticLabel, tmagLabel = create_labels(sources['ra'][in_frame], sources['dec'][in_frame])
+
+        # Creates hover label
+        hover = HoverTool()
+        hover.tooltips = [
+            ('TIC', ''),
+            ('T_mag', ''),
+            ('Gaia ID', ''),
+            ('G_mag', '')
+            ]
+
+        x_range = (-0.5,self.obj.dimensions[1]-0.5)
+        y_range = (-0.5,self.obj.dimensions[2]-0.5)
+        p = figure(x_range=x_range, y_range=y_range, toolbar_location='above',
+                   plot_width=500, plot_height=450)
+
+        color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(self.flux[0]), 
+                                         high=np.max(self.flux[0]))
+        tpf_img = p.image(image=[self.flux[0]], x=-0.5, y=-0.5, dw=self.obj.dimensions[1], 
+                          dh=self.obj.dimensions[2], color_mapper=color_mapper)
+
+        # Sets the placement of the tick labels
+        p.xaxis.ticker = np.arange(0, self.obj.dimensions[1])
+        p.yaxis.ticker = np.arange(0, self.obj.dimensions[2])
+        
+        # Sets the tick labels
+        x_overrides, y_overrides = {}, {}
+        x_list = np.arange(int(center_xy[0]-self.obj.dimensions[1]/2), 
+                           int(center_xy[0]+self.obj.dimensions[1]/2), 1)
+        y_list = np.arange(int(center_xy[1]-self.obj.dimensions[2]/2),
+                           int(center_xy[1]+self.obj.dimensions[2]/2), 1)
+
+        for i in range(9):
+            ind = str(i)
+            x_overrides[i] = str(x_list[i])
+            y_overrides[i] = str(y_list[i])
+
+        p.xaxis.major_label_overrides = x_overrides
+        p.yaxis.major_label_overrides = y_overrides
+        p.xaxis.axis_label = 'Pixel Column Number'
+        p.yaxis.axis_label = 'Pixel Row Number'
+
+        # Sets the color bar
+        color_bar = ColorBar(color_mapper=color_mapper, location=(0,0), border_line_color=None,
+                             ticker=BasicTicker(), title='Intensity', title_text_align='left')
+        p.add_layout(color_bar, 'right')
+
+        # Adds points onto image
+        source = ColumnDataSource(data=dict(x=gaia_pos_x, y=gaia_pos_y,
+                                            tic=ticLabel, tmag=tmagLabel,
+                                            gaia=gaia_id, gmag=gaia_g_mag))
+
+        s = p.circle('x', 'y', size=8, source=source, line_color=None,
+                     selection_color='red', nonselection_fill_alpha=0.0, nonselection_line_alpha=0.0,
+                     nonselection_line_color=None, fill_color='black', hover_alpha=0.9, hover_line_color='white')
+
+        # Activates hover feature
+        p.add_tools(HoverTool( tooltips=[("TIC ID", "@tic")  , ("TESS Tmag", "@tmag"),
+                                         ("Gaia ID", "@gaia"), ("Gaia Gmag", "@gmag")
+                                         ], renderers=[s], mode='mouse', point_policy='snap_to_data') )
+
+        show(p)
+
+
+
