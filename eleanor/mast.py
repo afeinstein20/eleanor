@@ -18,7 +18,8 @@ except ImportError: # Python 2.x
     from urllib import urlretrieve
     import httplib
 
-__all__ = ['coords_from_tic', 'gaia_from_coords', 'coords_from_gaia', 'tic_from_coords']
+__all__ = ['coords_from_tic', 'gaia_from_coords', 'coords_from_gaia', 'tic_from_coords',
+           'cone_search']
 
 def mastQuery(request):
     """
@@ -180,12 +181,10 @@ def coords_from_gaia(gaia_id):
 
 def tic_from_coords(coords):
     """ Grabs coordinates of input TIC ID from Tess Input Catalog v7 """
-    print(coords)
     tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
-    sepTess = crossmatch_distance(pos, tessPos)
-
-    return tess['MatchID']
+    sepTess = crossmatch_distance(coords, tessPos)
+    return tess['MatchID'], tess['Tmag'], sepTess/u.arcsec
 
 
 def gaia_from_coords(coords):
@@ -205,7 +204,7 @@ def initialize_table():
 
 def crossmatch_distance(pos, match):
     """ Finds distance between source and crossmatched source(s) """
-    c1 = SkyCoord(pos[0], pos[1], frame='icrs')
+    c1 = SkyCoord(pos[0]*u.deg, pos[1]*u.deg, frame='icrs')
     c2 = SkyCoord(match[0]*u.deg, match[1]*u.deg, frame='icrs')
     return c1.separation(c2).to(u.arcsec)
 
