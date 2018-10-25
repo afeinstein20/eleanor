@@ -1,5 +1,5 @@
 <p align="center">
-  <img width = "600" src="./figures/logo.gif"/>
+  <img width = "600" src="./figures/eleanor.gif"/>
 </p>
 <p align="center">
   <a href="https://travis-ci.org/afeinstein20/ELLIE/"><img src="https://img.shields.io/travis/afeinstein20/ELLIE/master.svg"/></a>

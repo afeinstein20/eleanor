@@ -28,14 +28,14 @@ cbmin = np.max(tpf.flux[0])*0.05
 cbmax = np.max(tpf.flux[0])*0.85
 
 lines = []
-img = imread('ellie_logo.png')
+img = imread('eleanor.jpeg')
 fig = plt.figure(figsize=(10,5))
 
 plt.imshow(img)
 plt.axis('off')
 plt.tight_layout()
 
-ax = fig.add_axes([0.685, 0.1335, 0.165, 0.176])
+ax = fig.add_axes([0.6365, 0.1435, 0.194, 0.206])
 ax.plot(lc.time, lcNorm, 'k')
 ax.get_xaxis().set_ticks([])
 ax.get_xaxis().set_visible(False)
@@ -44,7 +44,7 @@ ax.get_yaxis().set_visible(False)
 ax.set_ylim([np.min(lcNorm)-0.05, np.max(lcNorm)+0.05])
 ax.set_xlim([np.min(lc.time)-0.005, np.max(lc.time)+0.005])
 
-ax1 = fig.add_axes([0.862, 0.1325, 0.0883, 0.1842])
+ax1 = fig.add_axes([0.845, 0.1435, 0.103, 0.208])
 ax1.get_xaxis().set_ticks([])
 ax1.get_yaxis().set_ticks([])
 
@@ -53,7 +53,6 @@ writer = Writer(fps=20, metadata=dict(artist='Adina Feinstein'), bitrate=1000)
 
 ani = animation.FuncAnimation(fig, animate, frames=len(tpf.flux))
 
-
 #plt.show()
 
-ani.save('logo.mp4', writer=writer)
+ani.save('eleanor_logo.mp4', writer=writer)
