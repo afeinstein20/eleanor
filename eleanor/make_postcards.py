@@ -130,13 +130,13 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 dh = height#min(height, total_height - h)
 
                 hdr = fitsio.FITSHDR(primary_header)
-            
+
                 if np.shape(all_ffis[w:w+dw, h:h+dh, :]) != (width,height,total_ffis):
                     if w+dw > wmax:
                         w = wmax-dw
                     if h+dh > hmax:
                         h = hmax-dh
-                
+
                 # Shift the reference pixel for the WCS to
                 # account for the postcard location
                 hdr.add_record(
@@ -185,7 +185,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 # Save the primary HDU
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
 
-                # Save the image data          
+                # Save the image data
                 fitsio.write(outfn, all_ffis[w:w+dw, h:h+dh, :])
 
                 if not is_raw:
