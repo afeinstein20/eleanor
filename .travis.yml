@@ -31,7 +31,8 @@ install:
   - python setup.py install
 
 script:
-  - nosetests -w tests
+  - python setup.py develop
+  - pytest eleanor/testing.py
 
 after_success:
     - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
