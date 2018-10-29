@@ -7,7 +7,7 @@ import os
 import sys
 from setuptools import setup
 
-sys.path.insert(0, "ellie")
+sys.path.insert(0, "eleanor")
 from version import __version__
 
 this_directory = os.path.abspath(os.path.dirname(__file__))
