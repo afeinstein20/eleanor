@@ -16,16 +16,16 @@ with open(os.path.join(this_directory, "README.md")) as f:
 
 
 setup(
-    name='ellie',
+    name='eleanor',
     version=__version__,
     license='MIT',
     author='Adina D. Feinstein',
     author_email='adina.d.feinstein@gmail.com',
     packages=[
-        'ellie',
+        'eleanor',
         ],
     include_package_data=True,
-    url='http://github.com/afeinstein20/ELLIE',
+    url='http://github.com/afeinstein20/eleanor',
     description='Source Extraction for TESS Full Frame Images',
     long_description=long_description,
     long_description_content_type="text/markdown",
