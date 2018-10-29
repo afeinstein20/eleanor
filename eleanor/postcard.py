@@ -8,7 +8,7 @@ import numpy as np
 import warnings
 import pandas as pd
 import copy
-from mast import crossmatch_by_position
+from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
 ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/postcards/'
@@ -107,7 +107,7 @@ class Postcard(object):
     @property
     def center_xy(self):
         return (self.header['CEN_X'],  self.header['CEN_Y'])
-    
+
     @property
     def origin_xy(self):
         return (self.header['POSTPIX1'], self.header['POSTPIX2'])
