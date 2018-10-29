@@ -546,7 +546,7 @@ class TargetData(object):
         hdu = fits.HDUList(data_list)
 
         if output_fn==None:
-            hdu.writeto('hlsp_ellie_tess_ffi_lc_TIC{}.fits'.format(self.source_info.tic), overwrite=True)
+            hdu.writeto('hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(self.source_info.tic, self.source_info.sector), overwrite=True)
         else:
             hdu.writeto(output_fn)
 
