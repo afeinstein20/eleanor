@@ -51,4 +51,4 @@ FAQ
 * How do I cite ELLIE in a published work?
 
 
-.. _Git Issue: http://github.com/afeinstein20/ELLIE/issues
+.. _Git Issue: http://github.com/afeinstein20/eleanor/issues

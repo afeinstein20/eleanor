@@ -40,5 +40,5 @@ Indices and tables
 * :ref:`search`
 
 .. _TESS: https://tess.mit.edu/
-.. _GitHub: http://github.com/afeinstein20/ELLIE
-.. _Git Issues: http://github.com/afeinstein20/ELLIE/issues
+.. _GitHub: http://github.com/afeinstein20/eleanor
+.. _Git Issues: http://github.com/afeinstein20/eleanor/issues

@@ -10,6 +10,6 @@ To install ELLIE with pip::
 
 Alternatively you can install the current development version of ELLIE::
 
-        git clone https://github.com/afeinstein20/ellie
-	cd ellie
+        git clone https://github.com/afeinstein20/eleanor
+	cd eleanor
 	python setup.py install
