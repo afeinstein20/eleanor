@@ -1,11 +1,12 @@
-from source import Source
-from targetdata import TargetData
+from .source import Source
+from .targetdata import TargetData
 import matplotlib.pyplot as plt
-from visualize import Visualize
+from .visualize import Visualize
 
-star = Source(tic=229666555)#229669377)
-data = TargetData(star)
-print(data.x_com)
+def test_sanity():
+    star = Source(tic=229666555)#229669377)
+    data = TargetData(star)
+    print(data.x_com)
 #data.custom_aperture(shape='circle', r=1.3, pos=(4,2))
 #data.save()
 #data.psf_lightcurve()
