@@ -1,16 +1,16 @@
-.. ELLIE documentation master file, created by
+.. eleanor documentation master file, created by
    sphinx-quickstart on Mon Sep 17 11:56:28 2018.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-ELLIE: simple light curve extraction from TESS FFIs
+eleanor: simple light curve extraction from TESS FFIs
 ===================================================
 .. image:: _images/logo.gif
 	:height: 300px
 	:width: 600px
 	:align: center
 
-ELLIE is an open-source python framework for downloading, analyzing, and visualizing data from the `TESS`_ Full Frame Images.
+eleanor is an open-source python framework for downloading, analyzing, and visualizing data from the `TESS`_ Full Frame Images.
 
 .. toctree::
    :maxdepth: 1
@@ -29,7 +29,7 @@ ELLIE is an open-source python framework for downloading, analyzing, and visuali
 Bug Reports & Questions
 -----------------------
 
-ELLIE is an open source project under the MIT license. The source code is available on `GitHub`_. In case of any questions or problems, please contact us via the `Git Issues`_.
+eleanor is an open source project under the MIT license. The source code is available on `GitHub`_. In case of any questions or problems, please contact us via the `Git Issues`_.
 
 
 Indices and tables
