@@ -10,16 +10,10 @@ matrix:
 cache: pip
 
 before_install:
-  - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
-  - chmod +x miniconda.sh
-  - ./miniconda.sh -b
-  - export PATH=/home/travis/miniconda2/bin:$PATH
-  - conda update --yes conda
+  - sudo apt-get install python3-pip
+  - sudo pip3 install requests
 
 install:
-  - conda create --yes -n test python=$TRAVIS_PYTHON_VERSION
-  - source activate test
-  - conda install --yes numpy scipy matplotlib nose pip
   - pip install lightkurve
   - pip install tensorflow
   - pip install astropy
@@ -27,11 +21,10 @@ install:
   - pip install tqdm
   - pip install fitsio
   - pip install cython
-  - sudo pip3 install requests
   - python setup.py install
 
 script:
-  - python3 setup.py develop
+  - python setup.py develop
   - pytest eleanor/testing.py
 
 after_success:
