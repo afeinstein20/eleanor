@@ -2,6 +2,7 @@ LICENSE
 MANIFEST.in
 README.md
 setup.cfg
+setup.py
 eleanor/__init__.py
 eleanor/ellie.py
 eleanor/ffi.py
