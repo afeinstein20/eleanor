@@ -1,0 +1,11 @@
+mplcursors
+photutils
+tqdm
+lightkurve
+astropy
+astroquery
+bokeh
+muchbettermoments
+fitsio
+tensorflow
+vaneska

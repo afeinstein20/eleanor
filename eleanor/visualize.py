@@ -2,7 +2,7 @@ import matplotlib as mpl
 import numpy as np
 import bokeh.io
 import bokeh.models
-from mast import *
+from .mast import *
 
 __all__ = []
 
@@ -23,13 +23,13 @@ class Visualize(object):
 
         if self.obj.tpf is not None:
             self.flux   = self.obj.tpf
-            self.center = (np.nanmedian(self.obj.centroid_xs), 
+            self.center = (np.nanmedian(self.obj.centroid_xs),
                              np.nanmedian(self.obj.centroid_ys))
             self.pointing_model = self.obj.pointing_model
         else:
             self.flux   = self.obj.flux
             self.center = self.obj.center_xy
-            
+
 
 
 
@@ -54,7 +54,7 @@ class Visualize(object):
             else:
                 xs = self.obj.centroid_xs-self.center[0]+4.0
                 ys = self.obj.centroid_ys-self.center[1]+4.0
-        
+
 
         if 'vmax' not in kwargs:
             kwargs['vmax'] = np.max(self.flux[0])
@@ -66,7 +66,7 @@ class Visualize(object):
 
         def animate(i):
             nonlocal xs, ys, scats, line
-            ax.imshow(self.flux[i], origin='lower', **kwargs)        
+            ax.imshow(self.flux[i], origin='lower', **kwargs)
             if pointing_model==True:
                 for c in scats:
                     c.remove()
@@ -93,7 +93,7 @@ class Visualize(object):
             ax1.set_xlabel('Time')
             ax1.set_xlim([np.min(self.obj.time)-0.05, np.max(self.obj.time)+0.05])
             ax1.set_ylim([np.min(self.obj.corr_flux)-0.05, np.max(self.obj.corr_flux)+0.05])
-            
+
         # Creates 1 subplot is user just wants a pixel movie
         else:
             fig  = mpl.pyplot.figure()
@@ -124,7 +124,7 @@ class Visualize(object):
         ani = animation.FuncAnimation(fig, animate, frames=len(self.flux))
 
         mpl.pyplot.colorbar(ax.imshow(self.flux[0], **kwargs), ax=ax)
-        
+
         mpl.pyplot.tight_layout()
 
         return ani
@@ -191,18 +191,18 @@ class Visualize(object):
         p = figure(x_range=x_range, y_range=y_range, toolbar_location='above',
                    plot_width=500, plot_height=450)
 
-        color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(self.flux[0]), 
+        color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(self.flux[0]),
                                          high=np.max(self.flux[0]))
-        tpf_img = p.image(image=[self.flux[0]], x=-0.5, y=-0.5, dw=self.obj.dimensions[1], 
+        tpf_img = p.image(image=[self.flux[0]], x=-0.5, y=-0.5, dw=self.obj.dimensions[1],
                           dh=self.obj.dimensions[2], color_mapper=color_mapper)
 
         # Sets the placement of the tick labels
         p.xaxis.ticker = np.arange(0, self.obj.dimensions[1])
         p.yaxis.ticker = np.arange(0, self.obj.dimensions[2])
-        
+
         # Sets the tick labels
         x_overrides, y_overrides = {}, {}
-        x_list = np.arange(int(center_xy[0]-self.obj.dimensions[1]/2), 
+        x_list = np.arange(int(center_xy[0]-self.obj.dimensions[1]/2),
                            int(center_xy[0]+self.obj.dimensions[1]/2), 1)
         y_list = np.arange(int(center_xy[1]-self.obj.dimensions[2]/2),
                            int(center_xy[1]+self.obj.dimensions[2]/2), 1)
@@ -237,6 +237,3 @@ class Visualize(object):
                                          ], renderers=[s], mode='mouse', point_policy='snap_to_data') )
 
         show(p)
-
-
-
