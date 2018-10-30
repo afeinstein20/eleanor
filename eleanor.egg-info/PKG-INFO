@@ -1,0 +1,25 @@
+Metadata-Version: 2.1
+Name: eleanor
+Version: 0.0.3.dev0
+Summary: Source Extraction for TESS Full Frame Images
+Home-page: http://github.com/afeinstein20/eleanor
+Author: Adina D. Feinstein
+Author-email: adina.d.feinstein@gmail.com
+License: MIT
+Description: <p align="center">
+          <img width = "600" src="./figures/eleanor.gif"/>
+        </p>
+        <p align="center">  
+          <a href="https://travis-ci.org/afeinstein20/eleanor/"><img src="https://img.shields.io/travis/afeinstein20/eleanor/master.svg"/></a>
+          <a href="https://afeinstein20.github.io/eleanor/"><img src="https://img.shields.io/badge/read-the_docs-blue.svg?style=flat"/>
+        </p>
+        
+        
+        
+Platform: UNKNOWN
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.0
+Description-Content-Type: text/markdown

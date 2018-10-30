@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
-from ellie import data_products
+from .ellie import data_products
 import matplotlib.animation as animation
 from astropy.nddata import Cutout2D
 from scipy import ndimage
@@ -20,7 +20,7 @@ def animate(i):
     pm_points.append(ax.scatter(pm_x[i], pm_y[i], s=20, c='k'))
     centroid.append(ax.scatter(cen_x[i], cen_y[i], s=20, c='r'))
     time_text.set_text('Frame {}'.format(i))
-    
+
 
 
 a = data_products()

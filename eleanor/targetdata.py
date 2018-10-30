@@ -5,8 +5,8 @@ from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import SFFCorrector
 from scipy.optimize import minimize
 
-from ffi import use_pointing_model
-from postcard import Postcard
+from .ffi import use_pointing_model
+from .postcard import Postcard
 
 __all__  = ['TargetData']
 
@@ -58,11 +58,11 @@ class TargetData(object):
                                                                                                                           camera,
                                                                                                                           chip))
         pointing = pointing_link.read().decode('utf-8')
-        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations  
+        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
         self.pointing_model = pointing
         return
-                                                                                                                          
-        
+
+
     def get_tpf_from_postcard(self, pos, postcard, height, width):
         """
         Creates a FITS file for a given source that includes:
@@ -101,13 +101,13 @@ class TargetData(object):
 
         med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
 
-        post_flux = np.transpose(self.post_obj.flux, (2,0,1))        
+        post_flux = np.transpose(self.post_obj.flux, (2,0,1))
         post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
 
         self.cen_x, self.cen_y = med_x, med_y
 
         y_length, x_length = int(np.floor(height/2.)), int(np.floor(width/2.))
-        
+
         y_low_lim = med_y-y_length
         y_upp_lim = med_y+y_length+1
         x_low_lim = med_x-x_length
@@ -149,7 +149,7 @@ class TargetData(object):
         # Saves some time by pre-loading apertures for 9x9 TPFs
         if (height,width) == (9,9):
             self.all_apertures = np.load('default_apertures.npy')
-            
+
         # Creates aperture based on the requested size of TPF
         else:
             # Creates a circular and rectangular aperture
@@ -170,7 +170,7 @@ class TargetData(object):
             circles, rectangles, self.all_apertures = [], [], []
 
             center = (width/2, height/2)
-            
+
             for r in r_list:
                 ap_circ = circle( center, r )
                 ap_rect = rectangle( center, r, r, 0.0)
@@ -189,12 +189,12 @@ class TargetData(object):
 
 
     def get_lightcurve(self, custom_mask=False):
-        """   
+        """
         Extracts a light curve using the given aperture and TPF.
         Allows the user to pass in a mask to use, otherwise sets
-            "best" lightcurve and aperture (min std)    
+            "best" lightcurve and aperture (min std)
         Mask is a 2D array of the same shape as TPF (9x9)
-        Defines:     
+        Defines:
             self.flux
             self.flux_err
             self.aperture
@@ -304,15 +304,15 @@ class TargetData(object):
             raise ValueError('xc must have length nstars')
         if len(yc) != nstars:
             raise ValueError('yc must have length nstars')
-            
-        
+
+
         flux = tf.Variable(np.ones(nstars)*1000, dtype=tf.float64)
         bkg = tf.Variable(np.nanmedian(self.tpf[0]), dtype=tf.float64)
         xshift = tf.Variable(0.0, dtype=tf.float64)
         yshift = tf.Variable(0.0, dtype=tf.float64)
-        
+
         if model == 'gaussian':
-        
+
             gaussian = Gaussian(shape=self.tpf.shape[1:], col_ref=0, row_ref=0)
 
             a = tf.Variable(initial_value=1., dtype=tf.float64)
@@ -324,22 +324,22 @@ class TargetData(object):
             else:
                 mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
         else:
-            raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually, 
+            raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
                                                                     # and a gentle return
-            
+
         mean += bkg
-        
+
         data = tf.placeholder(dtype=tf.float64, shape=self.tpf[0].shape)
         nll = tf.reduce_sum(tf.squared_difference(mean, data))
 
         var_list = [flux, xshift, yshift, a, b, c, bkg]
         grad = tf.gradients(nll, var_list)
-        
+
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
 
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4)
-        
+
         fout = np.zeros((len(self.tpf), nstars))
         xout = np.zeros(len(self.tpf))
         yout = np.zeros(len(self.tpf))
@@ -347,19 +347,19 @@ class TargetData(object):
         for i in tqdm(range(len(self.tpf))):
             optimizer.minimize(session=sess, feed_dict={data:self.tpf[i]}) # we could also pass a pointing model here
                                                                            # and just fit a single offset in all frames
-            
+
             fout[i] = sess.run(flux)
             xout[i] = sess.run(xshift)
             yout[i] = sess.run(yshift)
-            
+
         sess.close()
-            
-        self.psf_flux = fout[:,0]        
+
+        self.psf_flux = fout[:,0]
         return
 
 
     def custom_aperture(self, height, width, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
-                       
+
         """
         Allows the user to input their own aperture of a given shape (either 'circle' or
             'rectangle' are accepted) of a given size {radius of circle: r, length of rectangle: l,
@@ -457,7 +457,7 @@ class TargetData(object):
 
         self.header = self.post_obj.header
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
-                       
+
         # Removes postcard specific header information
         for keyword in ['POST_HEIGHT', 'POST_WIDTH', 'CEN_X', 'CEN_Y', 'CEN_RA', 'CEN_DEC', 'POSTPIX1', 'POSTPIX2']:
             self.header.remove(keyword)
@@ -494,7 +494,7 @@ class TargetData(object):
         """
         from astropy.io import fits
         from astropy.table import Table, Column
-        
+
 
         # Creates column names for FITS tables
         r = np.arange(1.5,4,0.5)
@@ -574,7 +574,7 @@ class TargetData(object):
         self.quality     = table[cols[6]]
         self.centroid_xs = table[cols[7]]
         self.centroid_ys = table[cols[8]]
-        
+
         # Loads in apertures from second extension
         self.all_apertures = []
         cols  = hdu[2].columns.names

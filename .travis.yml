@@ -1,24 +1,31 @@
-sudo: false
-
 dist: trusty
 
 language: python
+python: 3.6
 
 matrix:
     include:
         - os: linux
-          env: PYTHON_VERSION=3.6 NUMPY_VERSION=1.12
+
+cache: pip
+
+before_install:
+  - sudo apt-get install python3-pip
+  - sudo pip3 install requests
 
 install:
-    - source .ci/conda.sh
-    - python setup.py install
-
-cache:
-    directories:
-        - $HOME/miniconda
+  - pip install lightkurve
+  - pip install tensorflow
+  - pip install astropy
+  - pip install astroquery
+  - pip install tqdm
+  - pip install fitsio
+  - pip install cython
+  - python setup.py install
 
 script:
-    - echo "Run tests here."
+  - python setup.py develop
+  - pytest eleanor/testing.py
 
 after_success:
     - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi

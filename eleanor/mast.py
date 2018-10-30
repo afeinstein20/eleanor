@@ -167,7 +167,7 @@ def coords_from_tic(tic, multiSource=None):
         source = multiSource
     else:
         source = tic
-    ticData = Catalogs.query_criteria(catalog='Tic', ID=source)
+    ticData = Catalogs.query_criteria(catalog='Tic', ID=[source, source])
     return [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
 
 def coords_from_gaia(gaia_id):

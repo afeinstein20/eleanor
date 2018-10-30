@@ -5,7 +5,7 @@ from astropy.io import fits
 import sys
 
 import urllib
-from mast import *
+from .mast import *
 
 __all__ = ['Source']
 
@@ -14,7 +14,11 @@ def load_postcard_guide():
     """ Load and return the postcard coordinates guide """
     guide_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.guide')
     guide = guide_link.read().decode('utf-8')
+<<<<<<< HEAD
     guide = Table.read(guide, format='ascii.basic') # guide to postcard locations               
+=======
+    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
+>>>>>>> eb6768aae8149fb5b2f15db7ada282c99efc95f6
     return guide
 
 
@@ -84,7 +88,7 @@ class Source(object):
         self.locate_on_tess() # sets sector, camera, chip, chip_position
 
 
-        
+
     def locate_on_chip(self, guide):
 
         """
@@ -98,7 +102,7 @@ class Source(object):
         for sec in np.unique(guide['SECTOR']):
             for cam in np.unique(guide['CAMERA']):
                 for chip in np.unique(guide['CCD']):
-                    mask = ((guide['SECTOR'] == sec) & (guide['CAMERA'] == cam) 
+                    mask = ((guide['SECTOR'] == sec) & (guide['CAMERA'] == cam)
                             & (guide['CCD'] == chip))
                     if np.sum(mask) == 0:
                         continue # this camera-chip combo is not in the postcard database yet
@@ -122,8 +126,8 @@ class Source(object):
             print("TESS has not (yet) observed your target.")
             sys.exit()
         return
-        
-        
+
+
     def locate_on_tess(self):
         """
         Finds the best TESS postcard(s) and the position of the source on postcard.
@@ -131,14 +135,14 @@ class Source(object):
         """
         guide = load_postcard_guide()
         self.locate_on_chip(guide)
-        
+
 
         # Searches through postcards for the given sector, camera, chip
         in_file, dists=[], []
 
         # Searches through rows of the table
         for i in range(len(guide)):
-            postcard_inds = np.arange(len(guide))[(guide['SECTOR'] == self.sector) & (guide['CAMERA'] == self.camera) 
+            postcard_inds = np.arange(len(guide))[(guide['SECTOR'] == self.sector) & (guide['CAMERA'] == self.camera)
                                                   & (guide['CCD'] == self.chip)]
         xy = self.position_on_chip
         # Finds postcards containing the source
@@ -162,10 +166,10 @@ class Source(object):
             best_ind = np.argmax(dists)
         else:
             best_ind = 0
-        
+
         self.all_postcards = guide['POST_NAME'][in_file]
         self.postcard = guide['POST_NAME'][in_file[best_ind]]
-        
+
         self.sector = guide['SECTOR'][in_file[best_ind]] # WILL BREAK FOR MULTI-SECTOR TARGETS
         self.camera = guide['CAMERA'][in_file[best_ind]]
         self.chip = guide['CCD'][in_file[best_ind]]
@@ -176,8 +180,6 @@ class Source(object):
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
 
         i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_HEIGHT'][i]/2., 
+        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_HEIGHT'][i]/2.,
                               guide['CEN_Y'][i] - guide['POST_WIDTH'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
-        
-
