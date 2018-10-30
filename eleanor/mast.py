@@ -184,7 +184,7 @@ def tic_from_coords(coords):
     tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
     sepTess = crossmatch_distance(coords, tessPos)
-    return tess['MatchID'], tess['Tmag'], sepTess/u.arcsec
+    return tess['MatchID'], [tess['Tmag']], sepTess/u.arcsec
 
 
 def gaia_from_coords(coords):

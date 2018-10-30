@@ -237,6 +237,31 @@ class Visualize(object):
                                          ], renderers=[s], mode='mouse', point_policy='snap_to_data') )
 
         show(p)
+        return
 
 
 
+    def click_aperture(self, path=None):
+        """
+        Allows the user to click specific pixels they want to create
+            a lightcurve
+        Returns:
+            Uncorrected lightcurve
+        """
+        from lightkurve import targetpixelfile as tpf
+
+        print("WARNING: This function requires the postage stamp to be")
+        print("saved to a file. If it has not been saved, then this function")
+        print("")
+        
+
+        return
+        
+
+        
+
+
+            
+
+
+    

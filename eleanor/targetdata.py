@@ -465,8 +465,8 @@ class TargetData(object):
         # Adds TPF specific header information
         self.header.append(fits.Card(keyword='TIC_ID', value=self.source_info.tic,
                                      comment='TESS Input Catalog ID'))
-        self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag[0],
-                                     comment='TESS magnitude'))
+        self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag,
+                                     comment='TESS mag'))
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
                                      comment='Associated Gaia ID'))
 #        self.header.append(fits.Card(keyword='CRPIX1', value=self.cen_x + self.post_obj.origin_xy[0],

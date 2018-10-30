@@ -14,7 +14,7 @@ def load_postcard_guide():
     """ Load and return the postcard coordinates guide """
     guide_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.guide')
     guide = guide_link.read().decode('utf-8')
-    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations                                                                     
+    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations               
     return guide
 
 
@@ -59,19 +59,7 @@ class Source(object):
         self.fn      = fn
         self.premade = None
 
-        if self.tic is not None:
-            self.coords, self.tess_mag = coords_from_tic(self.tic)
-            self.gaia = gaia_from_coords(self.coords)
-
-        elif self.gaia is not None:
-            self.coords = coords_from_gaia(self.gaia)
-            self.tic, self.tess_mag = tic_from_coords(self.coords)
-
-        elif self.coords is not None:
-            self.tic, self.tess_mag = tic_from_coords(self.coords)
-            self.gaia = gaia_from_coords(self.coords)
-
-        elif self.fn is not None:
+        if self.fn is not None:
             hdu = fits.open(self.fn)
             hdr = hdu[0].header
             self.tic      = hdr['TIC_ID']
@@ -80,6 +68,19 @@ class Source(object):
             self.coords   = (hdr['CEN_RA'], hdr['CEN_DEC'])
             self.premade  = True
 
+        elif self.coords is not None:
+            self.tic, self.tess_mag, sep = tic_from_coords(self.coords)
+            self.gaia = gaia_from_coords(self.coords)
+
+        elif self.gaia is not None:
+            self.coords = coords_from_gaia(self.gaia)
+            self.tic, self.tess_mag = tic_from_coords(self.coords)
+
+        elif self.tic is not None:
+            self.coords, self.tess_mag = coords_from_tic(self.tic)
+            self.gaia = gaia_from_coords(self.coords)
+
+        self.tess_mag = self.tess_mag[0]
         self.locate_on_tess() # sets sector, camera, chip, chip_position
 
 
