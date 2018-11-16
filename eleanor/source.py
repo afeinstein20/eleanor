@@ -5,7 +5,7 @@ from astropy.io import fits
 import sys
 
 import urllib
-from .mast import *
+from mast import *
 
 __all__ = ['Source']
 
@@ -14,11 +14,7 @@ def load_postcard_guide():
     """ Load and return the postcard coordinates guide """
     guide_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.guide')
     guide = guide_link.read().decode('utf-8')
-<<<<<<< HEAD
-    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations               
-=======
     guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
->>>>>>> eb6768aae8149fb5b2f15db7ada282c99efc95f6
     return guide
 
 
@@ -149,7 +145,7 @@ class Source(object):
         for i in postcard_inds: # loop rows
 
             x_cen, y_cen= guide['CEN_X'][i], guide['CEN_Y'][i]
-            l, w = guide['POST_HEIGHT'][i]/2., guide['POST_WIDTH'][i]/2.
+            l, w = guide['POST_H'][i]/2., guide['POST_W'][i]/2.
 
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
@@ -167,19 +163,19 @@ class Source(object):
         else:
             best_ind = 0
 
-        self.all_postcards = guide['POST_NAME'][in_file]
-        self.postcard = guide['POST_NAME'][in_file[best_ind]]
+        self.all_postcards = guide['POSTNAME'][in_file]
+        self.postcard = guide['POSTNAME'][in_file[best_ind]]
 
         self.sector = guide['SECTOR'][in_file[best_ind]] # WILL BREAK FOR MULTI-SECTOR TARGETS
         self.camera = guide['CAMERA'][in_file[best_ind]]
         self.chip = guide['CCD'][in_file[best_ind]]
 
         i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_HEIGHT'][i]/2.,
-                                guide['CEN_Y'][i] - guide['POST_WIDTH'][i]/2.)
+        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
+                                guide['CEN_Y'][i] - guide['POST_W'][i]/2.)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
 
         i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_HEIGHT'][i]/2.,
-                              guide['CEN_Y'][i] - guide['POST_WIDTH'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
+        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
+                              guide['CEN_Y'][i] - guide['POST_W'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS

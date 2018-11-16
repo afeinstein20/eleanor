@@ -5,8 +5,8 @@ from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import SFFCorrector
 from scipy.optimize import minimize
 
-from .ffi import use_pointing_model
-from .postcard import Postcard
+from ffi import use_pointing_model
+from postcard import Postcard
 
 __all__  = ['TargetData']
 
@@ -481,9 +481,9 @@ class TargetData(object):
                                      comment='RA of TPF source'))
         self.header.append(fits.Card(keyword='CEN_DEC', value=self.source_info.coords[1],
                                      comment='DEC of TPF source'))
-        self.header.append(fits.Card(keyword='TPF_HEIGHT', value=np.shape(self.tpf[0])[0],
+        self.header.append(fits.Card(keyword='TPF_H', value=np.shape(self.tpf[0])[0],
                                      comment='Height of the TPF in pixels'))
-        self.header.append(fits.Card(keyword='TPF_WIDTH', value=np.shape(self.tpf[0])[1],
+        self.header.append(fits.Card(keyword='TPF_W', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
 
 

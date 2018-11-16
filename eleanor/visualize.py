@@ -2,7 +2,7 @@ import matplotlib as mpl
 import numpy as np
 import bokeh.io
 import bokeh.models
-from .mast import *
+from mast import *
 
 __all__ = []
 
@@ -237,7 +237,6 @@ class Visualize(object):
                                          ], renderers=[s], mode='mouse', point_policy='snap_to_data') )
 
         show(p)
-<<<<<<< HEAD
         return
 
 
@@ -257,14 +256,3 @@ class Visualize(object):
         
 
         return
-        
-
-        
-
-
-            
-
-
-    
-=======
->>>>>>> eb6768aae8149fb5b2f15db7ada282c99efc95f6

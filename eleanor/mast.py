@@ -32,6 +32,7 @@ def mastQuery(request):
         head: headers for response
         content: data for response
     """
+    t0 = time.time()
     server = 'mast.stsci.edu'
 
     # Grab Python Version
@@ -54,6 +55,8 @@ def mastQuery(request):
 
     # Close the https connection
     conn.close()
+    print(time.time()-t0)
+
     return head, content
 
 

@@ -173,10 +173,10 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                     dict(name="CEN_DEC", value=float(rd[1]),
                          comment="Dec of central pixel"))
                 hdr.add_record(
-                    dict(name="POST_HEIGHT", value=float(height),
-                        comment="Height of postcard in pixels"))
+                    dict(name="POST_H", value=float(height),
+                         comment="Height of postcard in pixels"))
                 hdr.add_record(
-                    dict(name="POST_WIDTH", value=float(width),
+                    dict(name="POST_W", value=float(width),
                          comment="Width of postcard in pixels"))
                 hdr.add_record(
                     dict(name="SECTOR", value=1,
