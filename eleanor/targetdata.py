@@ -215,7 +215,7 @@ class TargetData(object):
             all_lc_err = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_corr_lc = np.copy(all_raw_lc)
 
-            stds = []
+           stds = []
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
                     all_lc_err[a][cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
