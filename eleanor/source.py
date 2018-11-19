@@ -5,7 +5,7 @@ from astropy.io import fits
 import sys
 
 import urllib
-from mast import *
+from .mast import *
 
 __all__ = ['Source']
 

@@ -2,7 +2,7 @@ import matplotlib as mpl
 import numpy as np
 import bokeh.io
 import bokeh.models
-from mast import *
+from .mast import *
 
 __all__ = []
 

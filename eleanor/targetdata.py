@@ -5,8 +5,8 @@ from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import SFFCorrector
 from scipy.optimize import minimize
 
-from ffi import use_pointing_model
-from postcard import Postcard
+from .ffi import use_pointing_model
+from .postcard import Postcard
 
 __all__  = ['TargetData']
 

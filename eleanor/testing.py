@@ -1,7 +1,7 @@
-from source import Source
-from targetdata import TargetData
+from .source import Source
+from .targetdata import TargetData
 import matplotlib.pyplot as plt
-from visualize import Visualize
+from .visualize import Visualize
 
 
 star = Source(tic=39825769)

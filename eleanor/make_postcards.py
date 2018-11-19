@@ -13,7 +13,7 @@ import numpy as np
 from time import strftime
 from astropy.wcs import WCS
 
-from version import __version__
+from .version import __version__
 
 
 def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):

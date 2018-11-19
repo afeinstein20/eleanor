@@ -1,6 +1,6 @@
 import sys, os, ast
-from source import Source
-from targetdata import TargetData
+from .source import Source
+from .targetdata import TargetData
 
 if __name__ == "__main__":
     # Only gets run if it's called from the command line

@@ -8,7 +8,7 @@ import numpy as np
 import warnings
 import pandas as pd
 import copy
-from mast import crossmatch_by_position
+from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
 ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/postcards/'
