@@ -2,12 +2,14 @@
 
 API
 ===
+.. automodule:: eleanor
+    :members:
 
-.. autoclass:: ellie.find_sources
-   :members:
+.. autoclass:: Source
+    :members:
 
-.. autoclass:: ellie.data_products
-   :members:
+.. autoclass:: TargetData
+    :members:
 
-.. autoclass:: ellie.visualize
-   :members:
+.. autoclass:: Visualize
+    :members:

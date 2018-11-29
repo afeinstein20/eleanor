@@ -4,8 +4,8 @@
    contain the root `toctree` directive.
 
 eleanor: simple light curve extraction from TESS FFIs
-===================================================
-.. image:: _images/logo.gif
+=====================================================
+.. image:: ../figures/eleanor.gif
 	:height: 300px
 	:width: 600px
 	:align: center

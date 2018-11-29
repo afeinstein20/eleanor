@@ -1,10 +1,10 @@
 .. _overview:
 
-Overview
-========
+Getting Started
+===============
 
 Summary of eleanor Functionality
-------------------------------
+--------------------------------
 
 The purpose of eleanor is to go from TESS Full Frame Images to extracted and systematics-corrected light curves for any given star observed by TESS. 
 In its simplest form, eleanor takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star observed by TESS and returns, as a single object, a light curve and accompanying target pixel data. 
@@ -17,14 +17,15 @@ FAQ
 
 * How does eleanor work?
 	Under the hood, when you query an object, eleanor performs the following steps:
-        * Determines in which sectors this target was observed.
-		* Locates the object on TESS's many cameras/chips.
-		* Downloads a time series of "postcards" containing TESS data for the object and its immediate surroundings.
-		* Creates and stores a target pixel file (TPF) of the object.
-		* Traces centroid shifts for the object across the time series.
-		* Chooses an optimal pixel aperture for photometry.
-		* Creates a light curve using the chosen aperture and centroid trace.
-		* Performs basic systematics corrections on the light curve and stores it.
+    
+        #. Determines in which sectors this target was observed.
+        #. Locates the object on TESS's many cameras/chips.
+        #. Downloads a time series of "postcards" containing TESS data for the object and its immediate surroundings.
+        #. Creates and stores a target pixel file (TPF) of the object.
+        #. Traces centroid shifts for the object across the time series.
+        #. Chooses an optimal pixel aperture for photometry.
+        #. Creates a light curve using the chosen aperture and centroid trace.
+        #. Performs basic systematics corrections on the light curve and stores it.
 		
 * What final data products do I get from eleanor?
 	By default, eleanor delivers the systematics-corrected light curve of your source and the source's TPF. If you are happy with what you see there, you're done and ready to science! 
