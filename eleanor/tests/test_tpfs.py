@@ -26,6 +26,9 @@ def test_making_tpfs():
     assert(test2 == 0)
     
 def test_arb_size_tpfs():
+    '''
+    Does requesting an arbitrarily-sized TPF return one in the correct size?
+    '''
     star = Source(tic=261136246) 
     data = TargetData(star, height=15, width=12)
     assert(np.shape(data.tpf.raw_flux[0] == (15,12)))
