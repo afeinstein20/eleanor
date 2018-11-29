@@ -199,7 +199,7 @@ class TargetData(object):
             self.flux_err
             self.aperture
             self.all_lc     (if mask=None)
-            self.all_lc_err (if mask=None
+            self.all_lc_err (if mask=None)
         """
 
         self.flux       = None
@@ -252,11 +252,10 @@ class TargetData(object):
 
     def center_of_mass(self):
         """
-        Calculates the center of mass of the source across all cadences using muchbettermoments
-            and self.best_aperture
-        Finds the brightest pixel in a (9x9) region summed up over all cadences
-        Searches a smaller (3x3) region around this pixel at each cadence and uses muchbettermoments
-            to find the maximum
+        Calculates the center of mass of the source across all cadences using muchbettermoments and self.best_aperture 
+        Finds the brightest pixel in a (9x9) region summed up over all cadence
+        Searches a smaller (3x3) region around this pixel at each cadence and uses muchbettermoments to find the maximum
+            
         Sets:
             self.x_com
             self.y_com
