@@ -4,7 +4,7 @@ README.md
 setup.cfg
 setup.py
 eleanor/__init__.py
-eleanor/ellie.py
+eleanor/eleanor.py
 eleanor/ffi.py
 eleanor/make_postcards.py
 eleanor/mast.py
