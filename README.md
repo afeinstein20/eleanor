@@ -9,16 +9,16 @@
 <div align="justify">
 eleanor is a python package to extract target pixel files from TESS Full Frame Images and produce systematics-corrected light curves for any star observed by the TESS mission. In its simplest form, eleanor  takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star  observed by TESS and returns, as a single object, a light curve and  accompanying target pixel data.
 
-To install eleanor with pip::
+To install eleanor with pip:
 
         pip install eleanor
         
 
-Alternatively you can install the current development version of eleanor::
+Alternatively you can install the current development version of eleanor:
 
         git clone https://github.com/afeinstein20/eleanor
         cd eleanor
         python setup.py install
 
-For more information on how to install and use eleanor, please refer to the <a href="http://adina.feinste.in/eleanor/">documentation</a>
+For more information on how to install and use eleanor, please refer to the <a href="http://adina.feinste.in/eleanor/">documentation</a>.
 
