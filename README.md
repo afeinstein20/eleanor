@@ -3,7 +3,7 @@
 </p>
 <p align="center">  
   <a href="https://travis-ci.org/afeinstein20/eleanor/"><img src="https://img.shields.io/travis/afeinstein20/eleanor/master.svg"/></a>
-  <a href="https://afeinstein20.github.io/eleanor/"><img src="https://img.shields.io/badge/read-the_docs-blue.svg?style=flat"/>
+  <a href="https://afeinstein20.github.io/eleanor/"><img src="https://img.shields.io/badge/read-the_docs-blue.svg?style=flat"/></a>
 </p>
 
 <div align="justify">
@@ -20,5 +20,5 @@ Alternatively you can install the current development version of eleanor::
         cd eleanor
         python setup.py install
 
-For more information on how to install and use eleanor, please refer to the <a href="https://eleanor.readthedocs.io">documentation</a>
+For more information on how to install and use eleanor, please refer to the <a href="http://adina.feinste.in/eleanor/">documentation</a>
 
