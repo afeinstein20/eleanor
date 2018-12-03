@@ -16,9 +16,10 @@ eleanor is an open-source python framework for downloading, analyzing, and visua
    :maxdepth: 1
    :caption: Getting Started
 
+   getting_started/about
    getting_started/installation
-   getting_started/overview
    getting_started/tutorial
+   getting_started/faq
 
 .. toctree::
    :maxdepth: 2
@@ -32,12 +33,10 @@ Bug Reports & Questions
 eleanor is an open source project under the MIT license. The source code is available on `GitHub`_. In case of any questions or problems, please contact us via the `Git Issues`_.
 
 
-Indices and tables
-------------------
+Index
+-----
 
 * :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
 .. _TESS: https://tess.mit.edu/
 .. _GitHub: http://github.com/afeinstein20/eleanor
