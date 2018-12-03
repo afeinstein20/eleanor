@@ -1,4 +1,5 @@
 */__pycache__
+*/*/__pycache__
 ellie.egg-info
 docs/_build
 build
@@ -6,3 +7,4 @@ dist
 .DS_Store
 build
 dist
+.cache/
