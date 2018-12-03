@@ -15,19 +15,38 @@ ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/postcards/'
 
 
 class Postcard(object):
-    """
+    """TESS FFI data for one postcard across one sector.
+    
+    A postcard is an rectangular subsection cut out from the FFIs. 
+    It's like a TPF, but bigger. 
+    The Postcard object contains a stack of these cutouts from all available 
+    FFIs during a given sector of TESS observations.
+    
+    Parameters
+    ----------
+    filename : str
+        Filename of the downloaded postcard.
+    location : str, optional
+        Filepath to `filename`.
+    
     Attributes
     ----------
     dimensions : tuple
-        `x`, `y`, and `time` dimensions of postcard
-    header :
-        stored header information for postcard file
+        (`x`, `y`, `time`) dimensions of postcard.
+    flux, flux_err : numpy.ndarray
+        Arrays of shape `postcard.dimensions` containing flux or error on flux 
+        for each pixel.
+    time : float
+        ?
+    header : dict
+        Stored header information for postcard file.
     center_radec : tuple
-        RA & dec coordinates of the postcard's central pixel
+        RA & Dec coordinates of the postcard's central pixel.
     center_xy : tuple
-        `x`, `y` coordinates in the FFI of the postcard's central pixel
-    flux : numpy ndarray
-        array of matrices containing flux in each pixel
+        (`x`, `y`) coordinates corresponding to the location of 
+        the postcard's central pixel on the FFI.
+    origin_xy : tuple
+        ?
     """
     def __init__(self, filename, location=None):
         if location is not None:
@@ -46,10 +65,29 @@ class Postcard(object):
                 self.hdu = fits.open(self.local_path)
 
     def __repr__(self):
-        return "ellie postcard ({})".format(self.filename)
+        return "eleanor postcard ({})".format(self.filename)
 
     def plot(self, frame=0, ax=None, scale='linear', **kwargs):
-        """ Plot a frame of a tpf """
+        """Plots a single frame of a postcard.
+        
+        Parameters
+        ----------
+        frame : int, optional
+            Index of frame. Default 0.
+        
+        ax : matplotlib.axes.Axes, optional
+            Axes on which to plot. Creates a new object by default.
+        
+        scale : str
+            Scaling for colorbar; acceptable inputs are 'linear' or 'log'.
+            Default 'linear'.
+        
+        **kwargs : passed to matplotlib.pyplot.imshow
+        
+        Returns
+        -------
+        ax : matplotlib.axes.Axes
+        """
 
         if ax is None:
             _, ax = plt.subplots(figsize=(8, 7))
@@ -82,13 +120,12 @@ class Postcard(object):
         return ax
 
     def find_sources(self):
-        """
-        Find the sources in a postcard
+        """Finds the cataloged sources in the postcard and returns a table.
 
         Returns
         -------
         result : astropy.table.Table
-            All the sources in a postcard with tic ids, gaia ids and others...
+            All the sources in a postcard with TIC IDs or Gaia IDs.
         """
         result = crossmatch_by_position(self.center_radec, 0.5, 'Mast.Tic.Crossmatch').to_pandas()
         result = result[['MatchID', 'MatchRA', 'MatchDEC', 'pmRA', 'pmDEC', 'Tmag']]
