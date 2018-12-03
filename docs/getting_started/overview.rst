@@ -9,7 +9,7 @@ Summary of eleanor Functionality
 The purpose of eleanor is to go from TESS Full Frame Images to extracted and systematics-corrected light curves for any given star observed by TESS. 
 In its simplest form, eleanor takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star observed by TESS and returns, as a single object, a light curve and accompanying target pixel data. 
 There's plenty of customizability along the way, though: you can examine intermediate data products, change the aperture used for light curve extraction, and much more. 
-The :ref:`tutorial <tutorial>` goes through these procedures in more detail.
+The :ref:`quickstart tutorial <quickstart tutorial>` goes through these procedures in more detail.
 
 
 FAQ
@@ -31,7 +31,7 @@ FAQ
 	By default, eleanor delivers the systematics-corrected light curve of your source and the source's TPF. If you are happy with what you see there, you're done and ready to science! 
 	
 * How can I customize eleanor for my source?
-	If you want to dig a little bit deeper, eleanor delivers several other data products to help you do that. The TPF carries with it a trace of the source's centroid through time and a record of the aperture used, as well as light curves developed using other apertures, which may be more optimal for your specific science application. This makes it easier for you to check for possible issues and reproduce the analysis. eleanor also has tools to define your own aperture, visualize the light curve, and more. See the :ref:`tutorial <tutorial>` for examples.
+	If you want to dig a little bit deeper, eleanor delivers several other data products to help you do that. The TPF carries with it a trace of the source's centroid through time and a record of the aperture used, as well as light curves developed using other apertures, which may be more optimal for your specific science application. This makes it easier for you to check for possible issues and reproduce the analysis. eleanor also has tools to define your own aperture, visualize the light curve, and more. See the :ref:`quickstart tutorial <quickstart tutorial>` for examples.
 	
 * What is a target pixel file (TPF)?
 	Target pixel files are essentially a stack of images of the source, containing one image per observed FFI. They differ from postcards because they're only a few pixels on a side. For more information, see `lightkurve <https://lightkurve.keplerscience.org/tutorials/1.02-target-pixel-files.html>`_. TPF objects in eleanor carry additional attributes: the centroid trace and the aperture used to create the light curve. Taken together, these provide all the information you need to reproduce the light curve.

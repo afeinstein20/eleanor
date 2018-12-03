@@ -10,6 +10,9 @@ API
 
 .. autoclass:: TargetData
     :members:
+    
+.. autoclass:: Postcard
+    :members:
 
 .. autoclass:: Visualize
     :members:
