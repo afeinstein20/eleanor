@@ -4,22 +4,39 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 
 def use_pointing_model(coords, pointing_model):
-    """ Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
-    """ pointing_model is passed in as an astropy.table.Table row and reshaped into a (3x3) matrix """
-    """ pointing_model is for ONE cadence at a time """
-    """ Coords given in (x,y) """
+    """Applies pointing model to correct the position of star(s) on postcard.
+    
+    Parameters
+    ----------
+    coords : tuple
+        (`x`, `y`) position of star(s).
+    
+    pointing_model : astropy.table.Table
+        pointing_model for ONE cadence.
+    
+    Returns
+    -------
+    coords : tuple
+        Corrected position of star(s).
+    """
     pointing_model = np.reshape(list(pointing_model), (3,3))
     A = np.column_stack([coords[0], coords[1], np.ones_like(coords[0])])
     fhat = np.dot(A, pointing_model)
     return fhat[:,0:2]
 
 class ffi:
-    """
-    This class allows the user to download all full-frame images for a given sector,
+    """This class allows the user to download all full-frame images for a given sector,
          camera, and chip. It also allows the user to create their own pointing model
          based on each cadence for a given combination of sector, camera, and chip.
+    
     No individual user should have to download all of the full-frame images because 
          stacked postcards will be available for the user to download from MAST.
+    
+    Parameters
+    ----------
+    sector : int, optional    
+    camera : int, optional    
+    chip : int, optional
     """
     def __init__(self, sector=None, camera=None, chip=None):
         self.sector = sector
@@ -28,7 +45,7 @@ class ffi:
 
 
     def download_ffis(self):
-        """ Downloads entire sector of data into .ellie/ffis/sector directory """
+        """Downloads entire sector of data into .ellie/ffis/sector directory."""
         from astropy.utils.data import download_file
         import requests
         from bs4 import BeautifulSoup
@@ -72,7 +89,7 @@ class ffi:
 
 
     def sort_by_date(self):
-        """ Sorts FITS files by start date of observation """
+        """Sorts FITS files by start date of observation."""
         dates, time = [], []
         for f in self.local_paths:
             hdu = fits.open(f)
@@ -85,10 +102,23 @@ class ffi:
 
 
     def build_pointing_model(self, pos_predicted, pos_inferred, outlier_removal=False):
-        """Builds an affine transformation to correct the positions of stars from a possibly incorrect WCS"""
-        """ pos_predicted are positions taken straight from the WCS """
-        """ pos_inferred are positions taken using any centroiding method """
-        """ [[x,y],[x,y],...] format """
+        """Builds an affine transformation to correct the positions of stars 
+           from a possibly incorrect WCS.
+        
+        Parameters
+        ----------
+        pos_predicted : tuple 
+            Positions taken straight from the WCS; [[x,y],[x,y],...] format.
+        pos_inferred : tuple
+            Positions taken using any centroiding method; [[x,y],[x,y],...] format.
+        outlier_removal : bool, optional
+            Whether to clip 1-sigma outlier frames. Default `False`.
+        
+        Returns
+        -------
+        xhat : 
+        
+        """
         A = np.column_stack([pos_predicted[:,0], pos_predicted[:,1], np.ones_like(pos_predicted[:,0])])
         f = np.column_stack([pos_inferred[:,0], pos_inferred[:,1], np.ones_like(pos_inferred[:,0])])
         if outlier_removal == True:
@@ -107,9 +137,21 @@ class ffi:
 
 
     def use_pointing_model(self, coords, pointing_model):
-        """Calculates the true position of a star/many stars given the predicted pixel location and pointing model"""
-        """ pointing_model = (3x3) for each cadence """
-        """ Coords given in (x,y) """
+        """Applies pointing model to correct the position of star(s) on postcard.
+    
+        Parameters
+        ----------
+        coords : tuple
+            (`x`, `y`) position of star(s).
+    
+        pointing_model : astropy.table.Table
+            pointing_model for ONE cadence.
+        
+        Returns
+        -------
+        coords : tuple
+            Corrected position of star(s).
+        """
         A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
         fhat = np.dot(A, pointing_model)
         return fhat[:,0:2]
@@ -123,7 +165,7 @@ class ffi:
         from astropy.nddata import Cutout2D
 
         def find_isolated(x, y):
-            """ Finds the most isolated, least contaminated sources for pointing model """
+            """Finds the most isolated, least contaminated sources for pointing model."""
             isolated = []
             for i in range(len(x)):
                 x_list  = np.delete(x, np.where(x==x[i]))
@@ -136,7 +178,7 @@ class ffi:
 
 
         def isolated_center(x, y, image):
-            """ Finds the center of each isolated TPF with quadratic_2d """
+            """Finds the center of each isolated TPF with quadratic_2d."""
             cenx, ceny, good = [], [], []
             print("Finding isolated centers of sources")
             for i in range(len(x)):
