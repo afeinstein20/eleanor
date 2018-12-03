@@ -22,15 +22,19 @@ __all__ = ['coords_from_tic', 'gaia_from_coords', 'coords_from_gaia', 'tic_from_
            'cone_search']
 
 def mastQuery(request):
-    """
-    Sends a request to the MAST server
+    """Sends a request to the MAST server.
+    
     Parameters
     ----------
-        request: json string
+    request : str
+        JSON string for request.
+    
     Returns
     ----------
-        head: headers for response
-        content: data for response
+    head : 
+        Retrieved data headers from MAST.
+    content : 
+        Retrieved data contents from MAST.
     """
     t0 = time.time()
     server = 'mast.stsci.edu'
@@ -61,14 +65,16 @@ def mastQuery(request):
 
 
 def jsonTable(jsonObj):
-    """
-    Convets json return type object into an astropy Table
+    """Converts JSON return type object into an astropy Table.
+    
     Parameters
     ----------
-        jsonObj: an object from mastQuery
+    jsonObj : 
+        Output data from `mastQuery`.
+    
     Returns
     ----------
-        table: astropy table for jsonObj
+    dataTable : astropy.table.Table
     """
     dataTable = Table()
     for col,atype in [(x['name'],x['type']) for x in jsonObj['fields']]:
@@ -83,17 +89,21 @@ def jsonTable(jsonObj):
 
 
 def cone_search(pos, r, service, multiPos=None):
-    """
-    Completes a cone search in the Gaia DR2 or TIC catalog
+    """Completes a cone search in the Gaia DR2 or TIC catalog.
+    
     Parameters
     ----------
-        r: radius of cone search [deg]
-        service: identifies which MAST service to use. Either 'Mast.Catalogs.GaiaDR2.Cone'
-                 or 'Mast.Catalogs.Tic.Cone' are acceptable inputs
+    r : float
+        Radius of cone search [deg]
+    service : str
+        MAST service to use. Either 'Mast.Catalogs.GaiaDR2.Cone'
+        or 'Mast.Catalogs.Tic.Cone' are acceptable inputs.
     Returns
     ----------
-        table: table of sources found within cone of radius r
-        See the Gaia & TIC field documantation for more information on returned columns
+    table : astropy.table.Table
+        Sources found within cone of radius r.
+        See the Gaia & TIC field documentation for more information 
+        on returned columns.
     """
     if multiPos != None:
         pos = multiPos
@@ -107,19 +117,22 @@ def cone_search(pos, r, service, multiPos=None):
 
 
 def crossmatch_by_position(pos, r, service):
-    """
-    Crossmatches [RA,Dec] position to a source in the Gaia DR2 catalog and TIC catalog
+    """Crossmatches [RA,Dec] position to a source in the Gaia DR2 or TIC catalog.
+    
     Parameters
     ----------
-        pos: [RA,Dec] list
-        r: radius of search for crossmatch
-        service: identifies which catalog to crossmatch to. Either: 'Mast.GaiaDR2.Crossmatch'
-                 or 'Mast.Tic.Crossmatch' are accepted
-        multiPos: used when user passes in list of IDs to crossmatch
+    pos : tuple
+        (RA, Dec)
+    r :  float
+        Radius of search for crossmatch.
+    service : str
+        Name of service to use. 'Mast.GaiaDR2.Crossmatch'
+            or 'Mast.Tic.Crossmatch' are accepted.
+    
     Returns
-    ----------
-        gaiaTable: table of crossmatch results in Gaia DR2
-        ticTable : table of crossmatch results in TIC
+    -------
+    table : astropy.table.Table
+        Table of crossmatch results.
     """
 
     crossmatchInput = {'fields': [{'name':'ra' , 'type':'float'},
@@ -134,13 +147,18 @@ def crossmatch_by_position(pos, r, service):
 
 
 def gaia_pos_by_ID(gaiaID, multiSource=None):
-    """
-    Finds the RA,Dec for a given Gaia source_id
+    """Finds the RA,Dec for a given Gaia source_id.
+    
     Parameters
     ----------
+    gaiaID : str
+        Gaia DR2 source identifier.
+    
     Returns
-    ----------
-        source_id, pos [RA,Dec], gmag, pmra, pmdec, parallax
+    -------
+    table: astropy.table.Table
+        Table containing the following Gaia DR2 attributes: source_id, 
+        RA, Dec, gmag, pmra, pmdec, parallax.
     """
     from astroquery.gaia import Gaia
 
@@ -157,14 +175,18 @@ def gaia_pos_by_ID(gaiaID, multiSource=None):
 
 
 def coords_from_tic(tic, multiSource=None):
-    """
-    Finds the RA,Dec for a given TIC source_id
+    """Finds the RA, Dec, and magnitude for a given TIC source_id.
+    
     Parameters
     ----------
-        multiSource: used when user passes in a file of TIC IDs to crossmatch
+    multiSource : optional
+        Used when user passes in a file of TIC IDs to crossmatch.
     Returns
-    ----------
-        source_id, pos [RA,Dec], tmag
+    -------
+    coords : tuple
+        (RA, Dec) position [degrees].
+    tmag : float
+        TESS apparent magnitude.
     """
     if multiSource != None:
         source = multiSource
@@ -174,7 +196,7 @@ def coords_from_tic(tic, multiSource=None):
     return [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
 
 def coords_from_gaia(gaia_id):
-    """ Grabs coordinates of input Gaia ID from Gaia DR2 Catalog """
+    """Returns table of Gaia DR2 data given a source_id."""
     from astroquery.gaia import Gaia
     adql = 'SELECT gaia.source_id FROM gaiadr2.gaia_source AS gaia WHERE gaia.source_id={0}'.format(gaia_id)
     job = Gaia.launch_job(adql)
@@ -183,7 +205,7 @@ def coords_from_gaia(gaia_id):
 
 
 def tic_from_coords(coords):
-    """ Grabs coordinates of input TIC ID from Tess Input Catalog v7 """
+    """Returns TIC ID, Tmag, and separation of best match(es) to input coords."""
     tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
     sepTess = crossmatch_distance(coords, tessPos)
@@ -191,14 +213,13 @@ def tic_from_coords(coords):
 
 
 def gaia_from_coords(coords):
+    """Returns Gaia ID of best match(es) to input coords."""
     gaia = crossmatch_by_position(coords, 0.01, 'Mast.GaiaDR2.Crossmatch')[0]
     gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
     return gaia['MatchID']
 
-
-
 def initialize_table():
-    """ Creates a table for crossmatching multiple sources between Gaia and TIC catalogs """
+    """Returns an empty table for use when crossmatching multiple sources."""
     columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'separation', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
     t = Table(np.zeros(10), names=columns)
     t['RA'].unit, t['Dec'].unit, t['separation'].unit = u.arcsec, u.arcsec, u.arcsec
@@ -206,26 +227,29 @@ def initialize_table():
     return t
 
 def crossmatch_distance(pos, match):
-    """ Finds distance between source and crossmatched source(s) """
+    """Returns distance in arcsec between two sets of coordinates."""
     c1 = SkyCoord(pos[0]*u.deg, pos[1]*u.deg, frame='icrs')
     c2 = SkyCoord(match[0]*u.deg, match[1]*u.deg, frame='icrs')
     return c1.separation(c2).to(u.arcsec)
 
 
 def crossmatch_multi_to_gaia(fn, r=0.01):
-    """
-    Crossmatches file of TIC IDs to Gaia
+    """Crossmatches file of TIC IDs to Gaia.
+    
     Parameters
     ----------
-        fn: file of TIC IDs
-        r: radius of cone search. Defaults to r=0.01
+    fn : str
+        Filename for list of TIC IDs.
+    r : float, optional
+        Radius of cone search. Defaults to r=0.01.
+    
     Returns
-    ----------
-        table: table of gaia_id, tic_id, ra, dec, delta_pos, gmag, tmag, pmra, pmdec, parallax
+    -------
+    table : astropy.table.Table
+        Table of all matches.
     """
     sources  = np.loadtxt(fn, dtype=int)
     service  = 'Mast.GaiaDR2.Crossmatch'
-    r = 0.01
     t = initialize_table()
     for s in sources:
         tID, pos, tmag = tic_pos_by_ID(s)
@@ -238,15 +262,19 @@ def crossmatch_multi_to_gaia(fn, r=0.01):
 
 
 def crossmatch_multi_to_tic(fn, r=0.1):
-    """
-    Crossmatches file of Gaia IDs to TIC
+    """Crossmatches file of Gaia IDs to TIC.
+    
     Parameters
     ----------
-        fn: file of Gaia IDs
-        r:  radius of cone search. Defaults to r=0.1
+    fn : str
+        Filename for list of Gaia IDs.
+    r : float, optional
+        Radius of cone search. Defaults to r=0.01.
+    
     Returns
-    ----------
-        table: table of gaia_id, tic_id, ra, dec, delta_pos, gmag, tmag, pmra, pmdec, parallax
+    -------
+    table : astropy.table.Table
+        Table of all matches.
     """
     sources = np.loadtxt(list, dtype=int)
     service  = 'Mast.Tic.Crossmatch'
@@ -266,14 +294,16 @@ def crossmatch_multi_to_tic(fn, r=0.1):
     return t
 
 
-def find_by_position(pos):
+def find_by_position():
     """
     Allows the user to pass in a file of RA,Dec pairs to be matched in Gaia & TIC
     Parameters
     ----------
+
     Returns
     ----------
-        table: table of gaia_id, tic_id, ra, dec, delta_pos_gaia, delta_pos_tic, gmag, tmag, pmra, pmdec, parallax
+    table : astropy.table.Table
+    
     """
     columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'Gaia_sep', 'TIC_sep', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
     t = Table(np.zeros(11), names=columns)
@@ -298,17 +328,25 @@ def find_by_position(pos):
 
 
 def tic_by_contamination(pos, r, contam, tmag_lim):
-    """
-    Allows the user to perform a counts only query or get the usual grid of results. When unsure
-    how many results is expcted, it is best to first perform a counts query to avoid memory overflow
+    """Allows the user to perform a counts only query. 
+    
+    When unsure how many results are expcted, it is best to first perform 
+    a counts query to avoid memory overflow.
+    
     Parameters
     ----------
-        pos: [RA,Dec] pair to be the center of the search
-        r: radius of cone search
-        contam: [min,max] list of how much allowed contamination
+    pos : tuple
+        [RA,Dec] pair to be the center of the search.
+    r : float
+        Radius of cone search.
+    contam : tuple
+        [min,max] limits on allowed contamination.
+    tmag_lim :
+    
     Returns
     ----------
-        json.loads(outString): a table of source(s) in radius
+    table : astropy.table.Table    
+        A table of source(s) in radius
     """
     request = {'service':'Mast.Catalogs.Filtered.Tic.Position',
                'format':'json',
