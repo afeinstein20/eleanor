@@ -11,37 +11,34 @@ __all__ = ['Source']
 
 
 def load_postcard_guide():
-    """ Load and return the postcard coordinates guide """
+    """Load and return the postcard coordinates guide."""
     guide_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.guide')
     guide = guide_link.read().decode('utf-8')
     guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
     return guide
 
-
-
 class Source(object):
-    """
-    A single source observed by TESS.
+    """A single source observed by TESS.
 
     Parameters
     ----------
-    tic : int; optional
-        The TIC ID of the source
-    gaia : int; optional
-        The Gaia DR2 source_id
-    coords : (float, float); optional
-        The (RA, Dec) coords of the object in degrees
+    tic : int, optional
+        The TIC ID of the source.
+    gaia : int, optional
+        The Gaia DR2 source_id.
+    coords : tuple, optional
+        The (RA, Dec) coords of the object in degrees.
 
-    Additional Attributes
-    ---------------------
+    Attributes
+    ----------
     tess_mag : float
-        The TESS magnitude from the TIC
+        The TESS magnitude from the TIC.
     sector : int
-        Sector in which source was observed by TESS
+        Sector in which source was observed by TESS.
     camera : int
-        TESS camera on which source falls
+        TESS camera on which source falls.
     chip : int
-        TESS chip on which source falls
+        TESS chip on which source falls.
     position_on_chip : (int, int)
         Predicted (x,y) coords of object center on chip.
     postcard : str
@@ -85,13 +82,10 @@ class Source(object):
 
 
 
-    def locate_on_chip(self, guide):
-
-        """
-        Finds the TESS sector, camera, chip, and position on chip for the source.
+    def locate_on_chip(self):
+        """Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
-
         guide = load_postcard_guide()
 
         self.sector = None
@@ -125,8 +119,7 @@ class Source(object):
 
 
     def locate_on_tess(self):
-        """
-        Finds the best TESS postcard(s) and the position of the source on postcard.
+        """Finds the best TESS postcard(s) and the position of the source on postcard.
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
         guide = load_postcard_guide()
