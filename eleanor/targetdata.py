@@ -143,19 +143,16 @@ class TargetData(object):
         self.centroid_xs = None
         self.centroid_ys = None
 
-        def apply_pointing_model(xy):
-            centroid_xs, centroid_ys = [], []
-            for i in range(len(self.pointing_model)):
-                new_coords = use_pointing_model(xy, self.pointing_model[i])
-                centroid_xs.append(new_coords[0][0])
-                centroid_ys.append(new_coords[0][1])
-            self.centroid_xs = np.array(centroid_xs)
-            self.centroid_ys = np.array(centroid_ys)
-            return
-
         xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
-
-        apply_pointing_model(xy)
+        
+        # Apply the pointing model to each cadence to find the centroids
+        centroid_xs, centroid_ys = [], []
+        for i in range(len(self.pointing_model)):
+            new_coords = use_pointing_model(xy, self.pointing_model[i])
+            centroid_xs.append(new_coords[0][0])
+            centroid_ys.append(new_coords[0][1])
+        self.centroid_xs = np.array(centroid_xs)
+        self.centroid_ys = np.array(centroid_ys)
 
         # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)

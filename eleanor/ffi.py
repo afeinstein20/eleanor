@@ -191,7 +191,6 @@ class ffi:
             cenx, ceny = np.array(cenx), np.array(ceny)
             return cenx, ceny, good
 
-
         def apply_pointing_model(xy, matrix):
             pointing_model = matrix
             centroid_xs, centroid_ys = [], []
