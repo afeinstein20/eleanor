@@ -138,7 +138,6 @@ class TargetData(object):
 
     def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
         """Gets TPF from postcard."""
-        from astropy.nddata import Cutout2D
 
         self.tpf = None
         self.centroid_xs = None
@@ -323,7 +322,6 @@ class TargetData(object):
         Finds the brightest pixel in a (`height`, `width`) region summed up over all cadence. 
         Searches a smaller (3x3) region around this pixel at each cadence and uses `muchbettermoments` to find the maximum.
         """
-        from astropy.nddata.utils import Cutout2D
 
         self.x_com = []
         self.y_com = []
