@@ -3,24 +3,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
-from mast import tic_by_contamination
 from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.utils.data import download_file
 import requests
 from bs4 import BeautifulSoup
+import warnings
+
+from .mast import tic_by_contamination
 
 def use_pointing_model(coords, pointing_model):
     """Applies pointing model to correct the position of star(s) on postcard.
-    
+
     Parameters
     ----------
     coords : tuple
         (`x`, `y`) position of star(s).
-    
+
     pointing_model : astropy.table.Table
         pointing_model for ONE cadence.
-    
+
     Returns
     -------
     coords : tuple
@@ -35,14 +37,14 @@ class ffi:
     """This class allows the user to download all full-frame images for a given sector,
          camera, and chip. It also allows the user to create their own pointing model
          based on each cadence for a given combination of sector, camera, and chip.
-    
-    No individual user should have to download all of the full-frame images because 
+
+    No individual user should have to download all of the full-frame images because
          stacked postcards will be available for the user to download from MAST.
-    
+
     Parameters
     ----------
-    sector : int, optional    
-    camera : int, optional    
+    sector : int, optional
+    camera : int, optional
     chip : int, optional
     """
     def __init__(self, sector=None, camera=None, chip=None):
@@ -51,8 +53,16 @@ class ffi:
         self.chip   = chip
 
 
-    def download_ffis(self):
-        """Downloads entire sector of data into .ellie/ffis/sector directory."""
+    def download_ffis(self, download_dir=None):
+        """
+        Downloads entire sector of data into FFI download directory.
+
+        Parameters
+        ----------
+        download_dir : str
+            Location where the data files will be stored.
+            Defaults to "~/.eleanor/sector_{}/ffis" if `None` is passed.
+        """
 
         def findAllFFIs(ca, ch):
             nonlocal year, days, url
@@ -76,10 +86,11 @@ class ffi:
         url = 'https://archive.stsci.edu/missions/tess/ete-6/ffi/'
         files, urlPaths = findAllFFIs(self.camera, self.chip)
 
-        # Creates hidden .eleanor FFI directory
-        ffi_dir = './.eleanor/sector_{}/ffis/'.format(self.sector)
-        if os.path.isdir(ffi_dir)==False:
-            os.system('mkdir {}'.format(ffi_dir))
+        if download_dir is None:
+            # Creates hidden .eleanor FFI directory
+            ffi_dir = self._fetch_ffi_dir()
+        else:
+            ffi_dir = download_dir
 
         files_in_dir = os.listdir(ffi_dir)
 
@@ -90,6 +101,36 @@ class ffi:
             local_paths.append(ffi_dir+files[i])
         self.local_paths = np.array(local_paths)
         return
+
+
+    def _fetch_ffi_dir(self):
+        """Returns the default path to the directory where FFIs will be downloaded.
+
+        By default, this method will return "~/.eleanor/sector_{}/ffis" and create
+        this directory if it does not exist.  If the directory cannot be
+        access or created, then it returns the local directory (".").
+
+        Returns
+        -------
+        download_dir : str
+            Path to location of `ffi_dir` where FFIs will be downloaded
+        """
+        download_dir = os.path.join(os.path.expanduser('~'), '.eleanor',
+                                    'sector_{}'.format(self.sector), 'ffis')
+        if os.path.isdir(download_dir):
+            return download_dir
+        else:
+            # if it doesn't exist, make a new cache directory
+            try:
+                os.mkdir(download_dir)
+            # downloads locally if OS error occurs
+            except OSError:
+                warnings.warn('Warning: unable to create {}. '
+                              'Downloading FFIs to the current '
+                              'working directory instead.'.format(download_dir))
+                download_dir = '.'
+
+        return download_dir
 
 
     def sort_by_date(self):
@@ -106,22 +147,22 @@ class ffi:
 
 
     def build_pointing_model(self, pos_predicted, pos_inferred, outlier_removal=False):
-        """Builds an affine transformation to correct the positions of stars 
+        """Builds an affine transformation to correct the positions of stars
            from a possibly incorrect WCS.
-        
+
         Parameters
         ----------
-        pos_predicted : tuple 
+        pos_predicted : tuple
             Positions taken straight from the WCS; [[x,y],[x,y],...] format.
         pos_inferred : tuple
             Positions taken using any centroiding method; [[x,y],[x,y],...] format.
         outlier_removal : bool, optional
             Whether to clip 1-sigma outlier frames. Default `False`.
-        
+
         Returns
         -------
-        xhat : 
-        
+        xhat :
+
         """
         A = np.column_stack([pos_predicted[:,0], pos_predicted[:,1], np.ones_like(pos_predicted[:,0])])
         f = np.column_stack([pos_inferred[:,0], pos_inferred[:,1], np.ones_like(pos_inferred[:,0])])
@@ -142,15 +183,15 @@ class ffi:
 
     def use_pointing_model(self, coords, pointing_model):
         """Applies pointing model to correct the position of star(s) on postcard.
-    
+
         Parameters
         ----------
         coords : tuple
             (`x`, `y`) position of star(s).
-    
+
         pointing_model : astropy.table.Table
             pointing_model for ONE cadence.
-        
+
         Returns
         -------
         coords : tuple
@@ -179,16 +220,16 @@ class ffi:
 
         def isolated_center(x, y, image):
             """Finds the center of each isolated TPF with quadratic_2d.
-            
+
             Parameters
             ----------
             x : array-like
                 Initial guesses of x positions for sources.
             y : array-like
-                Initial guesses of y positions for sources.            
+                Initial guesses of y positions for sources.
             image :
-                
-            
+
+
             Returns
             -------
             cenx : array-like
@@ -256,6 +297,6 @@ class ffi:
 
             sol    = np.dot(matrix, solution)
             sol    = sol.flatten()
-            
+
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
