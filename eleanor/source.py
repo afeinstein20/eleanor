@@ -138,7 +138,7 @@ class Source(object):
         for i in postcard_inds: # loop rows
 
             x_cen, y_cen= guide['CEN_X'][i], guide['CEN_Y'][i]
-            l, w = guide['POST_H'][i]/2., guide['POST_W'][i]/2.
+            l, w = guide['POST_HEIGHT'][i]/2., guide['POST_WIDTH'][i]/2.
 
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
@@ -164,11 +164,11 @@ class Source(object):
         self.chip = guide['CCD'][in_file[best_ind]]
 
         i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
-                                guide['CEN_Y'][i] - guide['POST_W'][i]/2.)
+        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_HEIGHT'][i]/2.,
+                                guide['CEN_Y'][i] - guide['POST_WIDTH'][i]/2.)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
 
         i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
-                              guide['CEN_Y'][i] - guide['POST_W'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
+        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_HEIGHT'][i]/2.,
+                              guide['CEN_Y'][i] - guide['POST_WIDTH'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS

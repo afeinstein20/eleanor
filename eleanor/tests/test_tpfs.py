@@ -1,13 +1,13 @@
 import pytest
 import warnings
 
-from .source import Source
-from .targetdata import TargetData
+from ..source import Source
+from ..targetdata import TargetData
 import matplotlib.pyplot as plt
-from .visualize import Visualize
+from ..visualize import Visualize
 
 def test_making_tpfs():
-    '''Does providing an RA/Dec pair, Gaia ID, or TIC ID for the 
+    '''Does providing an RA/Dec pair, Gaia ID, or TIC ID for the
     SAME target produce the SAME light curve?"
     '''
 
@@ -21,12 +21,12 @@ def test_making_tpfs():
 
     test1 = np.sum(data1.tpf.raw_flux - data2.tpf.raw_flux) # should be zero
     test2 = np.sum(data2.tpf.raw_flux - data3.tpf.raw_flux) # should be zero
-    
+
     assert(test1 == test2)
     assert(test2 == 0)
-    
+
 def test_arb_size_tpfs():
-    star = Source(tic=261136246) 
+    star = Source(tic=261136246)
     data = TargetData(star, height=15, width=12)
     assert(np.shape(data.tpf.raw_flux[0] == (15,12)))
 

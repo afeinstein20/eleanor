@@ -6,6 +6,7 @@ from lightkurve import SFFCorrector
 from scipy.optimize import minimize
 from astropy.table import Table
 import urllib
+import os
 
 from .ffi import use_pointing_model
 from .postcard import Postcard
@@ -26,6 +27,7 @@ class TargetData(object):
     width : int, optional
         Width in pixels of TPF to retrieve. Default 9.
 
+
     Attributes
     ----------
     source_info : ellie.Source
@@ -44,7 +46,8 @@ class TargetData(object):
     all_apertures
     
     """
-    def __init__(self, source, height=9, width=9):
+
+    def __init__(self, source, height=9, width=9, save_postcard=True):
         self.source_info = source
         self.custom_aperture = None
 
@@ -55,7 +58,7 @@ class TargetData(object):
             self.post_obj = Postcard(source.postcard)
             self.time  = self.post_obj.time
             self.load_pointing_model(source.sector, source.camera, source.chip)
-            self.get_tpf_from_postcard(source.coords, source.postcard, height, width)
+            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, save_postcard)
             self.create_apertures(height, width)
             self.get_lightcurve()
             self.center_of_mass()
@@ -74,7 +77,7 @@ class TargetData(object):
         return
 
 
-    def get_tpf_from_postcard(self, pos, postcard, height, width):
+    def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
         """
         Creates a FITS file for a given source that includes:
             Extension[0] = header
@@ -143,6 +146,12 @@ class TargetData(object):
         self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
+        
+        if save_postcard == False:
+            try:
+                os.remove(source.postcard.filename)
+            except OSError:
+                pass
         return
 
 
@@ -155,12 +164,13 @@ class TargetData(object):
         self.all_aperture = an array of masks for all apertures tested
         """
         from photutils import CircularAperture, RectangularAperture
-
+        import eleanor
         self.all_apertures = None
 
         # Saves some time by pre-loading apertures for 9x9 TPFs
         if (height,width) == (9,9):
-            self.all_apertures = np.load('default_apertures.npy')
+            ap_path = eleanor.__path__[0]+'/default_apertures.npy'
+            self.all_apertures = np.load(ap_path)
 
         # Creates aperture based on the requested size of TPF
         else:
@@ -213,12 +223,23 @@ class TargetData(object):
             self.all_lc     (if mask=None)
             self.all_lc_err (if mask=None)
         """
+        def apply_mask(mask):
+            lc     = np.zeros(len(self.tpf))
+            lc_err = np.zeros(len(self.tpf))
+            for cad in range(len(self.tpf)):
+                lc[cad]     = np.sum( self.tpf[cad] * mask)
+                lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * mask))
+            self.raw_flux   = np.array(lc)
+            self.corr_flux  = self.jitter_corr(flux=lc)
+            self.flux_err   = np.array(lc_err)
+            return
+        
 
         self.flux       = None
         self.flux_err   = None
         self.aperture   = None
 
-        if custom_mask is False:
+        if (custom_mask is False) or (self.custom_aperture is None):
 
             self.all_lc      = None
             self.all_lc_err  = None
@@ -248,17 +269,14 @@ class TargetData(object):
             self.flux_err = self.all_lc_err[best_ind]
 
         else:
-            if self.custom_aperture is None:
-                print("You have not defined a custom aperture. You can do this by calling the function .custom_aperture")
+            if self.custom_aperture is not None:
+                apply_mask(self.custom_aperture)
+            elif np.shape(custom_mask) == np.shape(self.tpf[0]):
+                apply_mask(custom_mask)
             else:
-                lc = np.zeros(len(self.tpf))
-                for cad in range(len(self.tpf)):
-                    lc[cad]     = np.sum( self.tpf[cad]     * self.custom_aperture )
-                    lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.custom_aperture ))
-                self.raw_flux   = np.array(lc)
-                self.corr_flux  = self.jitter_corr(flux=lc)
-                self.flux_err   = np.array(lc_err)
-
+                print("We could not find a custom mask. Please either create a 2D array that is the same shape as the TPF.")
+                print("Or, create a custom mask using the function TargetData.custom_aperture(). See documentation for inputs.")
+                
         return
 
 
@@ -384,6 +402,9 @@ class TargetData(object):
 
         self.custom_aperture = None
 
+        if shape is None:
+            print("Please select a shape: circle or rectangle")
+
         shape = shape.lower()
         if pos is None:
             pos = (width/2, height/2)
@@ -452,7 +473,7 @@ class TargetData(object):
     def rotation_corr(self):
         """ Corrects for spacecraft roll using Lightkurve """
         sff = SFFCorrector()
-        lc_new = sff.correct(self.time, self.flux, self.centroid_xs, self.centroid_ys, niters=1,
+        lc_new = sff.correct(self.time, self.raw_flux, self.centroid_xs, self.centroid_ys, niters=1,
                                    windows=1, polyorder=5)
         self.flux = np.copy(lc_new.flux)
 
@@ -521,15 +542,16 @@ class TargetData(object):
 
         # Creates table for first extension (tpf, tpf_err, best lc, time, centroids)
         ext1 = Table()
-        ext1['time']       = self.time
-        ext1['tpf']        = self.tpf
-        ext1['tpf_err']    = self.tpf_err
-        ext1['raw_flux']   = self.raw_flux
-        ext1['corr_flux']  = self.corr_flux
-        ext1['flux_err']   = self.flux_err
-        ext1['quality']    = self.quality
-        ext1['x_centroid'] = self.centroid_xs
-        ext1['y_centroid'] = self.centroid_ys
+        ext1['TIME']       = self.time
+        ext1['TPF']        = self.tpf
+#        ext1['FLUX']       = self.tpf
+        ext1['TPF_ERR']    = self.tpf_err
+        ext1['RAW_FLUX']   = self.raw_flux
+        ext1['CORR_FLUX']  = self.corr_flux
+        ext1['FLUX_ERR']   = self.flux_err
+        ext1['QUALITY']    = self.quality
+        ext1['X_CENTROID'] = self.centroid_xs
+        ext1['Y_CENTROID'] = self.centroid_ys
 
         # Creates table for second extension (all apertures)
         ext2 = Table()
@@ -555,7 +577,7 @@ class TargetData(object):
         primary_hdu = fits.PrimaryHDU(header=self.header)
         data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
-
+        
         if output_fn==None:
             hdu.writeto('hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(self.source_info.tic, self.source_info.sector), overwrite=True)
         else:
