@@ -332,11 +332,10 @@ class TargetData(object):
 
 
     def set_quality(self):
-        """
-        Currently (10/13/2018), this function sets a flag for when the centroid is
-            3 sigma away from the mean either in the x or y direction
-        Hopefully in the future, MAST will put in some quality flags for us
-        Our flags and their flags will be combnied, if they create flags
+        """Currently (10/13/2018), this function sets a flag for when the centroid is 
+        3 sigma away from the mean either in the x or y direction. 
+        Hopefully in the future, MAST will put in some quality flags for us. 
+        Our flags and their flags will be combnied, if they create flags. 
         """
         bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+3*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+3*np.std(self.centroid_ys)))
 
@@ -487,19 +486,7 @@ class TargetData(object):
 
 
     def set_header(self):
-<<<<<<< HEAD
         """Defines the header for the TPF."""
-        from time import strftime
-        from astropy.io import fits
-
-=======
-        """
-        Defines the header for the TPF
-        Sets:
-            self.header
-        """
-        
->>>>>>> upstream/master
         self.header = self.post_obj.header
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
 
@@ -600,16 +587,7 @@ class TargetData(object):
 
 
     def load(self):
-<<<<<<< HEAD
         """Loads in and sets all the attributes for a pre-created TPF file."""
-        from astropy.io import fits
-        from astropy.table import Table
-
-=======
-        """
-        Loads in and sets all the attributes for a pre-created TPF file
-        """
->>>>>>> upstream/master
         hdu = fits.open(self.source_info.fn)
         hdr = hdu[0].header
         self.header = hdr
