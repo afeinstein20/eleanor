@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
-from mast import tic_by_contamination
+from .mast import tic_by_contamination
 from astropy.wcs import WCS
 from astropy.nddata import Cutout2D
 from astropy.utils.data import download_file
