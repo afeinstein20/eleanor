@@ -158,7 +158,7 @@ class ffi:
 
 
     def pointing_model_per_cadence(self):
-        """ Step through build_pointing_model for each cadence """
+        """Step through build_pointing_model for each cadence."""
         from muchbettermoments import quadratic_2d
         from mast import tic_by_contamination
         from astropy.wcs import WCS
@@ -178,7 +178,26 @@ class ffi:
 
 
         def isolated_center(x, y, image):
-            """Finds the center of each isolated TPF with quadratic_2d."""
+            """Finds the center of each isolated TPF with quadratic_2d.
+            
+            Parameters
+            ----------
+            x : array-like
+                Initial guesses of x positions for sources.
+            y : array-like
+                Initial guesses of y positions for sources.            
+            image :
+                
+            
+            Returns
+            -------
+            cenx : array-like
+                Controid x coordinates for all good input sources.
+            ceny : array-like
+                Centroid y coordinates for all good input sources.
+            good : list
+                Indexes into input arrays corresponding to good sources.
+            """
             cenx, ceny, good = [], [], []
             print("Finding isolated centers of sources")
             for i in range(len(x)):
