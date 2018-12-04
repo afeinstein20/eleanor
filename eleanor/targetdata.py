@@ -38,7 +38,7 @@ class TargetData(object):
         FITS header for saving/loading data.
     source_info : eleanor.Source
         Pointer to input source.
-    custom_aperture : 
+    aperture : 
         Aperture to use if overriding default. To use default, set to `None`.
     tpf : np.ndarray
         Target pixel file of fluxes; array with shape `dimensions`.
@@ -107,7 +107,6 @@ class TargetData(object):
 
     def __init__(self, source, height=9, width=9, save_postcard=True):
         self.source_info = source
-        self.custom_aperture = None
 
         if source.premade is not None:
             self.load()
