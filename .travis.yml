@@ -33,9 +33,8 @@ install:
 script:
   - python setup.py develop
   - echo "skipping tests"
-  - nosetests eleanor/tests/ -v — with-coverage
 
 after_success:
   - codecov
-  - bash < (curl -s https://codecov.io/bash)
+  - bash < (curl -s https://codecov.io/bash) -t d423a258-e122-4865-82b8-b5e65bd1f5d8
   - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
