@@ -52,13 +52,17 @@ class TargetData(object):
     tpf_err : np.ndarray
         Errors on fluxes in `tpf`.
     centroid_xs : np.ndarray
-        Position of the source in `x` inferred from pointing model; has same length as `time`.
+        Position of the source in `x` inferred from pointing model; has same length as `time`. 
+        Position is relative to the pixel coordinate system of the postcard.
     centroid_ys : np.ndarray
-        Position of the source in `y` inferred from pointing model; has same length as `time`.    
+        Position of the source in `y` inferred from pointing model; has same length as `time`.  
+        Position is relative to the pixel coordinate system of the postcard.
     cen_x : int
-        Median `x` position of the source.
+        Median `x` position of the source. 
+        Position is relative to the pixel coordinate system of the postcard.
     cen_y : int
-        Median `y` position of the source.
+        Median `y` position of the source. 
+        Position is relative to the pixel coordinate system of the postcard.
     dimensions : tuple
         Shape of `tpf`. Should be (`time`, `height`, `width`).
     all_apertures : list
@@ -82,9 +86,11 @@ class TargetData(object):
     raw_flux : np.ndarray
         Un-systematics-corrected lightcurve derived using `aperture` and `tpf`.
     x_com : np.ndarray
-        Position of the source in `x` inferred from TPF; has same length as `time`.
+        Position of the source in `x` inferred from TPF; has same length as `time`. 
+        Position is relative to the pixel coordinate system of the TPF.
     y_com : np.ndarray
-        Position of the source in `y` inferred from TPF; has same length as `time`.
+        Position of the source in `y` inferred from TPF; has same length as `time`. 
+        Position is relative to the pixel coordinate system of the TPF.
     quality : int
         Quality flag.
     
@@ -249,7 +255,10 @@ class TargetData(object):
         
         Parameters
         ----------
-        custom_mask : bool, optional
+        aperture : numpy.ndarray 
+            (`height`, `width`) array of floats in the range [0,1] with desired weights for each pixel to 
+            create a light curve. If not set, ideal aperture is inferred automatically. If set, uses this 
+            aperture at the expense of all other set apertures.
         """
         def apply_mask(mask):
             lc     = np.zeros(len(self.tpf))
