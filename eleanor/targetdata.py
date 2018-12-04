@@ -4,6 +4,8 @@ from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import SFFCorrector
 from scipy.optimize import minimize
+from astropy.table import Table
+import urllib
 import os
 
 from .ffi import use_pointing_model
@@ -18,20 +20,31 @@ class TargetData(object):
 
     Parameters
     ----------
-    source : an eleanor.Source object
+    source : ellie.Source
+        The source object to use.
+    height : int, optional
+        Height in pixels of TPF to retrieve. Default 9.
+    width : int, optional
+        Width in pixels of TPF to retrieve. Default 9.
+
 
     Attributes
     ----------
-    tpf : [lightkurve TargetPixelFile object](https://lightkurve.keplerscience.org/api/targetpixelfile.html)
-        target pixel file
-    best_lightcurve : [lightkurve LightCurve object](https://lightkurve.keplerscience.org/api/lightcurve.html)
-        extracted light curve
+    source_info : ellie.Source
+        Pointer to input source.
+    custom_aperture : 
+        Aperture to use if overriding default. To use default, set to `None`.
+    tpf : lightkurve.TargetPixelFile
+        Target pixel file; see [lightkurve docs](https://lightkurve.keplerscience.org/api/targetpixelfile.html).
+    best_lightcurve : lightkurve.LightCurve
+        Extracted light curve; see [lightkurve docs](https://lightkurve.keplerscience.org/api/lightcurve.html).
     centroid_trace : (2, N_time) np.ndarray
         (xs, ys) in TPF pixel coordinates as a function of time
     best_aperture :
 
     all_lightcurves
     all_apertures
+    
     """
 
     def __init__(self, source, height=9, width=9, save_postcard=True):
@@ -54,8 +67,7 @@ class TargetData(object):
 
 
     def load_pointing_model(self, sector, camera, chip):
-        from astropy.table import Table
-        import urllib
+        
         pointing_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
                                                                                                                           camera,
                                                                                                                           chip))
@@ -147,8 +159,9 @@ class TargetData(object):
         """
         Finds the "best" aperture (i.e. the one that produces the smallest std light curve) for a range of
         sizes and shapes.
+        
         Defines
-            self.all_aperture = an array of masks for all apertures tested
+        self.all_aperture = an array of masks for all apertures tested
         """
         from photutils import CircularAperture, RectangularAperture
         import eleanor
