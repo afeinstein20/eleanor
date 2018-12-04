@@ -28,7 +28,7 @@ class ffi:
 
 
     def download_ffis(self):
-        """ Downloads entire sector of data into .ellie/ffis/sector directory """
+        """ Downloads entire sector of data into .eleanor/ffis/sector directory """
         from astropy.utils.data import download_file
         import requests
         from bs4 import BeautifulSoup
@@ -55,8 +55,8 @@ class ffi:
         url = 'https://archive.stsci.edu/missions/tess/ete-6/ffi/'
         files, urlPaths = findAllFFIs(self.camera, self.chip)
 
-        # Creates hidden .ellie FFI directory
-        ffi_dir = './.ellie/sector_{}/ffis/'.format(self.sector)
+        # Creates hidden .eleanor FFI directory
+        ffi_dir = './.eleanor/sector_{}/ffis/'.format(self.sector)
         if os.path.isdir(ffi_dir)==False:
             os.system('mkdir {}'.format(ffi_dir))
 

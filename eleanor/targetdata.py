@@ -4,6 +4,7 @@ from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import SFFCorrector
 from scipy.optimize import minimize
+import os
 
 from .ffi import use_pointing_model
 from .postcard import Postcard
@@ -17,7 +18,7 @@ class TargetData(object):
 
     Parameters
     ----------
-    source : an ellie.Source object
+    source : an eleanor.Source object
 
     Attributes
     ----------
@@ -33,7 +34,7 @@ class TargetData(object):
     all_apertures
     """
 
-    def __init__(self, source, height=9, width=9):
+    def __init__(self, source, height=9, width=9, save_postcard=True):
         self.source_info = source
         self.custom_aperture = None
 
@@ -44,7 +45,7 @@ class TargetData(object):
             self.post_obj = Postcard(source.postcard)
             self.time  = self.post_obj.time
             self.load_pointing_model(source.sector, source.camera, source.chip)
-            self.get_tpf_from_postcard(source.coords, source.postcard, height, width)
+            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, save_postcard)
             self.create_apertures(height, width)
             self.get_lightcurve()
             self.center_of_mass()
@@ -64,7 +65,7 @@ class TargetData(object):
         return
 
 
-    def get_tpf_from_postcard(self, pos, postcard, height, width):
+    def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
         """
         Creates a FITS file for a given source that includes:
             Extension[0] = header
@@ -133,6 +134,12 @@ class TargetData(object):
         self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
+        
+        if save_postcard == False:
+            try:
+                os.remove(source.postcard.filename)
+            except OSError:
+                pass
         return
 
 

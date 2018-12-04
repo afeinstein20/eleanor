@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.wcs import WCS
-from .ellie import data_products
+from .eleanor import data_products
 import matplotlib.animation as animation
 from astropy.nddata import Cutout2D
 from scipy import ndimage
@@ -24,7 +24,7 @@ def animate(i):
 
 
 a = data_products()
-fn = 'hlsp_ellie_tess_ffi_198593129_v1_lc.fits'
+fn = 'hlsp_eleanor_tess_ffi_198593129_v1_lc.fits'
 hdu = fits.open(fn)
 tpf = hdu[0].data
 hdr = hdu[0].header

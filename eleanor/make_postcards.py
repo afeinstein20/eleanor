@@ -28,9 +28,9 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     middle_fn = fns[total_ffis//2]
     data, primary_header = fitsio.read(middle_fn, 1, header=True)
 
-    # Add the ELLIE info to the header
+    # Add the eleanor info to the header
     primary_header.add_record("COMMENT   ***********************")
-    primary_header.add_record("COMMENT   *     ELLIE INFO      *")
+    primary_header.add_record("COMMENT   *    eleanor INFO     *")
     primary_header.add_record("COMMENT   ***********************")
     primary_header.add_record(
         dict(name='AUTHOR', value='Adina D. Feinstein'))
@@ -38,10 +38,10 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
         dict(name='VERSION', value=__version__))
     primary_header.add_record(
         dict(name='GITHUB',
-             value='https://github.com/afeinstein20/ELLIE'))
+             value='https://github.com/afeinstein20/eleanor'))
     primary_header.add_record(
         dict(name='CREATED', value=strftime('%Y-%m-%d'),
-             comment='ELLIE file creation date (YYY-MM-DD)'))
+             comment='eleanor file creation date (YYY-MM-DD)'))
 
     # Build the WCS for this middle exposure
     primary_wcs = WCS(primary_header)
@@ -52,7 +52,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     # Set the output filename format
     info = (primary_header["CAMERA"], primary_header["CCD"],
             primary_header["IMAGTYPE"].strip())
-    outfn_fmt = "hlsp_ellie_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}.fits".format(
+    outfn_fmt = "hlsp_elleanor_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}.fits".format(
         "-".join(map("{0}".format, info)))
     outfn_fmt = os.path.join(outdir, outfn_fmt).format
 
