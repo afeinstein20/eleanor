@@ -98,6 +98,7 @@ def cone_search(pos, r, service, multiPos=None):
     service : str
         MAST service to use. Either 'Mast.Catalogs.GaiaDR2.Cone'
         or 'Mast.Catalogs.Tic.Cone' are acceptable inputs.
+    
     Returns
     ----------
     table : astropy.table.Table

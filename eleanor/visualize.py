@@ -9,12 +9,14 @@ __all__ = []
 
 class Visualize(object):
     """
-    The main class for creating figures, movies, and interactive plots
+    The main class for creating figures, movies, and interactive plots. 
     Allows the user to have a grand ole time playing with their data!
 
-    Args:
-       obj: object must have minimum attributes of 2D array of flux
-            will allow for plotting of both postcards & tpfs
+    Parameters
+    ----------
+    obj : 
+        Object must have minimum attributes of 2D array of flux. 
+        Will allow for plotting of both postcards & tpfs.
     """
 
     def __init__(self, object):
@@ -36,14 +38,26 @@ class Visualize(object):
     def movie(self, output_fn=None, plot_lc=False, pointing_model=False, aperture=False, **kwargs):
         """
         This function allows the user to create a movie of a TPF or postcard
+        
         Parameters
         ----------
-            output_fn: Allows the user to set an output filename to save the movie to
-            plot_lc  : Allows the user to plot the light curve and track location along
-                       light curve with time-dependent movie (Defaults to False)
-            pointing_model: Allows the user to plot the movement of the pointing_model
-                            for a given source; only applicable on TPFs (Defaults to False)
-            aperture: Allows the user to overplot the aperture on the TPF movie
+        output_fn : str, optional 
+            Output filename to save the movie to.
+        plot_lc : bool, optional 
+            If True, plot the light curve and track location along
+            light curve with time-dependent movie (Defaults to False).
+        pointing_model : bool, optional 
+            If True, plot the movement of the pointing_model
+            for a given source; only applicable on TPFs (Defaults to False).
+        aperture : bool, optional 
+            If True, overplot the aperture on the TPF movie.
+        **kwargs : 
+            Passed to matplotlib.pyplot.imshow.
+        
+        Returns
+        -------
+        ani : matplotlib.animation.Animation
+            Movie.
         """
         import matplotlib.animation as animation
 
@@ -131,10 +145,10 @@ class Visualize(object):
 
 
     def mark_gaia_sources(self):
-        """
-        Allows the user to mark other Gaia sources within a given TPF or postcard
-        Hover over the points to reveal the source's TIC ID, Gaia ID, Tmag, and Gmag
-        Also crossmatches with TIC and identifies closest TIC object
+        """Mark Gaia sources within a given TPF or postcard.
+        
+        Hover over the points to reveal the source's TIC ID, Gaia ID, Tmag, and Gmag. 
+        Also crossmatches with TIC and identifies closest TIC object.
         """
         from astropy.wcs import WCS
         from .ffi import use_pointing_model
@@ -243,22 +257,19 @@ class Visualize(object):
 
 
     def click_aperture(self, path=None):
-        """
-        Allows the user to click specific pixels they want to create      
-        a lightcurve for
-        """
+        """Interactively set aperture."""
         from astropy.io import fits
 
         def click_pixels():
             nonlocal tpf
-            """ Creates a rectangle over a pixel when that pixel is clicked """
+            """Creates a rectangle over a pixel when that pixel is clicked."""
             coords, rectList = [], []
 
             fig, ax = mpl.pyplot.subplots()
             ax.imshow(tpf[0], origin='lower')
 
             def onclick(event):
-                """ Update figure canvas """
+                """Update figure canvas."""
                 nonlocal coords, rectList
                 x, y = int(np.round(event.xdata,0)), int(np.round(event.ydata,0))
 
@@ -280,7 +291,7 @@ class Visualize(object):
 
         def check_pixels():
             nonlocal tpf, coords, rectList
-            """ Presents a figure for the user to approve of selected pixels """
+            """Presents a figure for the user to approve of selected pixels."""
             fig, ax = mpl.pyplot.subplots(1)
             ax.imshow(tpf[0], origin='lower')
 

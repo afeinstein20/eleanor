@@ -46,7 +46,8 @@ class Postcard(object):
         (`x`, `y`) coordinates corresponding to the location of 
         the postcard's central pixel on the FFI.
     origin_xy : tuple
-        ?
+        (`x`, `y`) coordinates corresponding to the location of 
+        the postcard's (0,0) pixel on the FFI.
     """
     def __init__(self, filename, location=None):
         if location is not None:

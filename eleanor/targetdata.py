@@ -30,21 +30,69 @@ class TargetData(object):
 
     Attributes
     ----------
-    source_info : ellie.Source
+    header : dict
+        FITS header for saving/loading data.
+    source_info : eleanor.Source
         Pointer to input source.
     custom_aperture : 
         Aperture to use if overriding default. To use default, set to `None`.
-    tpf : lightkurve.TargetPixelFile
-        Target pixel file; see [lightkurve docs](https://lightkurve.keplerscience.org/api/targetpixelfile.html).
-    best_lightcurve : lightkurve.LightCurve
-        Extracted light curve; see [lightkurve docs](https://lightkurve.keplerscience.org/api/lightcurve.html).
-    centroid_trace : (2, N_time) np.ndarray
-        (xs, ys) in TPF pixel coordinates as a function of time
-    best_aperture :
-
-    all_lightcurves
-    all_apertures
+    tpf : np.ndarray
+        Target pixel file of fluxes; array with shape `dimensions`.
+    time : np.ndarray
+        Time series.
+    post_obj : eleanor.Postcard
+        Pointer to Postcard objects containing this TPF.
+    pointing_model : astropy.table.Table
+        Table of matrices describing the transformation matrix from FFI default 
+        WCS and eleanor's corrected pointing.
+    tpf_err : np.ndarray
+        Errors on fluxes in `tpf`.
+    centroid_xs : np.ndarray
+        Position of the source in `x` inferred from pointing model; has same length as `time`.
+    centroid_ys : np.ndarray
+        Position of the source in `y` inferred from pointing model; has same length as `time`.    
+    cen_x : int
+        Median `x` position of the source.
+    cen_y : int
+        Median `y` position of the source.
+    dimensions : tuple
+        Shape of `tpf`. Should be (`time`, `height`, `width`).
+    all_apertures : list
+        List of aperture objects.
+    aperture : array-like
+        Chosen aperture for producing `raw_flux` lightcurve. Format is array 
+        with shape (`height`, `width`). All entries are floats in range [0,1].
+    all_lc_err : np.ndarray
+        Estimated uncertainties on `all_raw_lc`.
+    all_raw_lc : np.ndarray
+        All lightcurves extracted using `all_apertures`. 
+        Has shape (N_apertures, N_time).
+    all_corr_lc : np.ndarray
+        All systematics-corrected lightcurves. See `all_raw_lc`.
+    best_ind : int
+        Index into `all_apertures` producing the best (least noisy) lightcurve.
+    corr_flux : np.ndarray
+        Systematics-corrected version of `raw_flux`.
+    flux_err : np.ndarray
+        Estimated uncertainty on `raw_flux`.
+    raw_flux : np.ndarray
+        Un-systematics-corrected lightcurve derived using `aperture` and `tpf`.
+    x_com : np.ndarray
+        Position of the source in `x` inferred from TPF; has same length as `time`.
+    y_com : np.ndarray
+        Position of the source in `y` inferred from TPF; has same length as `time`.
+    quality : int
+        Quality flag.
     
+    Notes
+    -----
+    `save()` and `load()` methods write/read these data to a FITS file with format: 
+    
+    Extension[0] = header
+    
+    Extension[1] = (height, width, N_time) TPF, where n is the number of cadences in an observing run
+    
+    Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
     def __init__(self, source, height=9, width=9, save_postcard=True):
@@ -78,17 +126,7 @@ class TargetData(object):
 
 
     def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
-        """
-        Creates a FITS file for a given source that includes:
-            Extension[0] = header
-            Extension[1] = (9x9xn) TPF, where n is the number of cadences in an observing run
-            Extension[2] = (3 x n) time, raw flux, systematics corrected flux
-        Defines
-            self.tpf     = flux cutout from postcard
-            self.tpf_err = flux error cutout from postcard
-            self.centroid_xs = pointing model corrected x pixel positions
-            self.centroid_ys = pointing model corrected y pixel positions
-        """
+        """Gets TPF from postcard."""
         from astropy.wcs import WCS
         from astropy.nddata import Cutout2D
 
@@ -156,13 +194,7 @@ class TargetData(object):
 
 
     def create_apertures(self, height, width):
-        """
-        Finds the "best" aperture (i.e. the one that produces the smallest std light curve) for a range of
-        sizes and shapes.
-        
-        Defines
-        self.all_aperture = an array of masks for all apertures tested
-        """
+        """Creates a range of sizes and shapes of apertures to test."""
         from photutils import CircularAperture, RectangularAperture
         import eleanor
         self.all_apertures = None
@@ -206,22 +238,16 @@ class TargetData(object):
                     self.all_apertures.append(rect_mask)
             self.all_apertures = np.array(self.all_apertures)
 
-        return
-
-
 
     def get_lightcurve(self, custom_mask=False):
-        """
-        Extracts a light curve using the given aperture and TPF.
-        Allows the user to pass in a mask to use, otherwise sets
-            "best" lightcurve and aperture (min std)
-        Mask is a 2D array of the same shape as TPF (9x9)
-        Defines:
-            self.flux
-            self.flux_err
-            self.aperture
-            self.all_lc     (if mask=None)
-            self.all_lc_err (if mask=None)
+        """Extracts a light curve using the given aperture and TPF.
+        
+        Allows the user to pass in a mask to use, otherwise sets best lightcurve and aperture (min std). 
+        Mask is a 2D array of the same shape as TPF (9x9). 
+        
+        Parameters
+        ----------
+        custom_mask : bool, optional
         """
         def apply_mask(mask):
             lc     = np.zeros(len(self.tpf))
@@ -235,13 +261,11 @@ class TargetData(object):
             return
         
 
-        self.flux       = None
         self.flux_err   = None
         self.aperture   = None
 
         if (custom_mask is False) or (self.custom_aperture is None):
 
-            self.all_lc      = None
             self.all_lc_err  = None
 
             all_raw_lc     = np.zeros((len(self.all_apertures), len(self.tpf)))
@@ -282,13 +306,10 @@ class TargetData(object):
 
     def center_of_mass(self):
         """
-        Calculates the center of mass of the source across all cadences using muchbettermoments and self.best_aperture 
-        Finds the brightest pixel in a (9x9) region summed up over all cadence
-        Searches a smaller (3x3) region around this pixel at each cadence and uses muchbettermoments to find the maximum
-            
-        Sets:
-            self.x_com
-            self.y_com
+        Calculates the position of the source across all cadences using `muchbettermoments` and `self.best_aperture`. 
+        
+        Finds the brightest pixel in a (`height`, `width`) region summed up over all cadence. 
+        Searches a smaller (3x3) region around this pixel at each cadence and uses `muchbettermoments` to find the maximum.
         """
         from muchbettermoments import quadratic_2d
         from astropy.nddata.utils import Cutout2D
@@ -388,15 +409,12 @@ class TargetData(object):
 
 
     def custom_aperture(self, height, width, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
-
         """
         Allows the user to input their own aperture of a given shape (either 'circle' or
             'rectangle' are accepted) of a given size {radius of circle: r, length of rectangle: l,
             width of rectangle: w, rotation of rectangle: t}
         Pos is the position given in pixel space
         Method defaults to 'exact'
-        Defines
-            self.custom_aperture: 2D array of shape (9x9)
         """
         from photutils import CircularAperture, RectangularAperture
 
@@ -433,8 +451,7 @@ class TargetData(object):
 
 
     def jitter_corr(self, cen=0.0, flux=None):
-        """
-        Corrects for jitter in the light curve by quadratically regressing with centroid position.
+        """Corrects for jitter in the light curve by quadratically regressing with centroid position.
         """
 
         def parabola(params, x, y, f_obs, y_err):
@@ -470,20 +487,8 @@ class TargetData(object):
         return np.copy(lc_new)
 
 
-    def rotation_corr(self):
-        """ Corrects for spacecraft roll using Lightkurve """
-        sff = SFFCorrector()
-        lc_new = sff.correct(self.time, self.raw_flux, self.centroid_xs, self.centroid_ys, niters=1,
-                                   windows=1, polyorder=5)
-        self.flux = np.copy(lc_new.flux)
-
-
     def set_header(self):
-        """
-        Defines the header for the TPF
-        Sets:
-            self.header
-        """
+        """Defines the header for the TPF."""
         from time import strftime
         from astropy.io import fits
 
@@ -521,8 +526,12 @@ class TargetData(object):
 
 
     def save(self, output_fn=None):
-        """
-        Saves a created TPF object to a FITS file
+        """Saves a created TPF object to a FITS file.
+        
+        Parameters
+        ----------
+        output_fn : str, optional
+            Filename to save output as. Overrides default naming.
         """
         from astropy.io import fits
         from astropy.table import Table, Column
@@ -586,9 +595,7 @@ class TargetData(object):
 
 
     def load(self):
-        """
-        Loads in and sets all the attributes for a pre-created TPF file
-        """
+        """Loads in and sets all the attributes for a pre-created TPF file."""
         from astropy.io import fits
         from astropy.table import Table
 
