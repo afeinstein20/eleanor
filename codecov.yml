@@ -1,15 +1,2 @@
 codecov:
- notify:
- require_ci_to_pass: yes
-coverage:
- precision: 2
- round: down
- range: “70…100”
-status:
- project: yes
- patch: yes
- changes: no
-comment:
- layout: “reach, diff, flags, files, footer”
- behavior: default
- require_changes: no
+  token: d423a258-e122-4865-82b8-b5e65bd1f5d8
