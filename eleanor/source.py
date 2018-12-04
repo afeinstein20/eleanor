@@ -87,7 +87,6 @@ class Source(object):
         Sets attributes sector, camera, chip, position_on_chip.
         """
         guide = load_postcard_guide()
-
         self.sector = None
         for sec in np.unique(guide['SECTOR']):
             for cam in np.unique(guide['CAMERA']):
@@ -123,7 +122,7 @@ class Source(object):
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
         guide = load_postcard_guide()
-        self.locate_on_chip(guide)
+        self.locate_on_chip()
 
 
         # Searches through postcards for the given sector, camera, chip
