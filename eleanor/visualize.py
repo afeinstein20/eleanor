@@ -1,7 +1,14 @@
 import matplotlib as mpl
+import matplotlib.animation as animation
 import numpy as np
 import bokeh.io
 import bokeh.models
+from astropy.io import fits
+
+from astropy.wcs import WCS
+from .ffi import use_pointing_model
+
+
 from .mast import *
 
 __all__ = []
@@ -59,8 +66,6 @@ class Visualize(object):
         ani : matplotlib.animation.Animation
             Movie.
         """
-        import matplotlib.animation as animation
-
         if pointing_model==True:
             if self.obj.centroid_xs is None:
                 print("Sorry, you can only track the pointing model on TPFs, not postcards\n",
@@ -150,8 +155,7 @@ class Visualize(object):
         Hover over the points to reveal the source's TIC ID, Gaia ID, Tmag, and Gmag. 
         Also crossmatches with TIC and identifies closest TIC object.
         """
-        from astropy.wcs import WCS
-        from .ffi import use_pointing_model
+
         from bokeh.models import (ColumnDataSource, HoverTool, BasicTicker,
                           Slider, Button, Label, LinearColorMapper, Span,
                           ColorBar)
@@ -258,7 +262,6 @@ class Visualize(object):
 
     def click_aperture(self, path=None):
         """Interactively set aperture."""
-        from astropy.io import fits
 
         def click_pixels():
             nonlocal tpf

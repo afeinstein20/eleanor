@@ -22,5 +22,6 @@ if __name__ == "__main__":
         data = TargetData(star)
         data.save()
     else:
-        print("To run this script, please add one of the following arguments to your command:")
-        print("tic={int}, gaia={int}, coords='{list}'", "fn={str}")
+        raise ValueError("To run this script, please add one of the following "
+                         "arguments to your command: tic={int}, gaia={int}, "
+                         "coords={list}, fn={str}.")

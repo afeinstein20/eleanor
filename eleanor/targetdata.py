@@ -4,7 +4,11 @@ from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import SFFCorrector
 from scipy.optimize import minimize
-from astropy.table import Table
+from astropy.table import Table, Column
+from astropy.wcs import WCS
+from time import strftime
+from astropy.io import fits
+from muchbettermoments import quadratic_2d
 import urllib
 import os
 
@@ -127,7 +131,6 @@ class TargetData(object):
 
     def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
         """Gets TPF from postcard."""
-        from astropy.wcs import WCS
         from astropy.nddata import Cutout2D
 
         self.tpf = None
@@ -195,7 +198,6 @@ class TargetData(object):
 
     def create_apertures(self, height, width):
         """Creates a range of sizes and shapes of apertures to test."""
-        from photutils import CircularAperture, RectangularAperture
         import eleanor
         self.all_apertures = None
 
@@ -311,7 +313,6 @@ class TargetData(object):
         Finds the brightest pixel in a (`height`, `width`) region summed up over all cadence. 
         Searches a smaller (3x3) region around this pixel at each cadence and uses `muchbettermoments` to find the maximum.
         """
-        from muchbettermoments import quadratic_2d
         from astropy.nddata.utils import Cutout2D
 
         self.x_com = []
@@ -416,8 +417,6 @@ class TargetData(object):
         Pos is the position given in pixel space
         Method defaults to 'exact'
         """
-        from photutils import CircularAperture, RectangularAperture
-
         self.custom_aperture = None
 
         if shape is None:
@@ -488,10 +487,19 @@ class TargetData(object):
 
 
     def set_header(self):
+<<<<<<< HEAD
         """Defines the header for the TPF."""
         from time import strftime
         from astropy.io import fits
 
+=======
+        """
+        Defines the header for the TPF
+        Sets:
+            self.header
+        """
+        
+>>>>>>> upstream/master
         self.header = self.post_obj.header
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
 
@@ -533,9 +541,6 @@ class TargetData(object):
         output_fn : str, optional
             Filename to save output as. Overrides default naming.
         """
-        from astropy.io import fits
-        from astropy.table import Table, Column
-
 
         # Creates column names for FITS tables
         r = np.arange(1.5,4,0.5)
@@ -595,10 +600,16 @@ class TargetData(object):
 
 
     def load(self):
+<<<<<<< HEAD
         """Loads in and sets all the attributes for a pre-created TPF file."""
         from astropy.io import fits
         from astropy.table import Table
 
+=======
+        """
+        Loads in and sets all the attributes for a pre-created TPF file
+        """
+>>>>>>> upstream/master
         hdu = fits.open(self.source_info.fn)
         hdr = hdu[0].header
         self.header = hdr

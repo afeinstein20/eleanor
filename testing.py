@@ -1,7 +1,7 @@
-from .source import Source
-from .targetdata import TargetData
 import matplotlib.pyplot as plt
-from .visualize import Visualize
+from eleanor.source import Source
+from eleanor.targetdata import TargetData
+from eleanor.visualize import Visualize
 
 
 

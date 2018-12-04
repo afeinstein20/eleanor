@@ -2,6 +2,13 @@ import os, tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
+from muchbettermoments import quadratic_2d
+from mast import tic_by_contamination
+from astropy.wcs import WCS
+from astropy.nddata import Cutout2D
+from astropy.utils.data import download_file
+import requests
+from bs4 import BeautifulSoup
 
 def use_pointing_model(coords, pointing_model):
     """Applies pointing model to correct the position of star(s) on postcard.
@@ -46,9 +53,6 @@ class ffi:
 
     def download_ffis(self):
         """Downloads entire sector of data into .ellie/ffis/sector directory."""
-        from astropy.utils.data import download_file
-        import requests
-        from bs4 import BeautifulSoup
 
         def findAllFFIs(ca, ch):
             nonlocal year, days, url
@@ -160,10 +164,6 @@ class ffi:
 
     def pointing_model_per_cadence(self):
         """Step through build_pointing_model for each cadence."""
-        from muchbettermoments import quadratic_2d
-        from mast import tic_by_contamination
-        from astropy.wcs import WCS
-        from astropy.nddata import Cutout2D
 
         def find_isolated(x, y):
             """Finds the most isolated, least contaminated sources for pointing model."""
