@@ -107,6 +107,7 @@ class TargetData(object):
             self.load()
 
         else:
+            self.aperture = None
             self.post_obj = Postcard(source.postcard)
             self.time  = self.post_obj.time
             self.load_pointing_model(source.sector, source.camera, source.chip)
@@ -241,7 +242,7 @@ class TargetData(object):
             self.all_apertures = np.array(self.all_apertures)
 
 
-    def get_lightcurve(self, custom_mask=False):
+    def get_lightcurve(self, aperture=False):
         """Extracts a light curve using the given aperture and TPF.
         
         Allows the user to pass in a mask to use, otherwise sets best lightcurve and aperture (min std). 
@@ -249,7 +250,7 @@ class TargetData(object):
         
         Parameters
         ----------
-        custom_mask : bool, optional
+        aperture : bool, optional
         """
         def apply_mask(mask):
             lc     = np.zeros(len(self.tpf))
@@ -264,9 +265,8 @@ class TargetData(object):
         
 
         self.flux_err   = None
-        self.aperture   = None
 
-        if (custom_mask is False) or (self.custom_aperture is None):
+        if (self.aperture is None):
 
             self.all_lc_err  = None
 
@@ -295,13 +295,14 @@ class TargetData(object):
             self.flux_err = self.all_lc_err[best_ind]
 
         else:
-            if self.custom_aperture is not None:
-                apply_mask(self.custom_aperture)
-            elif np.shape(custom_mask) == np.shape(self.tpf[0]):
-                apply_mask(custom_mask)
+            if np.shape(aperture) == np.shape(self.tpf[0]):
+                self.aperture = aperture
+                apply_mask(self.aperture)
+            elif self.aperture is not None:
+                apply_mask(self.aperture)
             else:
-                print("We could not find a custom mask. Please either create a 2D array that is the same shape as the TPF.")
-                print("Or, create a custom mask using the function TargetData.custom_aperture(). See documentation for inputs.")
+                print("We could not find a custom aperture. Please either create a 2D array that is the same shape as the TPF.")
+                print("Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
                 
         return
 
@@ -326,7 +327,7 @@ class TargetData(object):
             c_0  = quadratic_2d(data)
             c_frame = [cen[0]+c_0[0], cen[1]+c_0[1]]
             self.x_com.append(c_frame[0])
-            self.y_com.append(c_frame[0])
+            self.y_com.append(c_frame[1])
         return
 
 
@@ -416,8 +417,6 @@ class TargetData(object):
         Pos is the position given in pixel space
         Method defaults to 'exact'
         """
-        self.custom_aperture = None
-
         if shape is None:
             print("Please select a shape: circle or rectangle")
 
@@ -432,7 +431,7 @@ class TargetData(object):
                 print ("Please set a radius (in pixels) for your aperture")
             else:
                 aperture = CircularAperture(pos, r=r)
-                self.custom_aperture = aperture.to_mask(method=method)[0].to_image(shape=((
+                self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
                             np.shape(self.tpf[0]))))
 
         elif shape == 'rectangle':
@@ -440,7 +439,7 @@ class TargetData(object):
                 print("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', l=#, w=#)")
             else:
                 aperture = RectangularAperture(pos, l=l, w=w, t=theta)
-                self.custom_aperture = aperture.to_mask(method=method)[0].to_image(shape=((
+                self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
                             np.shape(self.tpf[0]))))
         else:
             print("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
@@ -553,7 +552,9 @@ class TargetData(object):
         ext1['QUALITY']    = self.quality
         ext1['X_CENTROID'] = self.centroid_xs
         ext1['Y_CENTROID'] = self.centroid_ys
-
+        ext1['X_COM']      = self.x_com
+        ext1['Y_COM']      = self.y_com
+        
         # Creates table for second extension (all apertures)
         ext2 = Table()
         for i in range(len(self.all_apertures)):
