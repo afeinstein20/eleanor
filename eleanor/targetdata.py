@@ -100,7 +100,7 @@ class TargetData(object):
     
     Extension[0] = header
     
-    Extension[1] = (height, width, N_time) TPF, where n is the number of cadences in an observing run
+    Extension[1] = (N_time, height, width) TPF, where n is the number of cadences in an observing run
     
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
@@ -351,6 +351,25 @@ class TargetData(object):
 
 
     def psf_lightcurve(self, nstars=1, model='gaussian', xc=[4.5], yc=[4.5]):
+        """
+        Performs PSF photometry for a selection of stars on a TPF. 
+        
+        Parameters
+        ----------
+        nstars: int, optional
+            Number of stars to be modeled on the TPF.
+        model: string, optional 
+            PSF model to be applied. Presently must be `gaussian`, which models a single Gaussian.
+            Will be extended in the future once TESS PRF models are made publicly available.
+        xc: list, optional
+            The x-coordinates of stars in the zeroth cadence. Must have length `nstars`. 
+            While the positions of stars will be fit in all cadences, the relative positions of 
+            stars will be fixed following the delta values from this list.
+        yc: list, optional
+            The y-coordinates of stars in the zeroth cadence. Must have length `nstars`. 
+            While the positions of stars will be fit in all cadences, the relative positions of 
+            stars will be fixed following the delta values from this list.
+        """
         import tensorflow as tf
         from vaneska.models import Gaussian
         from tqdm import tqdm
@@ -413,20 +432,35 @@ class TargetData(object):
         return
 
 
-    def custom_aperture(self, height, width, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
+    def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """
-        Allows the user to input their own aperture of a given shape (either 'circle' or
-            'rectangle' are accepted) of a given size {radius of circle: r, length of rectangle: l,
-            width of rectangle: w, rotation of rectangle: t}
-        Pos is the position given in pixel space
-        Method defaults to 'exact'
+        Creates a custom circular or rectangular aperture of arbitrary size. 
+        
+        Parameters
+        ----------       
+        shape: str, optional
+            The shape of the aperture to be used. Must be either `circle` or `rectangle.`
+        r: float, optional
+            If shape is `circle` the radius of the circular aperture to be used.
+        l: float, optional
+            If shape is `rectangle` the length of the rectangular aperture to be used.
+        w: float, optional
+            If shape is `rectangle` the width of the rectangular aperture to be used.
+        theta: float, optional
+            If shape is `rectangle` the rotation of the rectangle relative to detector coordinate. 
+            Uses units of radians.   
+        pos: tuple, optional
+            The center of the aperture, in TPF coordinates. If not set, defaults to the center of the TPF.
+        method: str, optional
+            The method of producing a light curve to be used, either `exact`, `center`, or `subpixel`.
+            Passed through to photutils and used as intended by that package.
         """
         if shape is None:
             print("Please select a shape: circle or rectangle")
 
         shape = shape.lower()
         if pos is None:
-            pos = (width/2, height/2)
+            pos = (self.tpf.shape[1]/2, self.tpf.shape[2]/2)
         else:
             pos = pos
 
@@ -451,17 +485,24 @@ class TargetData(object):
 
 
 
-    def jitter_corr(self, cen=0.0, flux=None):
-        """Corrects for jitter in the light curve by quadratically regressing with centroid position.
+    def jitter_corr(self, flux, cen=0.0):
         """
-
+        Corrects for jitter in the light curve by quadratically regressing with centroid position. 
+        Following Equation 1 of Knutson et al. 2008, ApJ, 673, 526. 
+        
+        Parameters
+        ----------
+        flux: numpy.ndarray 
+            Time series of raw flux observations to be corrected.
+        cen: float, optional 
+            Center of the 2-d paraboloid for which the correction is performed. 
+        """
         def parabola(params, x, y, f_obs, y_err):
             nonlocal cen
             c1, c2, c3, c4, c5 = params
             f_corr = f_obs * (c1 + c2*(x-cen) + c3*(x-cen)**2 + c4*(y-cen) + c5*(y-cen)**2)
             return np.sum( ((1-f_corr)/y_err)**2)
 
-        flux=np.array(flux)
 
         # Masks out anything >= 2.5 sigma above the mean
         mask = np.ones(len(flux), dtype=bool)
