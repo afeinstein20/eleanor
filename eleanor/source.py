@@ -87,7 +87,7 @@ class Source(object):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
-        # guide = load_postcard_guide()
+        guide = load_postcard_guide()
 
         self.sector = None
         for sec in np.unique(guide['SECTOR']):
