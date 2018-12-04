@@ -30,7 +30,7 @@ install:
   - pip install codecov
   - python setup.py install
 
-scripts:
+script:
   - python setup.py develop
   - echo "skipping tests"
   - nosetests eleanor/tests/ -v — with-coverage
