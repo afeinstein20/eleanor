@@ -4,7 +4,11 @@ from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from lightkurve import SFFCorrector
 from scipy.optimize import minimize
-from astropy.table import Table
+from astropy.table import Table, Column
+from astropy.wcs import WCS
+from time import strftime
+from astropy.io import fits
+from muchbettermoments import quadratic_2d
 import urllib
 import os
 
@@ -89,7 +93,6 @@ class TargetData(object):
             self.centroid_xs = pointing model corrected x pixel positions
             self.centroid_ys = pointing model corrected y pixel positions
         """
-        from astropy.wcs import WCS
         from astropy.nddata import Cutout2D
 
         self.tpf = None
@@ -163,7 +166,6 @@ class TargetData(object):
         Defines
         self.all_aperture = an array of masks for all apertures tested
         """
-        from photutils import CircularAperture, RectangularAperture
         import eleanor
         self.all_apertures = None
 
@@ -290,7 +292,6 @@ class TargetData(object):
             self.x_com
             self.y_com
         """
-        from muchbettermoments import quadratic_2d
         from astropy.nddata.utils import Cutout2D
 
         self.x_com = []
@@ -398,8 +399,6 @@ class TargetData(object):
         Defines
             self.custom_aperture: 2D array of shape (9x9)
         """
-        from photutils import CircularAperture, RectangularAperture
-
         self.custom_aperture = None
 
         if shape is None:
@@ -484,9 +483,7 @@ class TargetData(object):
         Sets:
             self.header
         """
-        from time import strftime
-        from astropy.io import fits
-
+        
         self.header = self.post_obj.header
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
 
@@ -524,9 +521,6 @@ class TargetData(object):
         """
         Saves a created TPF object to a FITS file
         """
-        from astropy.io import fits
-        from astropy.table import Table, Column
-
 
         # Creates column names for FITS tables
         r = np.arange(1.5,4,0.5)
@@ -589,9 +583,6 @@ class TargetData(object):
         """
         Loads in and sets all the attributes for a pre-created TPF file
         """
-        from astropy.io import fits
-        from astropy.table import Table
-
         hdu = fits.open(self.source_info.fn)
         hdr = hdu[0].header
         self.header = hdr
