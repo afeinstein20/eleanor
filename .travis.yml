@@ -30,10 +30,12 @@ install:
   - pip install codecov
   - python setup.py install
 
-script:
+scripts:
   - python setup.py develop
   - echo "skipping tests"
+  - nosetests eleanor/tests/ -v — with-coverage
 
 after_success:
   - codecov
+  - bash < (curl -s https://codecov.io/bash)
   - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
