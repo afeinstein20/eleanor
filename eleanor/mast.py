@@ -23,17 +23,17 @@ __all__ = ['coords_from_tic', 'gaia_from_coords', 'coords_from_gaia', 'tic_from_
 
 def mastQuery(request):
     """Sends a request to the MAST server.
-    
+
     Parameters
     ----------
     request : str
         JSON string for request.
-    
+
     Returns
     ----------
-    head : 
+    head :
         Retrieved data headers from MAST.
-    content : 
+    content :
         Retrieved data contents from MAST.
     """
     t0 = time.time()
@@ -59,19 +59,18 @@ def mastQuery(request):
 
     # Close the https connection
     conn.close()
-    print(time.time()-t0)
 
     return head, content
 
 
 def jsonTable(jsonObj):
     """Converts JSON return type object into an astropy Table.
-    
+
     Parameters
     ----------
-    jsonObj : 
+    jsonObj :
         Output data from `mastQuery`.
-    
+
     Returns
     ----------
     dataTable : astropy.table.Table
@@ -90,7 +89,7 @@ def jsonTable(jsonObj):
 
 def cone_search(pos, r, service, multiPos=None):
     """Completes a cone search in the Gaia DR2 or TIC catalog.
-    
+
     Parameters
     ----------
     r : float
@@ -102,7 +101,7 @@ def cone_search(pos, r, service, multiPos=None):
     ----------
     table : astropy.table.Table
         Sources found within cone of radius r.
-        See the Gaia & TIC field documentation for more information 
+        See the Gaia & TIC field documentation for more information
         on returned columns.
     """
     if multiPos != None:
@@ -118,7 +117,7 @@ def cone_search(pos, r, service, multiPos=None):
 
 def crossmatch_by_position(pos, r, service):
     """Crossmatches [RA,Dec] position to a source in the Gaia DR2 or TIC catalog.
-    
+
     Parameters
     ----------
     pos : tuple
@@ -128,7 +127,7 @@ def crossmatch_by_position(pos, r, service):
     service : str
         Name of service to use. 'Mast.GaiaDR2.Crossmatch'
             or 'Mast.Tic.Crossmatch' are accepted.
-    
+
     Returns
     -------
     table : astropy.table.Table
@@ -148,16 +147,16 @@ def crossmatch_by_position(pos, r, service):
 
 def gaia_pos_by_ID(gaiaID, multiSource=None):
     """Finds the RA,Dec for a given Gaia source_id.
-    
+
     Parameters
     ----------
     gaiaID : str
         Gaia DR2 source identifier.
-    
+
     Returns
     -------
     table: astropy.table.Table
-        Table containing the following Gaia DR2 attributes: source_id, 
+        Table containing the following Gaia DR2 attributes: source_id,
         RA, Dec, gmag, pmra, pmdec, parallax.
     """
     from astroquery.gaia import Gaia
@@ -176,7 +175,7 @@ def gaia_pos_by_ID(gaiaID, multiSource=None):
 
 def coords_from_tic(tic, multiSource=None):
     """Finds the RA, Dec, and magnitude for a given TIC source_id.
-    
+
     Parameters
     ----------
     multiSource : optional
@@ -235,14 +234,14 @@ def crossmatch_distance(pos, match):
 
 def crossmatch_multi_to_gaia(fn, r=0.01):
     """Crossmatches file of TIC IDs to Gaia.
-    
+
     Parameters
     ----------
     fn : str
         Filename for list of TIC IDs.
     r : float, optional
         Radius of cone search. Defaults to r=0.01.
-    
+
     Returns
     -------
     table : astropy.table.Table
@@ -263,14 +262,14 @@ def crossmatch_multi_to_gaia(fn, r=0.01):
 
 def crossmatch_multi_to_tic(fn, r=0.1):
     """Crossmatches file of Gaia IDs to TIC.
-    
+
     Parameters
     ----------
     fn : str
         Filename for list of Gaia IDs.
     r : float, optional
         Radius of cone search. Defaults to r=0.01.
-    
+
     Returns
     -------
     table : astropy.table.Table
@@ -303,7 +302,7 @@ def find_by_position():
     Returns
     ----------
     table : astropy.table.Table
-    
+
     """
     columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'Gaia_sep', 'TIC_sep', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
     t = Table(np.zeros(11), names=columns)
@@ -328,11 +327,11 @@ def find_by_position():
 
 
 def tic_by_contamination(pos, r, contam, tmag_lim):
-    """Allows the user to perform a counts only query. 
-    
-    When unsure how many results are expcted, it is best to first perform 
+    """Allows the user to perform a counts only query.
+
+    When unsure how many results are expcted, it is best to first perform
     a counts query to avoid memory overflow.
-    
+
     Parameters
     ----------
     pos : tuple
@@ -342,10 +341,10 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
     contam : tuple
         [min,max] limits on allowed contamination.
     tmag_lim :
-    
+
     Returns
     ----------
-    table : astropy.table.Table    
+    table : astropy.table.Table
         A table of source(s) in radius
     """
     request = {'service':'Mast.Catalogs.Filtered.Tic.Position',
