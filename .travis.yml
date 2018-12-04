@@ -36,5 +36,5 @@ script:
   - echo "skipping tests"
 
 after_success:
-  - codecov
+  - coveralls
   - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
