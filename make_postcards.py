@@ -13,7 +13,7 @@ import numpy as np
 from time import strftime
 from astropy.wcs import WCS
 
-from .version import __version__
+from eleanor.version import __version__
 
 
 def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
@@ -92,7 +92,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
     primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END"]
-    primary_dtype = [np.float32, np.float32, np.float32]
+    primary_dtype = [np.float32, np.float32, np.float32, 'O', 'O']
     primary_data = np.empty(len(fns), list(zip(primary_cols, primary_dtype)))
 
     # Make sure that the sector, camera, chip, and dimensions are the
@@ -111,8 +111,11 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
         info = new_info
 
         # Save the info for the primary HDU
-        for k in primary_cols:
-            primary_data[k][i] = hdr[k]
+        for k, dtype in zip(primary_cols, primary_dtype):
+            if dtype == "O":
+                primary_data[k][i] = hdr[k].encode("ascii")
+            else:
+                primary_data[k][i] = hdr[k]
 
         # Save the data
         all_ffis[:, :, i] = data
@@ -203,9 +206,9 @@ if __name__ == "__main__":
                         help='the pattern for the input FFI filenames')
     parser.add_argument('output_dir',
                         help='the output directory')
-    parser.add_argument('--width', '-w', type=int, default=104,
+    parser.add_argument('--width', type=int, default=104,
                         help='the width of the postcards')
-    parser.add_argument('--height', '-h', type=int, default=148,
+    parser.add_argument('--height', type=int, default=148,
                         help='the height of the postcards')
     parser.add_argument('--wstep', type=int, default=None,
                         help='the step size in the width direction')
