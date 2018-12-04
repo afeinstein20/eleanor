@@ -161,8 +161,9 @@ class ffi:
 
         Returns
         -------
-        xhat :
-
+        xhat : np.ndarray
+            (3, 3) affine transformation matrix between WCS positions 
+            and inferred positions.
         """
         A = np.column_stack([pos_predicted[:,0], pos_predicted[:,1], np.ones_like(pos_predicted[:,0])])
         f = np.column_stack([pos_inferred[:,0], pos_inferred[:,1], np.ones_like(pos_inferred[:,0])])
@@ -219,17 +220,17 @@ class ffi:
 
 
         def isolated_center(x, y, image):
-            """Finds the center of each isolated TPF with quadratic_2d.
+            """Finds the centroid of each isolated source with quadratic_2d.
 
             Parameters
             ----------
             x : array-like
                 Initial guesses of x positions for sources.
             y : array-like
-                Initial guesses of y positions for sources.
-            image :
-
-
+                Initial guesses of y positions for sources.            
+            image : np.ndarray
+                FFI flux data.
+                
             Returns
             -------
             cenx : array-like
