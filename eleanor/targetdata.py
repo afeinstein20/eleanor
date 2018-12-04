@@ -450,7 +450,7 @@ class TargetData(object):
         w: float, optional
             If shape is `rectangle` the width of the rectangular aperture to be used.
         theta: float, optional
-            If shape is `rectangle' the rotation of the rectangle relative to detector coordinate. 
+            If shape is `rectangle` the rotation of the rectangle relative to detector coordinate. 
             Uses units of radians.   
         pos: tuple, optional
             The center of the aperture, in TPF coordinates. If not set, defaults to the center of the TPF.
