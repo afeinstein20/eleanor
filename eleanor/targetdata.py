@@ -487,19 +487,7 @@ class TargetData(object):
 
 
     def set_header(self):
-<<<<<<< HEAD
         """Defines the header for the TPF."""
-        from time import strftime
-        from astropy.io import fits
-
-=======
-        """
-        Defines the header for the TPF
-        Sets:
-            self.header
-        """
-        
->>>>>>> upstream/master
         self.header = self.post_obj.header
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
 
@@ -600,16 +588,7 @@ class TargetData(object):
 
 
     def load(self):
-<<<<<<< HEAD
         """Loads in and sets all the attributes for a pre-created TPF file."""
-        from astropy.io import fits
-        from astropy.table import Table
-
-=======
-        """
-        Loads in and sets all the attributes for a pre-created TPF file
-        """
->>>>>>> upstream/master
         hdu = fits.open(self.source_info.fn)
         hdr = hdu[0].header
         self.header = hdr
