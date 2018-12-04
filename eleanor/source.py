@@ -6,6 +6,7 @@ import sys
 
 import urllib
 from .mast import *
+from .utils import *
 
 __all__ = ['Source']
 
@@ -82,11 +83,11 @@ class Source(object):
 
 
 
-    def locate_on_chip(self):
+    def locate_on_chip(self, guide):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
-        guide = load_postcard_guide()
+        # guide = load_postcard_guide()
 
         self.sector = None
         for sec in np.unique(guide['SECTOR']):
@@ -113,8 +114,7 @@ class Source(object):
                         self.position_on_chip = np.ravel(xy)
                     #    return
         if self.sector is None:
-            print("TESS has not (yet) observed your target.")
-            sys.exit()
+            raise SearchError("TESS has not (yet) observed your target.")
         return
 
 
@@ -143,14 +143,13 @@ class Source(object):
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
                 in_file.append(i)
-                dists.append( np.min([xy[0]-(x_cen-l), (x_cen+l)-xy[0], xy[1]-(y_cen-w), (y_cen+w)-xy[1]]))
+                dists.append(np.min([xy[0]-(x_cen-l), (x_cen+l)-xy[0], xy[1]-(y_cen-w), (y_cen+w)-xy[1]]))
 
 
         # If more than one postcard is found for a single source, choose the postcard where the
         # source is closer to the center
         if in_file == []:
-            print("Sorry! We don't have a postcard for you at the moment.")
-            return
+            raise SearchError("Sorry! We don't have a postcard for you at the moment.")
         elif len(in_file) > 1:
             best_ind = np.argmax(dists)
         else:
