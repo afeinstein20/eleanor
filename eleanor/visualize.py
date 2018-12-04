@@ -137,7 +137,7 @@ class Visualize(object):
         Also crossmatches with TIC and identifies closest TIC object
         """
         from astropy.wcs import WCS
-        from ffi import use_pointing_model
+        from .ffi import use_pointing_model
         from bokeh.models import (ColumnDataSource, HoverTool, BasicTicker,
                           Slider, Button, Label, LinearColorMapper, Span,
                           ColorBar)
@@ -148,9 +148,10 @@ class Visualize(object):
             ticLabel, tmagLabel = np.zeros(len(gaia_id)), np.zeros(len(gaia_id))
             for i in range(len(gaia_ra)):
                 tic, tmag, sep = tic_from_coords([gaia_ra[i], gaia_dec[i]])
+                print(tic)
                 if sep < 1.0:
                     ticLabel[i]  = tic
-                    tmagLabel[i] = tmag
+                    tmagLabel[i] = tmag[0]
             return ticLabel, tmagLabel
 
         center = [self.header['CEN_RA'], self.header['CEN_DEC']]
@@ -243,16 +244,91 @@ class Visualize(object):
 
     def click_aperture(self, path=None):
         """
-        Allows the user to click specific pixels they want to create
-            a lightcurve
-        Returns:
-            Uncorrected lightcurve
+        Allows the user to click specific pixels they want to create      
+        a lightcurve for
         """
-        from lightkurve import targetpixelfile as tpf
+        from astropy.io import fits
 
-        print("WARNING: This function requires the postage stamp to be")
-        print("saved to a file. If it has not been saved, then this function")
-        print("")
-        
+        def click_pixels():
+            nonlocal tpf
+            """ Creates a rectangle over a pixel when that pixel is clicked """
+            coords, rectList = [], []
 
+            fig, ax = mpl.pyplot.subplots()
+            ax.imshow(tpf[0], origin='lower')
+
+            def onclick(event):
+                """ Update figure canvas """
+                nonlocal coords, rectList
+                x, y = int(np.round(event.xdata,0)), int(np.round(event.ydata,0))
+
+                # Highlights pixel 
+                rect = mpl.patches.Rectangle((x-0.5, y-0.5), 1.0, 1.0)
+                rect.set_color('white')
+                rect.set_alpha(0.4)
+                # Adds pixel if not previously clicked
+                if [x,y] not in coords:
+                    coords.append([x,y])
+                    rectList.append(rect)
+                    ax.add_patch(rect)
+                fig.canvas.draw()
+            cid = fig.canvas.mpl_connect('button_press_event', onclick)
+            mpl.pyplot.show()
+            mpl.pyplot.close()
+            return coords, rectList
+
+
+        def check_pixels():
+            nonlocal tpf, coords, rectList
+            """ Presents a figure for the user to approve of selected pixels """
+            fig, ax = mpl.pyplot.subplots(1)
+            ax.imshow(tpf[0], origin='lower')
+
+            # Recreates patches for confirmation
+            for i in range(len(coords)):
+                x, y = coords[i][0], coords[i][1]
+                rect = mpl.patches.Rectangle((x-0.5, y-0.5), 1.0, 1.0)
+                rect.set_color('red')
+                rect.set_alpha(0.4)
+                ax.add_patch(rect)
+
+            # Make Buttons         
+            mpl.pyplot.text(-3.5, 5.5, 'Are you happy\nwith this\naperture?', fontsize=8)
+            axRadio  = mpl.pyplot.axes([0.05, 0.45, 0.10, 0.15])
+            butRadio = mpl.widgets.RadioButtons(axRadio, ('Yes', 'No'), activecolor='red')
+            good=True
+
+            # Checks if user is happy with custom aperture
+            def get_status(value):
+                nonlocal good
+                if value == 'Yes':
+                    good=True
+                else:
+                    good=False
+
+            butRadio.on_clicked(get_status)
+            mpl.pyplot.show()
+            return good
+
+        hdu = self.header
+        tpf = self.flux
+        coords, rectList = click_pixels()
+        check = check_pixels()
+
+        custlc = []
+        if check==True:
+            if len(coords) == 0:
+                print("You have not selected any pixels. No photometry will be completed.")
+            else:
+                for f in range(len(tpf)):
+                    cadence = []
+                    for i in range(len(coords)):
+                        cadence.append(tpf[f][coords[i][0], coords[i][1]])
+                    custlc.append(np.sum(cadence))
+                custlc = np.array(custlc) / np.nanmedian(custlc)
+                return custlc
+
+        else:
+            self.click_aperture()
+            
         return
