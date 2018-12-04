@@ -31,6 +31,7 @@ def use_pointing_model(coords, pointing_model):
     fhat = np.dot(A, pointing_model)
     return fhat[:,0:2]
 
+
 class ffi:
     """This class allows the user to download all full-frame images for a given sector,
          camera, and chip. It also allows the user to create their own pointing model
@@ -141,27 +142,6 @@ class ffi:
         return xhat
 
 
-    def use_pointing_model(self, coords, pointing_model):
-        """Applies pointing model to correct the position of star(s) on postcard.
-    
-        Parameters
-        ----------
-        coords : tuple
-            (`x`, `y`) position of star(s).
-    
-        pointing_model : astropy.table.Table
-            pointing_model for ONE cadence.
-        
-        Returns
-        -------
-        coords : tuple
-            Corrected position of star(s).
-        """
-        A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
-        fhat = np.dot(A, pointing_model)
-        return fhat[:,0:2]
-
-
     def pointing_model_per_cadence(self):
         """Step through build_pointing_model for each cadence."""
 
@@ -215,7 +195,7 @@ class ffi:
         def apply_pointing_model(xy, matrix):
             pointing_model = matrix
             centroid_xs, centroid_ys = [], []
-            new_coords = self.use_pointing_model(xy, pointing_model)
+            new_coords = use_pointing_model(xy, pointing_model)
             return np.array(new_coords)
 
 

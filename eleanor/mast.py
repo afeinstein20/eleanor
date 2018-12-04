@@ -293,9 +293,9 @@ def crossmatch_multi_to_tic(fn, r=0.1):
 
     return t
 
-
+"""
 def find_by_position():
-    """
+
     Allows the user to pass in a file of RA,Dec pairs to be matched in Gaia & TIC
     Parameters
     ----------
@@ -304,7 +304,7 @@ def find_by_position():
     ----------
     table : astropy.table.Table
 
-    """
+
     columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'Gaia_sep', 'TIC_sep', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
     t = Table(np.zeros(11), names=columns)
     t['RA'].unit, t['Dec'].unit, t['Gaia_sep'].unit, t['TIC_sep'].unit = u.arcsec, u.arcsec, u.arcsec, u.arcsec
@@ -325,7 +325,7 @@ def find_by_position():
 
     t.remove_row(0)
     return t
-
+"""
 
 def tic_by_contamination(pos, r, contam, tmag_lim):
     """Allows the user to perform a counts only query.
