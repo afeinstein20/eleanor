@@ -11,8 +11,7 @@ import copy
 from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-# ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/postcards/'
-ELLIEURL = '/mnt/ceph/users/dforeman/tess/data/new_postcards'
+ELLIEURL = 'http://jet.uchicago.edu/tess_postcards/postcards/'
 
 
 class Postcard(object):
