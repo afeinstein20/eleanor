@@ -6,6 +6,10 @@ python: 3.6
 matrix:
     include:
         - os: linux
+        
+addons:
+  apt_packages:
+    - pandoc
 
 cache: pip
 
