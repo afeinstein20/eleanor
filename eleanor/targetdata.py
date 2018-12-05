@@ -47,33 +47,33 @@ class TargetData(object):
     post_obj : eleanor.Postcard
         Pointer to Postcard objects containing this TPF.
     pointing_model : astropy.table.Table
-        Table of matrices describing the transformation matrix from FFI default 
+        Table of matrices describing the transformation matrix from FFI default
         WCS and eleanor's corrected pointing.
     tpf_err : np.ndarray
         Errors on fluxes in `tpf`.
     centroid_xs : np.ndarray
-        Position of the source in `x` inferred from pointing model; has same length as `time`. 
+        Position of the source in `x` inferred from pointing model; has same length as `time`.
         Position is relative to the pixel coordinate system of the postcard.
     centroid_ys : np.ndarray
-        Position of the source in `y` inferred from pointing model; has same length as `time`.  
+        Position of the source in `y` inferred from pointing model; has same length as `time`.
         Position is relative to the pixel coordinate system of the postcard.
     cen_x : int
-        Median `x` position of the source. 
+        Median `x` position of the source.
         Position is relative to the pixel coordinate system of the postcard.
     cen_y : int
-        Median `y` position of the source. 
+        Median `y` position of the source.
         Position is relative to the pixel coordinate system of the postcard.
     dimensions : tuple
         Shape of `tpf`. Should be (`time`, `height`, `width`).
     all_apertures : list
         List of aperture objects.
     aperture : array-like
-        Chosen aperture for producing `raw_flux` lightcurve. Format is array 
+        Chosen aperture for producing `raw_flux` lightcurve. Format is array
         with shape (`height`, `width`). All entries are floats in range [0,1].
     all_lc_err : np.ndarray
         Estimated uncertainties on `all_raw_lc`.
     all_raw_lc : np.ndarray
-        All lightcurves extracted using `all_apertures`. 
+        All lightcurves extracted using `all_apertures`.
         Has shape (N_apertures, N_time).
     all_corr_lc : np.ndarray
         All systematics-corrected lightcurves. See `all_raw_lc`.
@@ -86,18 +86,18 @@ class TargetData(object):
     raw_flux : np.ndarray
         Un-systematics-corrected lightcurve derived using `aperture` and `tpf`.
     x_com : np.ndarray
-        Position of the source in `x` inferred from TPF; has same length as `time`. 
+        Position of the source in `x` inferred from TPF; has same length as `time`.
         Position is relative to the pixel coordinate system of the TPF.
     y_com : np.ndarray
-        Position of the source in `y` inferred from TPF; has same length as `time`. 
+        Position of the source in `y` inferred from TPF; has same length as `time`.
         Position is relative to the pixel coordinate system of the TPF.
     quality : int
         Quality flag.
-    
+
     Notes
     -----
-    `save()` and `load()` methods write/read these data to a FITS file with format: 
-    
+    `save()` and `load()` methods write/read these data to a FITS file with format:
+
     Extension[0] = header
     
     Extension[1] = (N_time, height, width) TPF, where n is the number of cadences in an observing run
@@ -125,7 +125,7 @@ class TargetData(object):
 
 
     def load_pointing_model(self, sector, camera, chip):
-        
+
         pointing_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
                                                                                                                           camera,
                                                                                                                           chip))
@@ -189,7 +189,7 @@ class TargetData(object):
         self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
-        
+
         if save_postcard == False:
             try:
                 os.remove(source.postcard.filename)
@@ -245,15 +245,15 @@ class TargetData(object):
 
     def get_lightcurve(self, aperture=False):
         """Extracts a light curve using the given aperture and TPF.
-        
-        Allows the user to pass in a mask to use, otherwise sets best lightcurve and aperture (min std). 
-        Mask is a 2D array of the same shape as TPF (9x9). 
-        
+
+        Allows the user to pass in a mask to use, otherwise sets best lightcurve and aperture (min std).
+        Mask is a 2D array of the same shape as TPF (9x9).
+
         Parameters
         ----------
-        aperture : numpy.ndarray 
-            (`height`, `width`) array of floats in the range [0,1] with desired weights for each pixel to 
-            create a light curve. If not set, ideal aperture is inferred automatically. If set, uses this 
+        aperture : numpy.ndarray
+            (`height`, `width`) array of floats in the range [0,1] with desired weights for each pixel to
+            create a light curve. If not set, ideal aperture is inferred automatically. If set, uses this
             aperture at the expense of all other set apertures.
         """
         def apply_mask(mask):
@@ -266,7 +266,7 @@ class TargetData(object):
             self.corr_flux  = self.jitter_corr(flux=lc)
             self.flux_err   = np.array(lc_err)
             return
-        
+
 
         self.flux_err   = None
 
@@ -307,15 +307,15 @@ class TargetData(object):
             else:
                 print("We could not find a custom aperture. Please either create a 2D array that is the same shape as the TPF.")
                 print("Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
-                
+
         return
 
 
     def center_of_mass(self):
         """
-        Calculates the position of the source across all cadences using `muchbettermoments` and `self.best_aperture`. 
-        
-        Finds the brightest pixel in a (`height`, `width`) region summed up over all cadence. 
+        Calculates the position of the source across all cadences using `muchbettermoments` and `self.best_aperture`.
+
+        Finds the brightest pixel in a (`height`, `width`) region summed up over all cadence.
         Searches a smaller (3x3) region around this pixel at each cadence and uses `muchbettermoments` to find the maximum.
         """
 
@@ -336,10 +336,10 @@ class TargetData(object):
 
 
     def set_quality(self):
-        """Currently (10/13/2018), this function sets a flag for when the centroid is 
-        3 sigma away from the mean either in the x or y direction. 
-        Hopefully in the future, MAST will put in some quality flags for us. 
-        Our flags and their flags will be combnied, if they create flags. 
+        """Currently (10/13/2018), this function sets a flag for when the centroid is
+        3 sigma away from the mean either in the x or y direction.
+        Hopefully in the future, MAST will put in some quality flags for us.
+        Our flags and their flags will be combnied, if they create flags.
         """
         bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+3*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+3*np.std(self.centroid_ys)))
 
@@ -563,14 +563,20 @@ class TargetData(object):
 
 
 
-    def save(self, output_fn=None):
+    def save(self, output_fn=None, directory=None):
         """Saves a created TPF object to a FITS file.
-        
+
         Parameters
         ----------
         output_fn : str, optional
             Filename to save output as. Overrides default naming.
+        directory : str, optional
+            Directory to save file into.
         """
+
+        # if the user did not specify a directory, set it to default
+        if directory is None:
+            directory = self.fetch_dir()
 
         # Creates column names for FITS tables
         r = np.arange(1.5,4,0.5)
@@ -598,7 +604,7 @@ class TargetData(object):
         ext1['Y_CENTROID'] = self.centroid_ys
         ext1['X_COM']      = self.x_com
         ext1['Y_COM']      = self.y_com
-        
+
         # Creates table for second extension (all apertures)
         ext2 = Table()
         for i in range(len(self.all_apertures)):
@@ -623,17 +629,31 @@ class TargetData(object):
         primary_hdu = fits.PrimaryHDU(header=self.header)
         data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
-        
+
         if output_fn==None:
-            hdu.writeto('hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(self.source_info.tic, self.source_info.sector), overwrite=True)
+            hdu.writeto(os.path.join(directory,
+                        'hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(
+                        self.source_info.tic, self.source_info.sector),
+                        overwrite=True))
         else:
             hdu.writeto(output_fn)
 
 
 
-    def load(self):
-        """Loads in and sets all the attributes for a pre-created TPF file."""
-        hdu = fits.open(self.source_info.fn)
+    def load(self, directory=None):
+        """
+        Loads in and sets all the attributes for a pre-created TPF file.
+
+        Parameters
+        ----------
+        directory : str, optional
+            Directory to load file from.
+        """
+
+        if directory is None:
+            directory = self.fetch_dir()
+
+        hdu = fits.open(os.path.join(directory, self.source_info.fn))
         hdr = hdu[0].header
         self.header = hdr
         # Loads in everything from the first extension
@@ -675,3 +695,33 @@ class TargetData(object):
             else:
                 self.all_raw_lc.append(table[i])
         return
+
+    def fetch_dir(self):
+        """
+        Returns the default path to the directory where files will be saved
+        or loaded.
+
+        By default, this method will return "~/.eleanor" and create
+        this directory if it does not exist.  If the directory cannot be
+        access or created, then it returns the local directory (".").
+
+        Returns
+        -------
+        download_dir : str
+            Path to location of `ffi_dir` where FFIs will be downloaded
+        """
+        download_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
+        if os.path.isdir(download_dir):
+            return download_dir
+        else:
+            # if it doesn't exist, make a new cache directory
+            try:
+                os.mkdir(download_dir)
+            # downloads locally if OS error occurs
+            except OSError:
+                warnings.warn('Warning: unable to create {}. '
+                              'Downloading FFIs to the current '
+                              'working directory instead.'.format(download_dir))
+                download_dir = '.'
+
+        return download_dir
