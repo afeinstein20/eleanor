@@ -30,7 +30,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
     """
     
     if sectors == 'all':
-        sectors = np.arange(1,14,1)
+        sectors = list(np.arange(1,14,1))
     if type(sectors) == list:
         objs = [Source(tic=tic, gaia=gaia, coords=coords, sector=i) for i in sectors]
     else:
@@ -53,8 +53,10 @@ class Source(object):
         The TIC ID of the source.
     gaia : int, optional
         The Gaia DR2 source_id.
-    coords : tuple, optional
-        The (RA, Dec) coords of the object in degrees.
+    coords : tuple or astropy.coordinates.SkyCoord, optional
+        The (RA, Dec) coords of the object in degrees or an astropy SkyCoord object.
+    fn : str, optional
+        Filename of a TPF corresponding to the desired source.
     sector : int or str 
         The sector for which data should be returned, or `recent` to 
         obtain data for the most recent sector which contains this target. 
@@ -84,25 +86,37 @@ class Source(object):
         self.gaia    = gaia
         self.coords  = coords
         self.fn      = fn
-        self.premade = None
+        self.premade = False
         self.usr_sec = sector
 
         if self.fn is not None:
-            hdu = fits.open(self.fn)
+            try:
+                hdu = fits.open(self.fn)
+            except:
+                assert False, "{0} is not a valid filename.".format(fn)
             hdr = hdu[0].header
             self.tic      = hdr['TIC_ID']
             self.tess_mag = hdr['TMAG']
             self.gaia     = hdr['GAIA_ID']
             self.coords   = (hdr['CEN_RA'], hdr['CEN_DEC'])
             self.premade  = True
-        
+            self.sector   = hdr['SECTOR']
+            self.camera   = hdr['CAMERA']
+            self.chip     = hdr['CHIP']
+            self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
+            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
+                    
         else:
             if self.coords is not None:
-                if type(coords[0]) == str or type(coords[1]) == str:
-                    c = SkyCoord(coords[0], coords[1], unit=(u.hour, u.degree))
+                assert type(self.coords) is astropy.coordinates.sky_coordinate.SkyCoord, \
+                    "Source: coords must be an astropy.coordinates.SkyCoord object."
+                if type(self.coords) is astropy.coordinates.sky_coordinate.SkyCoord:
                     self.coords = (c.ra.degree, c.dec.degree)
-                else:
+                elif (len(coords) == 2) & all(isinstance(c, float) for c in self.coords):
                     self.coords  = coords
+                else:
+                    assert False, ("Source: invalid coords. Valid input types are: "
+                                   "(RA, Dec) tuple or astropy.coordinates.SkyCoord object.")
 
                 self.tic, self.tess_mag, sep = tic_from_coords(self.coords)
                 self.gaia = gaia_from_coords(self.coords)
@@ -114,9 +128,14 @@ class Source(object):
             elif self.tic is not None:
                 self.coords, self.tess_mag = coords_from_tic(self.tic)
                 self.gaia = gaia_from_coords(self.coords)
+                
+            else:
+                assert False, ("Source: one of the following keywords must be given: "
+                               "tic, gaia, coords, fn.")
 
             self.tess_mag = self.tess_mag[0]
-            self.locate_on_tess() # sets sector, camera, chip, chip_position
+            self.locate_on_tess() # sets sector, camera, chip, postcard,
+                                  # position_on_chip, position_on_postcard
 
 
 
