@@ -221,6 +221,7 @@ class ffi:
                 Indexes into input arrays corresponding to good sources.
             """
             cenx, ceny, good = [], [], []
+            warnings.warn("Finding isolated centers of sources.")
             for i in range(len(x)):
                  if x[i] > 0. and y[i] > 0.:
                      tpf = Cutout2D(image, position=(x[i], y[i]), size=(7,7), mode='partial')
@@ -253,7 +254,6 @@ class ffi:
         t  = tic_by_contamination(pos, r, contam, tmag_lim)
 
         for fn in self.local_paths:
-
             hdu = fits.open(fn)
             hdr = hdu[1].header
             xy = WCS(hdr).all_world2pix(t['ra'], t['dec'], 1)
