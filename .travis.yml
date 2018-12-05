@@ -34,7 +34,8 @@ install:
 script:
   - python setup.py develop
   - echo "skipping tests"
+  #- nosetests app/tests/* -v — with-coverage
 
 after_success:
-  - coveralls
+  - codecov
   - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
