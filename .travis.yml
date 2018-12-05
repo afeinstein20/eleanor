@@ -34,7 +34,7 @@ install:
 script:
   - python setup.py develop
   - echo "skipping tests"
-  #- nosetests app/tests/* -v — with-coverage
+  #- nosetests eleanor/tests/* -v — with-coverage
 
 after_success:
   - codecov
