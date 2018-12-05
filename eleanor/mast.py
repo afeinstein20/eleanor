@@ -276,7 +276,7 @@ def crossmatch_multi_to_tic(fn, r=0.1):
     table : astropy.table.Table
         Table of all matches.
     """
-    sources = np.loadtxt(list, dtype=int)
+    sources = np.loadtxt(fn, dtype=int)
     service  = 'Mast.Tic.Crossmatch'
     t = initialize_table()
     for s in sources:
