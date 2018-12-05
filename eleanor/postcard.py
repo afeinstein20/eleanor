@@ -11,8 +11,7 @@ import copy
 from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-ELEANORURL = 'http://jet.uchicago.edu/tess_postcards/postcards/'
-
+ELEANORURL = 'https://archipelago.uchicago.edu/tess_postcards/'
 
 class Postcard(object):
     """TESS FFI data for one postcard across one sector.
@@ -168,4 +167,5 @@ class Postcard(object):
 
     @property
     def wcs(self):
-        raise NotImplementedError('Not yet implemented.')
+        return WCS(self.header)
+

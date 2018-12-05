@@ -1,6 +1,8 @@
 import numpy as np
 from astropy.wcs import WCS
 from astropy.table import Table
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 import sys
 
@@ -8,12 +10,36 @@ import urllib
 from .mast import *
 from .utils import *
 
-__all__ = ['Source']
+__all__ = ['Source', 'multi_sectors']
+
+
+def multi_sectors(sectors, tic=None, gaia=None, coords=None):
+    """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
+    
+    Parameters
+    ----------
+    tic : int, optional
+        The TIC ID of the source.
+    gaia : int, optional
+        The Gaia DR2 source_id.
+    coords : tuple, optional
+        The (RA, Dec) coords of the object in degrees.
+    sectors : list or str
+        The list of sectors for which data should be returned, or `all` to return all sectors 
+        for which there are data.
+    """
+    
+    if sectors == 'all':
+        sectors = np.arange(1,14,1)
+    if type(sectors) == list:
+        objs = [Source(tic=tic, gaia=gaia, coords=coords, sector=i) for i in sectors]
+    else:
+        raise TypeError("Sectors needs to be either 'all' or a type(list) to work.")
 
 
 def load_postcard_guide():
     """Load and return the postcard coordinates guide."""
-    guide_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/postcard.guide')
+    guide_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/postcard.guide')
     guide = guide_link.read().decode('utf-8')
     guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
     return guide
@@ -29,6 +55,9 @@ class Source(object):
         The Gaia DR2 source_id.
     coords : tuple, optional
         The (RA, Dec) coords of the object in degrees.
+    sector : int or str 
+        The sector for which data should be returned, or `recent` to 
+        obtain data for the most recent sector which contains this target. 
 
     Attributes
     ----------
@@ -50,12 +79,13 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None, fn=None):
+    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None):
         self.tic     = tic
         self.gaia    = gaia
         self.coords  = coords
         self.fn      = fn
         self.premade = None
+        self.usr_sec = sector
 
         if self.fn is not None:
             hdu = fits.open(self.fn)
@@ -65,21 +95,28 @@ class Source(object):
             self.gaia     = hdr['GAIA_ID']
             self.coords   = (hdr['CEN_RA'], hdr['CEN_DEC'])
             self.premade  = True
+        
+        else:
+            if self.coords is not None:
+                if type(coords[0]) == str or type(coords[1]) == str:
+                    c = SkyCoord(coords[0], coords[1], unit=(u.hour, u.degree))
+                    self.coords = (c.ra.degree, c.dec.degree)
+                else:
+                    self.coords  = coords
 
-        elif self.coords is not None:
-            self.tic, self.tess_mag, sep = tic_from_coords(self.coords)
-            self.gaia = gaia_from_coords(self.coords)
+                self.tic, self.tess_mag, sep = tic_from_coords(self.coords)
+                self.gaia = gaia_from_coords(self.coords)
 
-        elif self.gaia is not None:
-            self.coords = coords_from_gaia(self.gaia)
-            self.tic, self.tess_mag = tic_from_coords(self.coords)
+            elif self.gaia is not None:
+                self.coords = coords_from_gaia(self.gaia)
+                self.tic, self.tess_mag = tic_from_coords(self.coords)
 
-        elif self.tic is not None:
-            self.coords, self.tess_mag = coords_from_tic(self.tic)
-            self.gaia = gaia_from_coords(self.coords)
+            elif self.tic is not None:
+                self.coords, self.tess_mag = coords_from_tic(self.tic)
+                self.gaia = gaia_from_coords(self.coords)
 
-        self.tess_mag = self.tess_mag[0]
-        self.locate_on_tess() # sets sector, camera, chip, chip_position
+            self.tess_mag = self.tess_mag[0]
+            self.locate_on_tess() # sets sector, camera, chip, chip_position
 
 
 
@@ -87,9 +124,7 @@ class Source(object):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
-        guide = load_postcard_guide()
-        self.sector = None
-        for sec in np.unique(guide['SECTOR']):
+        def cam_chip_loop(sec):
             for cam in np.unique(guide['CAMERA']):
                 for chip in np.unique(guide['CCD']):
                     mask = ((guide['SECTOR'] == sec) & (guide['CAMERA'] == cam)
@@ -111,9 +146,28 @@ class Source(object):
                         self.camera = cam
                         self.chip = chip
                         self.position_on_chip = np.ravel(xy)
-                    #    return
-        if self.sector is None:
-            raise SearchError("TESS has not (yet) observed your target.")
+
+        guide = load_postcard_guide()
+        self.sector=None
+
+        if self.usr_sec is None:
+            for sec in np.unique(guide['SECTOR']):
+                cam_chip_loop(sec)
+            
+            if self.sector is None:
+                raise SearchError("TESS has not (yet) observed your target.")
+
+        elif self.usr_sec is not None:
+            if type(self.usr_sec) == int:
+                cam_chip_loop(self.usr_sec)
+
+            # Searches for the most recent sector the object was observed in
+            elif self.usr_sec == 'recent':
+                for s in np.arange(15,0,-1):
+                    cam_chip_loop(s)
+                    if self.sector is not None:
+                        break
+
         return
 
 
@@ -122,7 +176,7 @@ class Source(object):
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
         guide = load_postcard_guide()
-        self.locate_on_chip(guide)
+        self.locate_on_chip()
 
 
         # Searches through postcards for the given sector, camera, chip
@@ -133,6 +187,7 @@ class Source(object):
             postcard_inds = np.arange(len(guide))[(guide['SECTOR'] == self.sector) & (guide['CAMERA'] == self.camera)
                                                   & (guide['CCD'] == self.chip)]
         xy = self.position_on_chip
+
         # Finds postcards containing the source
         for i in postcard_inds: # loop rows
 
