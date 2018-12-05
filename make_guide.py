@@ -7,16 +7,13 @@ import os
 
 def postcard_names(loc):
     files = os.listdir(loc)
-    cards = []
-    for f in files:
-        if 'postcard' in f:
-            cards.append(f)
-    return np.array(cards)
+    files = [i for i in files if 'postcard' in i]
+    return np.array(files)
 
 
 def get_headers(cards):
     colnames = np.array(['SECTOR', 'CAMERA', 'CCD', 'POSTPIX1', 'POSTPIX2',
-                         'POST_HEIGHT', 'POST_WIDTH', 'CEN_X', 'CEN_Y', 'POST_NAME'])
+                         'POST_H', 'POST_W', 'CEN_X', 'CEN_Y', 'POSTNAME'])
 
     t = Table(names=colnames, dtype=('f4', 'f4', 'f4', 'f4', 
                                      'f4', 'f4', 'f4', 'f4', 
