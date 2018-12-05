@@ -10,7 +10,16 @@ import urllib
 from .mast import *
 from .utils import *
 
-__all__ = ['Source']
+__all__ = ['Source', 'multi_sectors']
+
+
+def multi_sectors(sectors, tic=None, gaia=None, coords=None):
+    if sectors = 'all':
+        sectors = np.arange(1,14,1)
+    if type(sectors) == list:
+        objs = [Source(tic=tic, gaia=gaia, coords=coords, sector=i) for i in sectors]
+    else:
+        raise Exception("Sectors needs to be either 'all' or a type(list) to work.")
 
 
 def load_postcard_guide():
@@ -30,8 +39,7 @@ class Source(object):
     gaia : int, optional
         The Gaia DR2 source_id.
     coords : tuple, optional
-        The (RA, Dec) coords of the object, either in degrees or in HMS/DMS. 
-        Must have format (xxx.xxxxxx, xxx.xxxxxx) or ('hh:mm:ss.ss', 'dd:mm:ss.ss').
+        The (RA, Dec) coords of the object in degrees.
 
     Attributes
     ----------
@@ -135,16 +143,6 @@ class Source(object):
             if type(self.usr_sec) == int:
                 cam_chip_loop(self.usr_sec)
 
-            # Searches a list of user-selected sectors
-            elif type(self.usr_sec) == list:
-                for s in self.usr_sec:
-                    cam_chip_loop(s)
-
-            # Searches all sectors
-            elif self.usr_sec == 'all':
-                for s in np.arange(1,15,1):
-                    cam_chip_loop(s)
-                    
             # Searches for the most recent sector the object was observed in
             elif self.usr_sec == 'recent':
                 for s in np.arange(15,0,-1):
@@ -160,7 +158,7 @@ class Source(object):
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
         guide = load_postcard_guide()
-        self.locate_on_chip(guide)
+        self.locate_on_chip()
 
 
         # Searches through postcards for the given sector, camera, chip
