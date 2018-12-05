@@ -293,39 +293,6 @@ def crossmatch_multi_to_tic(fn, r=0.1):
 
     return t
 
-"""
-def find_by_position():
-
-    Allows the user to pass in a file of RA,Dec pairs to be matched in Gaia & TIC
-    Parameters
-    ----------
-
-    Returns
-    ----------
-    table : astropy.table.Table
-
-
-    columns = ['Gaia_ID', 'TIC_ID', 'RA', 'Dec', 'Gaia_sep', 'TIC_sep', 'Gmag', 'Tmag', 'pmra', 'pmdec', 'parallax']
-    t = Table(np.zeros(11), names=columns)
-    t['RA'].unit, t['Dec'].unit, t['Gaia_sep'].unit, t['TIC_sep'].unit = u.arcsec, u.arcsec, u.arcsec, u.arcsec
-    t['pmra'].unit, t['pmdec'].unit = u.mas/u.year, u.mas/u.year
-
-    for i in range(len(data)):
-        pos = data[i]
-        gaia = crossmatch_by_position(pos, 0.01, 'Mast.GaiaDR2.Crossmatch', pos)[0]
-        tess = crossmatch_by_position(pos, 0.5, 'Mast.Tic.Crossmatch', pos)[0]
-        pos[0], pos[1] = pos[0]*u.deg, pos[1]*u.deg
-        gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
-        sepGaia = crossmatch_distance(pos, gaiaPos)
-        tessPos = [tess['MatchRA'], tess['MatchDEC']]
-        sepTess = crossmatch_distance(pos, tessPos)
-
-        t.add_row([gaia['MatchID'], tess['MatchID'], pos[0], pos[1], sepGaia, sepTess, gaia['phot_g_mean_mag'],
-                   tess['Tmag'], gaia['pmra'], gaia['pmdec'], gaia['parallax']])
-
-    t.remove_row(0)
-    return t
-"""
 
 def tic_by_contamination(pos, r, contam, tmag_lim):
     """Allows the user to perform a counts only query.

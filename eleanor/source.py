@@ -1,6 +1,8 @@
 import numpy as np
 from astropy.wcs import WCS
 from astropy.table import Table
+from astropy import units as u
+from astropy.coordinates import SkyCoord
 from astropy.io import fits
 import sys
 
@@ -28,7 +30,8 @@ class Source(object):
     gaia : int, optional
         The Gaia DR2 source_id.
     coords : tuple, optional
-        The (RA, Dec) coords of the object in degrees.
+        The (RA, Dec) coords of the object, either in degrees or in HMS/DMS. 
+        Must have format (xxx.xxxxxx, xxx.xxxxxx) or ('hh:mm:ss.ss', 'dd:mm:ss.ss').
 
     Attributes
     ----------
@@ -53,6 +56,13 @@ class Source(object):
     def __init__(self, tic=None, gaia=None, coords=None, fn=None):
         self.tic     = tic
         self.gaia    = gaia
+
+        if ':' in coords[0] or ':' in coords[1]:
+            c = SkyCoord(coords[0], coords[1], unit=(u.hour, u.degree))
+            self.coords = (c.ra.degree, c.dec.degree)
+        else:
+            self.coords  = coords
+
         self.coords  = coords
         self.fn      = fn
         self.premade = None

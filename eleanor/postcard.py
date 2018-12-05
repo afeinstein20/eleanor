@@ -168,4 +168,5 @@ class Postcard(object):
 
     @property
     def wcs(self):
-        raise NotImplementedError('Not yet implemented.')
+        return WCS(self.header)
+
