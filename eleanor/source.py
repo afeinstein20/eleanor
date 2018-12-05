@@ -28,7 +28,8 @@ class Source(object):
     gaia : int, optional
         The Gaia DR2 source_id.
     coords : tuple, optional
-        The (RA, Dec) coords of the object in degrees.
+        The (RA, Dec) coords of the object, either in degrees or in HMS/DMS. 
+        Must have format (xxx.xxxxxx, xxx.xxxxxx) or ('hh:mm:ss.ss', 'dd:mm:ss.ss').
 
     Attributes
     ----------
