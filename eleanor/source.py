@@ -30,11 +30,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
     """
     objs = []
     if sectors == 'all':
-<<<<<<< HEAD
         sectors = list(np.arange(1,14,1, dtype=int))
-=======
-        sectors = list(np.arange(1,14,1))
->>>>>>> 081771d1d2cccd4265c477102654d6a3c61fda72
     if type(sectors) == list:
         for s in sectors:
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
