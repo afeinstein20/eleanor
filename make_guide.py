@@ -21,25 +21,24 @@ def get_headers(cards):
             names, counts = [], []
             hdrKeys = list(hdr.keys())
             dtype = []
-            for k in range(len(hdrKeys)):
+            for k in range(len(hdrKeys)-10):
                 if hdrKeys[k] not in names:
                     names.append(hdrKeys[k])
                     counts.append(k)
             names.append('POSTNAME')
-            counts.append(k+1)
+
             counts = np.array(counts)
             
             row = list(hdr.values())
             row.append(cards[i])
             row = np.array(row)
-            for r in row[counts]:
+            for r in range(len(row[counts])+1):
                 dtype.append('S60')
             t = Table(names=names, dtype=dtype)
 
-        row = list(hdr.values())
-        row.append(cards[i])
-        row=np.array(row)
+        row = np.array(list(hdr.values()))
         row = row[counts]
+        row = np.append(row, cards[i])
         t.add_row(row)
     return t
 
