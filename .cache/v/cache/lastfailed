@@ -1,5 +1,6 @@
 {
   "eleanor/tests/test_tpfs.py": true,
   "eleanor/tests/testing.py": true,
+  "testing.py": true,
   "tests/test_tpfs.py": true
 }

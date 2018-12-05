@@ -132,7 +132,7 @@ class Source(object):
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
         guide = load_postcard_guide()
-        self.locate_on_chip()
+        self.locate_on_chip(guide)
 
 
         # Searches through postcards for the given sector, camera, chip

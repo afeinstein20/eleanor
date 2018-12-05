@@ -6,7 +6,7 @@ python: 3.6
 matrix:
     include:
         - os: linux
-        
+
 addons:
   apt_packages:
     - pandoc
@@ -27,11 +27,15 @@ install:
   - pip install sphinx
   - pip install nbsphinx
   - pip install cython
+  - pip install codecov
+  - pip install coverage
   - python setup.py install
 
 script:
   - python setup.py develop
   - echo "skipping tests"
+  #- nosetests app/tests/* -v — with-coverage
 
 after_success:
-    - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
+  - codecov
+  - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
