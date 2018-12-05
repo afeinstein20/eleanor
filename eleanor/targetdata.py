@@ -108,7 +108,7 @@ class TargetData(object):
     def __init__(self, source, height=9, width=9, save_postcard=True):
         self.source_info = source
 
-        if source.premade is not None:
+        if source.premade:
             self.load()
 
         else:
@@ -544,14 +544,22 @@ class TargetData(object):
                                      comment='TESS mag'))
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
                                      comment='Associated Gaia ID'))
-#        self.header.append(fits.Card(keyword='CRPIX1', value=self.cen_x + self.post_obj.origin_xy[0],
-#                                     comment='central pixel of TPF in FFI'))
-#        self.header.append(fits.Card(keyword='CRPIX2', value=self.cen_y + self.post_obj.origin_xy[1],
-#                                     comment='central pixel of TPF in FFI'))
-        self.header.append(fits.Card(keyword='POSTPIX1', value= self.source_info.coords[0]-self.dimensions[1],
-                                     comment='origin of postcard axis 1'))
-        self.header.append(fits.Card(keyword='POSTPIX2', value= self.source_info.coords[1]-self.dimensions[2],
-                                     comment='origin of postcard axis 2'))
+        self.header.append(fits.Card(keyword='SECTOR', value=self.source_info.sector,
+                                     comment='Sector'))      
+        self.header.append(fits.Card(keyword='CAMERA', value=self.source_info.camera,
+                                     comment='Camera'))   
+        self.header.append(fits.Card(keyword='CHIP', value=self.source_info.chip,
+                                     comment='Chip'))                                  
+        self.header.append(fits.Card(keyword='CHIPPOS1', value=self.source_info.position_on_chip[0],
+                                     comment='central x pixel of TPF in FFI chip'))
+        self.header.append(fits.Card(keyword='CHIPPOS2', value=self.source_info.position_on_chip[1],
+                                     comment='central y pixel of TPF in FFI'))
+        self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
+                                     comment='Postcard'))        
+        self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
+                                     comment='predicted x pixel of source on postcard'))
+        self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
+                                     comment='predicted y pixel of source on postcard'))
         self.header.append(fits.Card(keyword='CEN_RA', value = self.source_info.coords[0],
                                      comment='RA of TPF source'))
         self.header.append(fits.Card(keyword='CEN_DEC', value=self.source_info.coords[1],

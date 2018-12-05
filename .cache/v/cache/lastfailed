@@ -1,4 +1,5 @@
 {
+  "eleanor/tests/test_targetdata.py": true,
   "eleanor/tests/test_tpfs.py": true,
   "eleanor/tests/testing.py": true,
   "testing.py": true,
