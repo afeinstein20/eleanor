@@ -6,14 +6,13 @@ setup.py
 eleanor/__init__.py
 eleanor/eleanor.py
 eleanor/ffi.py
-eleanor/make_postcards.py
 eleanor/mast.py
 eleanor/movie.py
 eleanor/postcard.py
 eleanor/source.py
 eleanor/targetdata.py
-eleanor/testing.py
 eleanor/track_pm_centroid.py
+eleanor/utils.py
 eleanor/version.py
 eleanor/visualize.py
 eleanor.egg-info/PKG-INFO

@@ -8,3 +8,5 @@ dist
 build
 dist
 .cache/
+.coveralls.yml
+.eggs

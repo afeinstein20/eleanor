@@ -6,15 +6,14 @@ Home-page: http://github.com/afeinstein20/eleanor
 Author: Adina D. Feinstein
 Author-email: adina.d.feinstein@gmail.com
 License: MIT
-Description: <p align="center">
-          <img width = "600" src="./figures/eleanor.gif"/>
-        </p>
-        <p align="center">  
-          <a href="https://travis-ci.org/afeinstein20/eleanor/"><img src="https://img.shields.io/travis/afeinstein20/eleanor/master.svg"/></a>
-          <a href="https://afeinstein20.github.io/eleanor/"><img src="https://img.shields.io/badge/read-the_docs-blue.svg?style=flat"/>
-        </p>
-        
-        
+Description: 
+        eleanor is a python package to extract target pixel files from
+        TESS Full Frame Images and produce systematics-corrected light curves
+        for any star observed by the TESS mission. In its simplest form, eleanor
+        takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
+        observed by TESS and returns, as a single object, a light curve and
+        accompanying target pixel data.
+        Read the documentation at https://github.com/afeinstein20/eleanor
         
 Platform: UNKNOWN
 Classifier: Development Status :: 3 - Alpha
