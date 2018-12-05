@@ -83,7 +83,7 @@ class Source(object):
         self.tic     = tic
         self.gaia    = gaia
 
-        if ':' in coords[0] or ':' in coords[1]:
+        if type(coords[0]) == str or type(coords[1]) == str:
             c = SkyCoord(coords[0], coords[1], unit=(u.hour, u.degree))
             self.coords = (c.ra.degree, c.dec.degree)
         else:
