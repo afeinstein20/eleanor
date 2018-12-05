@@ -13,14 +13,14 @@ from version import __version__
 #this_directory = os.path.abspath(os.path.dirname(__file__))
 #with open(os.path.join(this_directory, "README.md")) as f:
 #    long_description = f.read()
-    
+
 long_description = \
     """
 eleanor is a python package to extract target pixel files from
 TESS Full Frame Images and produce systematics-corrected light curves
-for any star observed by the TESS mission. In its simplest form, eleanor 
-takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star 
-observed by TESS and returns, as a single object, a light curve and 
+for any star observed by the TESS mission. In its simplest form, eleanor
+takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
+observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://github.com/afeinstein20/eleanor
 """
