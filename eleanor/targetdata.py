@@ -534,7 +534,7 @@ class TargetData(object):
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
 
         # Removes postcard specific header information
-        for keyword in ['POST_HEIGHT', 'POST_WIDTH', 'CEN_X', 'CEN_Y', 'CEN_RA', 'CEN_DEC', 'POSTPIX1', 'POSTPIX2']:
+        for keyword in ['POST_H', 'POST_W', 'CEN_X', 'CEN_Y', 'CEN_RA', 'CEN_DEC', 'POSTPIX1', 'POSTPIX2']:
             self.header.remove(keyword)
 
         # Adds TPF specific header information
