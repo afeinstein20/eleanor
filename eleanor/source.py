@@ -34,7 +34,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
     if type(sectors) == list:
         objs = [Source(tic=tic, gaia=gaia, coords=coords, sector=i) for i in sectors]
     else:
-        raise Exception("Sectors needs to be either 'all' or a type(list) to work.")
+        raise TypeError("Sectors needs to be either 'all' or a type(list) to work.")
 
 
 def load_postcard_guide():
@@ -82,13 +82,7 @@ class Source(object):
     def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None):
         self.tic     = tic
         self.gaia    = gaia
-
-        if type(coords[0]) == str or type(coords[1]) == str:
-            c = SkyCoord(coords[0], coords[1], unit=(u.hour, u.degree))
-            self.coords = (c.ra.degree, c.dec.degree)
-        else:
-            self.coords  = coords
-
+        self.coords  = coords
         self.fn      = fn
         self.premade = None
         self.usr_sec = sector
@@ -104,6 +98,12 @@ class Source(object):
         
         else:
             if self.coords is not None:
+                if type(coords[0]) == str or type(coords[1]) == str:
+                    c = SkyCoord(coords[0], coords[1], unit=(u.hour, u.degree))
+                    self.coords = (c.ra.degree, c.dec.degree)
+                else:
+                    self.coords  = coords
+
                 self.tic, self.tess_mag, sep = tic_from_coords(self.coords)
                 self.gaia = gaia_from_coords(self.coords)
 

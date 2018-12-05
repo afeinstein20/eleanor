@@ -36,7 +36,6 @@ def mastQuery(request):
     content :
         Retrieved data contents from MAST.
     """
-    t0 = time.time()
     server = 'mast.stsci.edu'
 
     # Grab Python Version
@@ -62,7 +61,6 @@ def mastQuery(request):
 
     return head, content
 
-
 def jsonTable(jsonObj):
     """Converts JSON return type object into an astropy Table.
 
@@ -86,7 +84,6 @@ def jsonTable(jsonObj):
         dataTable[col] = np.array([x.get(col,None) for x in jsonObj['data']],dtype=atype)
     return dataTable
 
-
 def cone_search(pos, r, service, multiPos=None):
     """Completes a cone search in the Gaia DR2 or TIC catalog.
 
@@ -97,7 +94,7 @@ def cone_search(pos, r, service, multiPos=None):
     service : str
         MAST service to use. Either 'Mast.Catalogs.GaiaDR2.Cone'
         or 'Mast.Catalogs.Tic.Cone' are acceptable inputs.
-    
+
     Returns
     ----------
     table : astropy.table.Table
@@ -114,7 +111,6 @@ def cone_search(pos, r, service, multiPos=None):
                'format':'json'}
     headers, outString = mastQuery(request)
     return jsonTable(json.loads(outString))
-
 
 def crossmatch_by_position(pos, r, service):
     """Crossmatches [RA,Dec] position to a source in the Gaia DR2 or TIC catalog.
@@ -145,7 +141,6 @@ def crossmatch_by_position(pos, r, service):
     headers, outString = mastQuery(request)
     return jsonTable(json.loads(outString))
 
-
 def gaia_pos_by_ID(gaiaID, multiSource=None):
     """Finds the RA,Dec for a given Gaia source_id.
 
@@ -172,7 +167,6 @@ def gaia_pos_by_ID(gaiaID, multiSource=None):
     job = Gaia.launch_job(adql)
     table = job.get_results()
     return table
-
 
 def coords_from_tic(tic, multiSource=None):
     """Finds the RA, Dec, and magnitude for a given TIC source_id.
@@ -203,14 +197,12 @@ def coords_from_gaia(gaia_id):
     table = job.get_results()
     return table
 
-
 def tic_from_coords(coords):
     """Returns TIC ID, Tmag, and separation of best match(es) to input coords."""
     tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
     sepTess = crossmatch_distance(coords, tessPos)
     return tess['MatchID'], [tess['Tmag']], sepTess/u.arcsec
-
 
 def gaia_from_coords(coords):
     """Returns Gaia ID of best match(es) to input coords."""
@@ -231,7 +223,6 @@ def crossmatch_distance(pos, match):
     c1 = SkyCoord(pos[0]*u.deg, pos[1]*u.deg, frame='icrs')
     c2 = SkyCoord(match[0]*u.deg, match[1]*u.deg, frame='icrs')
     return c1.separation(c2).to(u.arcsec)
-
 
 def crossmatch_multi_to_gaia(fn, r=0.01):
     """Crossmatches file of TIC IDs to Gaia.
@@ -259,40 +250,6 @@ def crossmatch_multi_to_gaia(fn, r=0.01):
         t.add_row([gaia['MatchID'], s, (pos[0]).to(u.arcsec), (pos[1]).to(u.arcsec), separation, gaia['phot_g_mean_mag'], tmag, gaia['pmra'], gaia['pmdec'], gaia['parallax']])
     t.remove_row(0)
     return t
-
-
-def crossmatch_multi_to_tic(fn, r=0.1):
-    """Crossmatches file of Gaia IDs to TIC.
-
-    Parameters
-    ----------
-    fn : str
-        Filename for list of Gaia IDs.
-    r : float, optional
-        Radius of cone search. Defaults to r=0.01.
-
-    Returns
-    -------
-    table : astropy.table.Table
-        Table of all matches.
-    """
-    sources = np.loadtxt(list, dtype=int)
-    service  = 'Mast.Tic.Crossmatch'
-    t = initialize_table()
-    for s in sources:
-        table = gaia_pos_by_ID(s)
-        sID, pos, gmag = table['source_id'].data, [table['ra'].data[0], table['dec'].data[0]], table['phot_g_mean_mag'].data
-        pmra, pmdec, parallax = table['pmra'].data, table['pmdec'].data, table['parallax'].data
-        tic = crossmatch_by_position(pos, r, service)
-        pos = [pos[0]*u.deg, pos[1]*u.deg]
-        separation = crossmatch_distance(pos, [tic['MatchRA'], tic['MatchDEC']])
-        min = separation.argmin()
-        row = tic[min]
-        t.add_row([sID, row['MatchID'], (pos[0]).to(u.arcsec), (pos[1]).to(u.arcsec), separation[min], gmag, row['Tmag'], pmra, pmdec, parallax])
-    t.remove_row(0)
-
-    return t
-
 
 def tic_by_contamination(pos, r, contam, tmag_lim):
     """Allows the user to perform a counts only query.

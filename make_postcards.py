@@ -50,12 +50,13 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     is_raw = primary_header["IMAGTYPE"].strip() == "uncal"
 
     # Set the output filename format
-    info = (primary_header["CAMERA"], primary_header["CCD"],
-            primary_header["IMAGTYPE"].strip())
-    outfn_fmt = "hlsp_elleanor_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}.fits".format(
-        "-".join(map("{0}".format, info)))
-    outfn_fmt = os.path.join(outdir, outfn_fmt).format
+    info   = (primary_header["SECTOR"], primary_header["CAMERA"],
+              primary_header["CCD"], primary_header["IMAGTYPE"].strip())
+    info_str = '{0:02d}-{1}-{2}-{3}'.format(info[0], info[1], info[2], info[3])
 
+    outfn_fmt = "hlsp_eleanor_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}.fits".format(info_str)
+    outfn_fmt = os.path.join(outdir, outfn_fmt).format
+    
     # We want to shift the WCS for each postcard so let's store the default
     # reference pixel
     crpix_h = float(primary_header["CRPIX1"])
@@ -104,7 +105,8 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
         # FIXME: when `sector` is added to the header, we should check
         # it too!
         new_shape = (hdr["NAXIS2"], hdr["NAXIS1"])
-        new_info = (hdr["CAMERA"], hdr["CCD"], hdr["IMAGTYPE"].strip())
+
+        new_info = (hdr["SECTOR"], hdr["CAMERA"], hdr["CCD"], hdr["IMAGTYPE"].strip())
         if shape != new_shape or new_info != info:
             raise ValueError("the header info for '{0}' does not match"
                              .format(name))
