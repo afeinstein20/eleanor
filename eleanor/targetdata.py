@@ -38,7 +38,7 @@ class TargetData(object):
         FITS header for saving/loading data.
     source_info : eleanor.Source
         Pointer to input source.
-    aperture : 
+    aperture :
         Aperture to use if overriding default. To use default, set to `None`.
     tpf : np.ndarray
         Target pixel file of fluxes; array with shape `dimensions`.
@@ -99,9 +99,9 @@ class TargetData(object):
     `save()` and `load()` methods write/read these data to a FITS file with format:
 
     Extension[0] = header
-    
+
     Extension[1] = (N_time, height, width) TPF, where n is the number of cadences in an observing run
-    
+
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
@@ -143,7 +143,7 @@ class TargetData(object):
         self.centroid_ys = None
 
         xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
-        
+
         # Apply the pointing model to each cadence to find the centroids
         centroid_xs, centroid_ys = [], []
         for i in range(len(self.pointing_model)):
@@ -183,8 +183,8 @@ class TargetData(object):
             x_upp_lim = post_x_upp+1
 
         if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
-            print("The size postage stamp you are requesting falls off the edge of the postcard.")
-            print("WARNING: Your postage stamp may not be centered.")
+            warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
+            warnings.warn("WARNING: Your postage stamp may not be centered.")
 
         self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
@@ -305,8 +305,8 @@ class TargetData(object):
             elif self.aperture is not None:
                 apply_mask(self.aperture)
             else:
-                print("We could not find a custom aperture. Please either create a 2D array that is the same shape as the TPF.")
-                print("Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
+                raise Exception("We could not find a custom aperture. Please either create a 2D array that is the same shape as the TPF. "
+                                "Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
 
         return
 
@@ -351,22 +351,22 @@ class TargetData(object):
 
     def psf_lightcurve(self, nstars=1, model='gaussian', xc=[4.5], yc=[4.5]):
         """
-        Performs PSF photometry for a selection of stars on a TPF. 
-        
+        Performs PSF photometry for a selection of stars on a TPF.
+
         Parameters
         ----------
         nstars: int, optional
             Number of stars to be modeled on the TPF.
-        model: string, optional 
+        model: string, optional
             PSF model to be applied. Presently must be `gaussian`, which models a single Gaussian.
             Will be extended in the future once TESS PRF models are made publicly available.
         xc: list, optional
-            The x-coordinates of stars in the zeroth cadence. Must have length `nstars`. 
-            While the positions of stars will be fit in all cadences, the relative positions of 
+            The x-coordinates of stars in the zeroth cadence. Must have length `nstars`.
+            While the positions of stars will be fit in all cadences, the relative positions of
             stars will be fixed following the delta values from this list.
         yc: list, optional
-            The y-coordinates of stars in the zeroth cadence. Must have length `nstars`. 
-            While the positions of stars will be fit in all cadences, the relative positions of 
+            The y-coordinates of stars in the zeroth cadence. Must have length `nstars`.
+            While the positions of stars will be fit in all cadences, the relative positions of
             stars will be fixed following the delta values from this list.
         """
         import tensorflow as tf
@@ -433,10 +433,10 @@ class TargetData(object):
 
     def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """
-        Creates a custom circular or rectangular aperture of arbitrary size. 
-        
+        Creates a custom circular or rectangular aperture of arbitrary size.
+
         Parameters
-        ----------       
+        ----------
         shape: str, optional
             The shape of the aperture to be used. Must be either `circle` or `rectangle.`
         r: float, optional
@@ -446,8 +446,8 @@ class TargetData(object):
         w: float, optional
             If shape is `rectangle` the width of the rectangular aperture to be used.
         theta: float, optional
-            If shape is `rectangle` the rotation of the rectangle relative to detector coordinate. 
-            Uses units of radians.   
+            If shape is `rectangle` the rotation of the rectangle relative to detector coordinate.
+            Uses units of radians.
         pos: tuple, optional
             The center of the aperture, in TPF coordinates. If not set, defaults to the center of the TPF.
         method: str, optional
@@ -455,7 +455,7 @@ class TargetData(object):
             Passed through to photutils and used as intended by that package.
         """
         if shape is None:
-            print("Please select a shape: circle or rectangle")
+            raise Exception("Please select a shape: circle or rectangle")
 
         shape = shape.lower()
         if pos is None:
@@ -465,7 +465,7 @@ class TargetData(object):
 
         if shape == 'circle':
             if r == 0.0:
-                print ("Please set a radius (in pixels) for your aperture")
+                raise Exception("Please set a radius (in pixels) for your aperture")
             else:
                 aperture = CircularAperture(pos, r=r)
                 self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
@@ -473,28 +473,28 @@ class TargetData(object):
 
         elif shape == 'rectangle':
             if l==0.0 or w==0.0:
-                print("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', l=#, w=#)")
+                raise Exception("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', l=#, w=#)")
             else:
                 aperture = RectangularAperture(pos, l=l, w=w, t=theta)
                 self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
                             np.shape(self.tpf[0]))))
         else:
-            print("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
+            raise ValueError("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
 
 
 
 
     def jitter_corr(self, flux, cen=0.0):
         """
-        Corrects for jitter in the light curve by quadratically regressing with centroid position. 
-        Following Equation 1 of Knutson et al. 2008, ApJ, 673, 526. 
-        
+        Corrects for jitter in the light curve by quadratically regressing with centroid position.
+        Following Equation 1 of Knutson et al. 2008, ApJ, 673, 526.
+
         Parameters
         ----------
-        flux: numpy.ndarray 
+        flux: numpy.ndarray
             Time series of raw flux observations to be corrected.
-        cen: float, optional 
-            Center of the 2-d paraboloid for which the correction is performed. 
+        cen: float, optional
+            Center of the 2-d paraboloid for which the correction is performed.
         """
         def parabola(params, x, y, f_obs, y_err):
             nonlocal cen

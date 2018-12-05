@@ -163,7 +163,7 @@ class ffi:
         Returns
         -------
         xhat : np.ndarray
-            (3, 3) affine transformation matrix between WCS positions 
+            (3, 3) affine transformation matrix between WCS positions
             and inferred positions.
         """
         A = np.column_stack([pos_predicted[:,0], pos_predicted[:,1], np.ones_like(pos_predicted[:,0])])
@@ -207,10 +207,10 @@ class ffi:
             x : array-like
                 Initial guesses of x positions for sources.
             y : array-like
-                Initial guesses of y positions for sources.            
+                Initial guesses of y positions for sources.
             image : np.ndarray
                 FFI flux data.
-                
+
             Returns
             -------
             cenx : array-like
@@ -221,7 +221,6 @@ class ffi:
                 Indexes into input arrays corresponding to good sources.
             """
             cenx, ceny, good = [], [], []
-            print("Finding isolated centers of sources")
             for i in range(len(x)):
                  if x[i] > 0. and y[i] > 0.:
                      tpf = Cutout2D(image, position=(x[i], y[i]), size=(7,7), mode='partial')
@@ -254,7 +253,7 @@ class ffi:
         t  = tic_by_contamination(pos, r, contam, tmag_lim)
 
         for fn in self.local_paths:
-            print(fn)
+
             hdu = fits.open(fn)
             hdr = hdu[1].header
             xy = WCS(hdr).all_world2pix(t['ra'], t['dec'], 1)

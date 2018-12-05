@@ -18,7 +18,6 @@ if __name__ == "__main__":
                 star = Source(gaia=a[4::])
             elif a[0:3]=='tic':
                 star = Source(tic=a[4::])
-        print(star.tess_mag)
         data = TargetData(star)
         data.save()
     else:

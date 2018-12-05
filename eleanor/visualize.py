@@ -4,6 +4,7 @@ import numpy as np
 import bokeh.io
 import bokeh.models
 from astropy.io import fits
+import warnings
 
 from astropy.wcs import WCS
 from .ffi import use_pointing_model
@@ -16,13 +17,13 @@ __all__ = []
 
 class Visualize(object):
     """
-    The main class for creating figures, movies, and interactive plots. 
+    The main class for creating figures, movies, and interactive plots.
     Allows the user to have a grand ole time playing with their data!
 
     Parameters
     ----------
-    obj : 
-        Object must have minimum attributes of 2D array of flux. 
+    obj :
+        Object must have minimum attributes of 2D array of flux.
         Will allow for plotting of both postcards & tpfs.
     """
 
@@ -45,22 +46,22 @@ class Visualize(object):
     def movie(self, output_fn=None, plot_lc=False, pointing_model=False, aperture=False, **kwargs):
         """
         This function allows the user to create a movie of a TPF or postcard
-        
+
         Parameters
         ----------
-        output_fn : str, optional 
+        output_fn : str, optional
             Output filename to save the movie to.
-        plot_lc : bool, optional 
+        plot_lc : bool, optional
             If True, plot the light curve and track location along
             light curve with time-dependent movie (Defaults to False).
-        pointing_model : bool, optional 
+        pointing_model : bool, optional
             If True, plot the movement of the pointing_model
             for a given source; only applicable on TPFs (Defaults to False).
-        aperture : bool, optional 
+        aperture : bool, optional
             If True, overplot the aperture on the TPF movie.
-        **kwargs : 
+        **kwargs :
             Passed to matplotlib.pyplot.imshow.
-        
+
         Returns
         -------
         ani : matplotlib.animation.Animation
@@ -68,8 +69,8 @@ class Visualize(object):
         """
         if pointing_model==True:
             if self.obj.centroid_xs is None:
-                print("Sorry, you can only track the pointing model on TPFs, not postcards\n",
-                      "Please set pointing_model=False or remove when calling .movie()")
+                raise Exception("Sorry, you can only track the pointing model on TPFs, not postcards\n",
+                                "Please set pointing_model=False or remove when calling .movie()")
             else:
                 xs = self.obj.centroid_xs-self.center[0]+4.0
                 ys = self.obj.centroid_ys-self.center[1]+4.0
@@ -122,7 +123,7 @@ class Visualize(object):
             ax.set_ylabel('Pixel Row')
 
         if aperture==True:
-            print("Aperture has not been implemented yet. Sorry friend, we're working on it!")
+            raise Exception("Aperture has not been implemented yet. Sorry friend, we're working on it!")
             return
 
         # Plots axes in correct (x,y) coordinate space
@@ -151,8 +152,8 @@ class Visualize(object):
 
     def mark_gaia_sources(self):
         """Mark Gaia sources within a given TPF or postcard.
-        
-        Hover over the points to reveal the source's TIC ID, Gaia ID, Tmag, and Gmag. 
+
+        Hover over the points to reveal the source's TIC ID, Gaia ID, Tmag, and Gmag.
         Also crossmatches with TIC and identifies closest TIC object.
         """
 
@@ -166,7 +167,6 @@ class Visualize(object):
             ticLabel, tmagLabel = np.zeros(len(gaia_id)), np.zeros(len(gaia_id))
             for i in range(len(gaia_ra)):
                 tic, tmag, sep = tic_from_coords([gaia_ra[i], gaia_dec[i]])
-                print(tic)
                 if sep < 1.0:
                     ticLabel[i]  = tic
                     tmagLabel[i] = tmag[0]
@@ -276,7 +276,7 @@ class Visualize(object):
                 nonlocal coords, rectList
                 x, y = int(np.round(event.xdata,0)), int(np.round(event.ydata,0))
 
-                # Highlights pixel 
+                # Highlights pixel
                 rect = mpl.patches.Rectangle((x-0.5, y-0.5), 1.0, 1.0)
                 rect.set_color('white')
                 rect.set_alpha(0.4)
@@ -306,7 +306,7 @@ class Visualize(object):
                 rect.set_alpha(0.4)
                 ax.add_patch(rect)
 
-            # Make Buttons         
+            # Make Buttons
             mpl.pyplot.text(-3.5, 5.5, 'Are you happy\nwith this\naperture?', fontsize=8)
             axRadio  = mpl.pyplot.axes([0.05, 0.45, 0.10, 0.15])
             butRadio = mpl.widgets.RadioButtons(axRadio, ('Yes', 'No'), activecolor='red')
@@ -332,7 +332,7 @@ class Visualize(object):
         custlc = []
         if check==True:
             if len(coords) == 0:
-                print("You have not selected any pixels. No photometry will be completed.")
+                warnings.warn("You have not selected any pixels. No photometry will be completed.")
             else:
                 for f in range(len(tpf)):
                     cadence = []
@@ -344,5 +344,5 @@ class Visualize(object):
 
         else:
             self.click_aperture()
-            
+
         return
