@@ -14,7 +14,22 @@ __all__ = ['Source', 'multi_sectors']
 
 
 def multi_sectors(sectors, tic=None, gaia=None, coords=None):
-    if sectors = 'all':
+    """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
+    
+    Parameters
+    ----------
+    tic : int, optional
+        The TIC ID of the source.
+    gaia : int, optional
+        The Gaia DR2 source_id.
+    coords : tuple, optional
+        The (RA, Dec) coords of the object in degrees.
+    sectors : list or str
+        The list of sectors for which data should be returned, or `all` to return all sectors 
+        for which there are data.
+    """
+    
+    if sectors == 'all':
         sectors = np.arange(1,14,1)
     if type(sectors) == list:
         objs = [Source(tic=tic, gaia=gaia, coords=coords, sector=i) for i in sectors]
@@ -40,6 +55,9 @@ class Source(object):
         The Gaia DR2 source_id.
     coords : tuple, optional
         The (RA, Dec) coords of the object in degrees.
+    sector : int or str 
+        The sector for which data should be returned, or `recent` to 
+        obtain data for the most recent sector which contains this target. 
 
     Attributes
     ----------
