@@ -15,14 +15,11 @@ def postcard_names(loc):
 def get_headers(cards):
     for i in tqdm.tqdm(range(len(cards)), total=len(cards)):
         hdr = fitsio.read_header(cards[i], 1)
-        # with fits.open(cards[i]) as hdu:
-        #     hdr = hdu[1].header
 
         # Initiate table using first postcard
         if i == 0:
             names, counts = [], []
             hdrKeys = list(hdr.keys())
-            print(hdrKeys)
             dtype = []
             for k in range(len(hdrKeys)-10):
                 if hdrKeys[k] not in names:
@@ -31,7 +28,6 @@ def get_headers(cards):
             names.append('POSTNAME')
 
             counts = np.array(counts)
-            print(counts)
 
             row = [hdr[k] for k in hdrKeys]
             row.append(cards[i])
