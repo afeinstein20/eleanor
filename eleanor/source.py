@@ -112,15 +112,11 @@ class Source(object):
                     
         else:
             if self.coords is not None:
-                assert type(self.coords) is astropy.coordinates.sky_coordinate.SkyCoord, \
-                    "Source: coords must be an astropy.coordinates.SkyCoord object."
-                if type(self.coords) is astropy.coordinates.sky_coordinate.SkyCoord:
+                if type(coords[0]) == str or type(coords[1]) == str:
+                    c = SkyCoord(coords[0], coords[1], unit=(u.hour, u.degree))
                     self.coords = (c.ra.degree, c.dec.degree)
-                elif (len(coords) == 2) & all(isinstance(c, float) for c in self.coords):
-                    self.coords  = coords
                 else:
-                    assert False, ("Source: invalid coords. Valid input types are: "
-                                   "(RA, Dec) tuple or astropy.coordinates.SkyCoord object.")
+                    self.coords= coords
 
                 self.tic, self.tess_mag, sep = tic_from_coords(self.coords)
                 self.gaia = gaia_from_coords(self.coords)
