@@ -28,18 +28,22 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
         The list of sectors for which data should be returned, or `all` to return all sectors 
         for which there are data.
     """
-    
+    objs = []
     if sectors == 'all':
-        sectors = list(np.arange(1,14,1))
+        sectors = list(np.arange(1,14,1, dtype=int))
     if type(sectors) == list:
-        objs = [Source(tic=tic, gaia=gaia, coords=coords, sector=i) for i in sectors]
+        for s in sectors:
+            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
+            if star.sector is not None:
+                objs.append(star)
+        return objs
     else:
         raise TypeError("Sectors needs to be either 'all' or a type(list) to work.")
-
+    
 
 def load_postcard_guide():
     """Load and return the postcard coordinates guide."""
-    guide_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/postcard.guide')
+    guide_link = urllib.request.urlopen('http://astro.uchicago.edu/~bmontet/TESS_postcards/postcard.guide')
     guide = guide_link.read().decode('utf-8')
     guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
     return guide
@@ -157,7 +161,6 @@ class Source(object):
                     xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
                     x_zero, y_zero = hdr['POSTPIX1'], hdr['POSTPIX2']
                     xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
-
                     if (0 <= xy[0] < 2048) & (44 <= xy[1] < 2092):
                         self.sector = sec
                         self.camera = cam
@@ -179,7 +182,7 @@ class Source(object):
                 cam_chip_loop(self.usr_sec)
 
             # Searches for the most recent sector the object was observed in
-            elif self.usr_sec == 'recent':
+            elif self.usr_sec.lower() == 'recent':
                 for s in np.arange(15,0,-1):
                     cam_chip_loop(s)
                     if self.sector is not None:
@@ -193,8 +196,10 @@ class Source(object):
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
         guide = load_postcard_guide()
-        self.locate_on_chip()
+        self.locate_on_chip(guide)
 
+        if self.sector is None:
+            return
 
         # Searches through postcards for the given sector, camera, chip
         in_file, dists=[], []
@@ -209,7 +214,7 @@ class Source(object):
         for i in postcard_inds: # loop rows
 
             x_cen, y_cen= guide['CEN_X'][i], guide['CEN_Y'][i]
-            l, w = guide['POST_HEIGHT'][i]/2., guide['POST_WIDTH'][i]/2.
+            l, w = guide['POST_H'][i]/2., guide['POST_W'][i]/2.
 
             # Checks to see if xy coordinates of source falls within postcard
             if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
@@ -234,11 +239,11 @@ class Source(object):
         self.chip = guide['CCD'][in_file[best_ind]]
 
         i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_HEIGHT'][i]/2.,
-                                guide['CEN_Y'][i] - guide['POST_WIDTH'][i]/2.)
+        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
+                                guide['CEN_Y'][i] - guide['POST_W'][i]/2.)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
 
         i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_HEIGHT'][i]/2.,
-                              guide['CEN_Y'][i] - guide['POST_WIDTH'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
+        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
+                              guide['CEN_Y'][i] - guide['POST_W'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS

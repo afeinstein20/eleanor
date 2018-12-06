@@ -5,6 +5,15 @@ from eleanor.targetdata import TargetData
 from eleanor.visualize import Visualize
 
 
+#star = Source(tic=157376929, sector='recent')
+#star = multi_sectors(sectors=[1,2], tic=157376929)
+star = Source(coords=('15:55:22.715','+45:06:06.56'), sector='recent')
+print(star.sector)
+data = TargetData(star[0])
+plt.plot(data.time, data.corr_flux, '.')
+plt.show()
+
+
 star = Source(tic=261136901)  # this is a binary of two bright stars separated by ~2 pixels
 data = TargetData(star)
 vis = Visualize(data)
