@@ -50,9 +50,10 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     is_raw = primary_header["IMAGTYPE"].strip() == "uncal"
 
     # Set the output filename format
-    info   = (primary_header["SECTOR"], primary_header["CAMERA"],
+    sector = middle_fn[18:23] # Scrapes sector from the filename 
+    info   = (sector, primary_header["CAMERA"],
               primary_header["CCD"], primary_header["IMAGTYPE"].strip())
-    info_str = '{0:02d}-{1}-{2}-{3}'.format(info[0], info[1], info[2], info[3])
+    info_str = '{0}-{1}-{2}-{3}'.format(info[0], info[1], info[2], info[3])
 
     outfn_fmt = "hlsp_eleanor_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}.fits".format(info_str)
     outfn_fmt = os.path.join(outdir, outfn_fmt).format
@@ -184,8 +185,8 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                     dict(name="POST_W", value=float(width),
                          comment="Width of postcard in pixels"))
                 hdr.add_record(
-                    dict(name="SECTOR", value=1,
-                         comment="TESS sector (temporary)"))
+                    dict(name="SECTOR", value=sector[1::],
+                         comment="TESS sector"))
 
                 # Save the primary HDU
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
