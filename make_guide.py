@@ -1,20 +1,20 @@
+import sys
 import numpy as np
 from astropy.io import fits, ascii
 from astropy.table import Table
 import fitsio
 import os
+import glob
+import tqdm
 
 
 def postcard_names(loc):
-    files = os.listdir(loc)
-    files = [i for i in files if '.fits' in i]
-    return np.array(files)
+    return list(glob.glob(os.path.join(loc, "*.fits")))
 
 
 def get_headers(cards):
-    for i in range(len(cards)):
-        hdu = fits.open(cards[i])
-        hdr = hdu[1].header
+    for i in tqdm.tqdm(range(len(cards)), total=len(cards)):
+        hdr = fitsio.read_header(cards[i], 1)
 
         # Initiate table using first postcard
         if i == 0:
@@ -28,22 +28,27 @@ def get_headers(cards):
             names.append('POSTNAME')
 
             counts = np.array(counts)
-            
-            row = list(hdr.values())
+
+            row = [hdr[k] for k in hdrKeys]
             row.append(cards[i])
             row = np.array(row)
             for r in range(len(row[counts])+1):
                 dtype.append('S60')
             t = Table(names=names, dtype=dtype)
 
-        row = np.array(list(hdr.values()))
+        row = np.array([hdr[k] for k in hdrKeys])
         row = row[counts]
         row = np.append(row, cards[i])
         t.add_row(row)
     return t
 
 
-postcards = postcard_names('.')
+if len(sys.argv) > 1:
+    dirname = sys.argv[1]
+else:
+    dirname = "."
+
+postcards = postcard_names(dirname)
 table = get_headers(postcards)
 
-ascii.write(table, 'postcard.guide')
+ascii.write(table, os.path.join(dirname, 'postcard.guide'))
