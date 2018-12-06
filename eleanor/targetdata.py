@@ -11,6 +11,7 @@ from astropy.io import fits
 from muchbettermoments import quadratic_2d
 import urllib
 import os
+import warnings
 
 from .ffi import use_pointing_model
 from .postcard import Postcard
