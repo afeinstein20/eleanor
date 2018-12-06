@@ -21,7 +21,7 @@ def get_headers(cards):
             names, counts = [], []
             hdrKeys = list(hdr.keys())
             dtype = []
-            for k in range(len(hdrKeys)-10):
+            for k in range(len(hdrKeys)):
                 if hdrKeys[k] not in names:
                     names.append(hdrKeys[k])
                     counts.append(k)
