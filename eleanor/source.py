@@ -43,9 +43,11 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
 
 def load_postcard_guide():
     """Load and return the postcard coordinates guide."""
-    guide_link = urllib.request.urlopen('http://astro.uchicago.edu/~bmontet/TESS_postcards/postcard.guide')
-    guide = guide_link.read().decode('utf-8')
-    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
+#    guide_link = urllib.request.urlopen('http://astro.uchicago.edu/~bmontet/TESS_postcards/postcard.guide')
+#    guide_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/postcard.guide')
+#    guide = guide_link.read().decode('utf-8')
+#    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
+    guide = Table.read('/Users/AdinaFeinstein/Documents/ELLIE/postcard.guide', format='ascii.basic')
     return guide
 
 class Source(object):
