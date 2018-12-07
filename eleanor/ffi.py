@@ -123,7 +123,7 @@ class ffi:
         else:
             # if it doesn't exist, make a new cache directory
             try:
-                os.mkdir(download_dir)
+                os.makedirs(download_dir)
             # downloads locally if OS error occurs
             except OSError:
                 warnings.warn('Warning: unable to create {}. '
