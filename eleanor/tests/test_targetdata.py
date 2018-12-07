@@ -11,9 +11,9 @@ def test_making_tpfs():
     SAME target produce the SAME light curve?"
     '''
 
-    star1 = Source(coords=(84.2917, -80.4689))
-    star2 = Source(gaia=4623036865373793408)
-    star3 = Source(tic=261136679)
+    star1 = Source(coords=(63.37389, -69.226789), sector='recent')
+    star2 = Source(gaia=4666498154837086208)
+    star3 = Source(tic=25155310)
 
     data1 = TargetData(star1)
     data2 = TargetData(star2)
