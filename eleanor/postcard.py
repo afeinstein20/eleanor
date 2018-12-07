@@ -11,7 +11,8 @@ import copy
 from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-ELEANORURL = 'http://astro.uchicago.edu/~bmontet/TESS_postcards/'
+#ELEANORURL = 'http://astro.uchicago.edu/~bmontet/TESS_postcards/'
+ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/'
 
 class Postcard(object):
     """TESS FFI data for one postcard across one sector.
