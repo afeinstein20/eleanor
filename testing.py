@@ -1,16 +1,19 @@
 import matplotlib.pyplot as plt
+import eleanor
+from astropy.coordinates import SkyCoord, Angle
+from astropy import units as u
 from eleanor.source import Source
 from eleanor.source import multi_sectors
 from eleanor.targetdata import TargetData
 from eleanor.visualize import Visualize
 
-
-#star = Source(tic=157376929, sector='recent')
-#star = multi_sectors(sectors=[1,2], tic=157376929)
-star = Source(coords=('15:55:22.715','+45:06:06.56'), sector='recent')
-print(star.sector)
-data = TargetData(star[0])
+ra  = Angle('04:51:22.39', u.hourangle)
+dec = Angle(-68.08248, u.deg)
+star = Source(coords=SkyCoord(ra, dec), sector=1)
+data = TargetData(star)
 plt.plot(data.time, data.corr_flux, '.')
+plt.show()
+plt.imshow(data.tpf[0], origin='lower')
 plt.show()
 
 
