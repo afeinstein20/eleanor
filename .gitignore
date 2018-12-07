@@ -9,5 +9,5 @@ dist
 build
 dist
 .cache/
-.coveralls.yml
+.coverage
 .eggs
