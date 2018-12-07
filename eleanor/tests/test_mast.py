@@ -11,7 +11,7 @@ pos2 = [20, 49]
 def test_crossmatch():
     # is distance between cooordinates calculated correctly?
     assert_almost_equal(crossmatch_distance(pos1, pos2).value, 4292.5, decimal=1)
-    # assert(len(crossmatch_by_position(pos1, .01, 'Mast.GaiaDR2.Crossmatch')) == 2)
+    assert(len(crossmatch_by_position(pos1, .01, 'Mast.GaiaDR2.Crossmatch')) == 2)
 
 def test_cone_search():
     # there should be 13 targets in within .01 degrees of pos1
