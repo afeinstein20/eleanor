@@ -33,8 +33,7 @@ install:
 
 script:
   - python setup.py develop
-  - echo "skipping tests"
-  - pytest eleanor/tests/* —-cov=eleanor
+  - pytest eleanor/tests/*
 
 after_success:
   - codecov
