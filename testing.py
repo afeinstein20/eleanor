@@ -8,9 +8,10 @@ from eleanor.targetdata import TargetData
 from eleanor.visualize import Visualize
 import numpy as np
 
-ra  = Angle('04:51:20.681', u.hourangle)
-dec = Angle(-68.069728, u.deg)
-star = Source(coords=SkyCoord(ra, dec), sector=1)
+#ra  = Angle('04:51:20.681', u.hourangle)
+#dec = Angle(-68.069728, u.deg)
+#star = Source(coords=SkyCoord(ra, dec), sector=1)
+star = Source(tic=38825533)
 data = TargetData(star)
 #data.save()
 fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
