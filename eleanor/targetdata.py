@@ -719,10 +719,6 @@ class TargetData(object):
         for i in range(len(self.all_apertures)):
             ext2[colnames[i]] = self.all_apertures[i]
 
-        # Appends custom aperture to the end, if there is one
-        if self.custom_aperture is not None:
-            ext2['custom'] = self.custom_aperture
-
         # Creates table for third extention (all raw & corrected fluxes and errors)
         ext3 = Table()
         for i in range(len(raw)):
@@ -742,8 +738,8 @@ class TargetData(object):
         if output_fn==None:
             hdu.writeto(os.path.join(directory,
                         'hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(
-                        self.source_info.tic, self.source_info.sector),
-                        overwrite=True))
+                        self.source_info.tic, self.source_info.sector)),
+                        overwrite=True)
         else:
             hdu.writeto(output_fn)
 
