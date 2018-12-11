@@ -207,7 +207,7 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
                           'filters': [{'paramName':'contratio',
                                        'values':[{'min':contam[0], 'max':contam[1]}]},
                                       {'paramName':'Tmag',
-                                       'values':[{'min':0, 'max':tmag_lim}]}
+                                       'values':[{'min':tmag_lim[0], 'max':tmag_lim[1]}]}
                                       ],
                           'ra':pos[0],
                           'dec':pos[1],
