@@ -2,10 +2,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
-from lightkurve import SFFCorrector
+from photutils import MMMBackground
+from lightkurve import SFFCorrector, lightcurve
 from scipy.optimize import minimize
 from astropy.table import Table, Column
 from astropy.wcs import WCS
+from astropy.stats import SigmaClip
 from time import strftime
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
@@ -126,6 +128,7 @@ class TargetData(object):
 
 
     def load_pointing_model(self, sector, camera, chip):
+
         pointing_link = urllib.request.urlopen('http://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
                                                                                                                                   camera,
                                                                                                                                   chip))
@@ -190,8 +193,6 @@ class TargetData(object):
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
 
-#        self.tpf_bkg = np.nanmedian(self.tpf, axis=(1,2))            
-#        self.tpf     = np.array([self.tpf[i]-self.tpf_bkg[i] for i in range(len(self.time))])
         self.tpf = self.tpf
         if save_postcard == False:
             try:
@@ -230,8 +231,8 @@ class TargetData(object):
             # Center gives binary mask; exact gives weighted mask
             circles, rectangles, self.all_apertures = [], [], []
 
-            center = (width/2, height/2)
-
+            center = ((width-1)/2, (height-1)/2)
+            
             for r in r_list:
                 ap_circ = circle( center, r )
                 ap_rect = rectangle( center, r, r, 0.0)
@@ -244,6 +245,37 @@ class TargetData(object):
                     self.all_apertures.append(circ_mask)
                     self.all_apertures.append(rect_mask)
             self.all_apertures = np.array(self.all_apertures)
+
+
+    def bkg_subtraction(self, scope="tpf", sigma=2.5):
+        """Completes background subtract in a TPF frame
+
+        Allows the user to choose postcard or TPF level background subtraction, otherwise sets default to TPF.
+        Allows the user to determine sigma limit on background, otherwise sets sigma=2.5.
+
+        Parameters
+        ---------- 
+        scope : string
+            "tpf" or "postcard" are accepted. "tpf" is the default.
+        sigma : float
+            A float with desired sigma cut on background subtraction
+        """
+        if scope.lower() == 'postcard':
+            time = self.post_obj.time
+            flux = np.swapaxes(self.post_obj.flux, 0, 2)
+        else:
+            time = self.time
+            flux = self.tpf
+
+        self.flux_bkg = []
+
+        sigma_clip = SigmaClip(sigma=sigma)
+        bkg = MMMBackground(sigma_clip=sigma_clip)
+        for i in range(len(time)):
+            bkg_value = bkg.calc_background(flux[i])
+            self.flux_bkg.append(bkg_value)
+
+        self.flux_bkg = np.array(self.flux_bkg)
 
 
     def get_lightcurve(self, aperture=False):
@@ -272,9 +304,8 @@ class TargetData(object):
 
 
         self.flux_err = None
-        ############################################### 
-        ###############################################
-        self.flux_bkg = None  
+
+        self.bkg_subtraction()
 
         if (self.aperture is None):
 
@@ -288,10 +319,17 @@ class TargetData(object):
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
                     all_lc_err[a, cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                    all_raw_lc[a, cad] = np.sum( self.tpf[cad] * self.all_apertures[a] )
+                    all_raw_lc[a, cad] = np.sum( (self.tpf[cad] - self.flux_bkg[cad]) * self.all_apertures[a] )
+
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
-                all_corr_lc[a] = self.jitter_corr(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
-                stds.append( np.std(all_corr_lc[a]))
+#                all_corr_lc[a] = self.jitter_corr(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
+                all_corr_lc[a] = self.k2_correction(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
+                q = self.quality == 0
+                lc_obj = lightcurve.LightCurve(time = self.time[q][0:500], 
+                                       flux = all_corr_lc[a][q][0:500])
+                flat_lc = lc_obj.flatten(polyorder=2, window_length=51)
+                stds.append( np.std(flat_lc.flux))
+
                 all_corr_lc[a] = all_corr_lc[a] * np.nanmedian(all_raw_lc[a])
 
             self.all_raw_lc  = np.array(all_raw_lc)
@@ -492,6 +530,41 @@ class TargetData(object):
             raise ValueError("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
 
 
+    def find_break(self):
+        t   = np.diff(self.time)
+        ind = np.where( t > np.mean(t)+2*np.std(t))[0][0]
+        return ind + 1
+
+
+    def k2_correction(self, flux):
+        """
+        dlkkldkl
+
+        Parameters
+        ---------- 
+        """
+        brk = self.find_break()
+    
+        r1 = np.arange(0, brk, 1)
+        r2 = np.arange(brk,len(self.time))
+
+        t1 = self.time[r1]; f1 = flux[r1]
+        t2 = self.time[r2]; f2 = flux[r2]
+
+        sff = SFFCorrector()
+        corr_lc_obj_1 = sff.correct(time=t1, flux=f1, 
+                                    centroid_col=self.centroid_xs[r1], 
+                                    centroid_row=self.centroid_ys[r1],
+                                    windows=1, polyorder=2, niters=3, sigma_1=3, sigma_2=5,
+                                    restore_trend=True, bins=15)
+        corr_lc_obj_2 = sff.correct(time=t2, flux=f2,
+                                    centroid_col=self.centroid_xs[r2],
+                                    centroid_row=self.centroid_ys[r2],
+                                    windows=1, polyorder=2, niters=3, sigma_1=3, sigma_2=5,
+                                    restore_trend=True, bins=15)
+        return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
+
+
     def jitter_corr(self, flux, cen=0.0):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
@@ -523,11 +596,6 @@ class TargetData(object):
             xhat = np.dot(ATAinv, ATf)
             return xhat
 
-        def find_break(t):
-            t   = np.diff(t)
-            ind = np.where( t > np.mean(t)+2*np.std(t))[0][0]
-            return ind
-
         q = self.quality == 0
         norm_l = norm(flux, q)
         cm     = np.column_stack( (self.centroid_xs[q]   , self.centroid_ys[q],
@@ -540,7 +608,7 @@ class TargetData(object):
         f_mod = fhat(x, cm)
         lc_reg = flux/f_mod
         # Breaks the light curve into two sections
-        brk = find_break(self.time)
+        brk = self.find_break()
         f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
 
         poly_fit1 = np.polyval( np.polyfit(self.time[f], flux[f], 1), self.time[f])
@@ -567,17 +635,17 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
                                      comment='Associated Gaia ID'))
         self.header.append(fits.Card(keyword='SECTOR', value=self.source_info.sector,
-                                     comment='Sector'))
+                                     comment='Sector'))      
         self.header.append(fits.Card(keyword='CAMERA', value=self.source_info.camera,
-                                     comment='Camera'))
+                                     comment='Camera'))   
         self.header.append(fits.Card(keyword='CHIP', value=self.source_info.chip,
-                                     comment='Chip'))
+                                     comment='Chip'))                                  
         self.header.append(fits.Card(keyword='CHIPPOS1', value=self.source_info.position_on_chip[0],
                                      comment='central x pixel of TPF in FFI chip'))
         self.header.append(fits.Card(keyword='CHIPPOS2', value=self.source_info.position_on_chip[1],
                                      comment='central y pixel of TPF in FFI'))
         self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
-                                     comment='Postcard'))
+                                     comment='Postcard'))        
         self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
                                      comment='predicted x pixel of source on postcard'))
         self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
