@@ -6,16 +6,26 @@ from eleanor.source import Source
 from eleanor.source import multi_sectors
 from eleanor.targetdata import TargetData
 from eleanor.visualize import Visualize
+import numpy as np
 
-ra  = Angle('04:51:22.39', u.hourangle)
-dec = Angle(-68.08248, u.deg)
+ra  = Angle('04:51:20.681', u.hourangle)
+dec = Angle(-68.069728, u.deg)
 star = Source(coords=SkyCoord(ra, dec), sector=1)
 data = TargetData(star)
-plt.plot(data.time, data.corr_flux, '.')
+#data.save()
+fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1)
+q = data.quality==0
+ax1.plot(data.time, data.x_com, 'k.')
+ax2.plot(data.time, data.y_com, 'r.')
+plt.show()
+plt.close()
+plt.plot(data.time[q], data.raw_flux[q], 'k.')
+plt.plot(data.time[q], data.corr_flux[q], 'r.')
+#plt.plot(data.time, data.quality, 'b*')
 plt.show()
 plt.imshow(data.tpf[0], origin='lower')
 plt.show()
-
+plt.close()
 
 star = Source(tic=261136901)  # this is a binary of two bright stars separated by ~2 pixels
 data = TargetData(star)
