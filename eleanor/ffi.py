@@ -28,8 +28,8 @@ def use_pointing_model(coords, pointing_model):
     coords : tuple
         Corrected position of star(s).
     """
-    pointing_model = np.reshape(list(pointing_model), (3,3))
-    A = np.column_stack([coords[:,0], coords[:,1], np.ones_like(coords[:,0])])
+    pointing_model = np.reshape(list(pointing_model), (3,3))#.T
+    A = np.column_stack([coords[0], coords[1], np.ones_like(coords[0])])
     fhat = np.dot(A, pointing_model)
     return fhat
 
@@ -221,12 +221,12 @@ class ffi:
                 Indexes into input arrays corresponding to good sources.
             """
             cenx, ceny, good = [], [], []
-            warnings.warn("Finding isolated centers of sources.")
+            
             for i in range(len(x)):
                  if x[i] > 0. and y[i] > 0.:
                      tpf = Cutout2D(image, position=(x[i], y[i]), size=(7,7), mode='partial')
                      origin = tpf.origin_original
-                     cen = quadratic_2d(tpf.data)
+                     cen = quadratic_2d(tpf.data - np.nanmedian(tpf.data))
                      cenx.append(cen[0]+origin[0]); ceny.append(cen[1]+origin[1])
                      good.append(i)
             cenx, ceny = np.array(cenx), np.array(ceny)
@@ -235,7 +235,7 @@ class ffi:
         def apply_pointing_model(xy, matrix):
             pointing_model = matrix
             centroid_xs, centroid_ys = [], []
-            new_coords = use_pointing_model(xy, pointing_model)
+            new_coords = use_pointing_model(np.array(xy).T, pointing_model)
             return np.array(new_coords)
 
 
@@ -257,6 +257,7 @@ class ffi:
             hdu = fits.open(fn)
             hdr = hdu[1].header
             xy = WCS(hdr).all_world2pix(t['ra'], t['dec'], 1)
+
             # Triple checks the sources are on the FFI
             onFrame = np.where( (xy[0]>10) & (xy[0]<2092-10) & (xy[1]>10) & (xy[1]<2048-10) )[0]
             xy  = np.array([xy[0][onFrame], xy[1][onFrame]])

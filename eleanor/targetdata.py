@@ -118,20 +118,21 @@ class TargetData(object):
             self.time  = self.post_obj.time
             self.load_pointing_model(source.sector, source.camera, source.chip)
             self.get_tpf_from_postcard(source.coords, source.postcard, height, width, save_postcard)
+            self.set_quality()
             self.create_apertures(height, width)
             self.get_lightcurve()
             self.center_of_mass()
-            self.set_quality()
             self.set_header()
 
 
     def load_pointing_model(self, sector, camera, chip):
 
-        pointing_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
-                                                                                                                          camera,
-                                                                                                                          chip))
-        pointing = pointing_link.read().decode('utf-8')
-        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
+#        pointing_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
+#                                                                                                                          camera,
+#                                                                                                                          chip))
+#        pointing = pointing_link.read().decode('utf-8')
+#        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
+        pointing = Table.read('/Users/AdinaFeinstein/Documents/ELLIE/pointingModel_1_4-1.txt', format='ascii.basic')
         self.pointing_model = pointing
         return
 
@@ -139,7 +140,7 @@ class TargetData(object):
     def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
         """Gets TPF from postcard."""
 
-        self.tpf = None
+        self.tpf         = None
         self.centroid_xs = None
         self.centroid_ys = None
 
@@ -148,7 +149,7 @@ class TargetData(object):
         # Apply the pointing model to each cadence to find the centroids
         centroid_xs, centroid_ys = [], []
         for i in range(len(self.pointing_model)):
-            new_coords = use_pointing_model(xy, self.pointing_model[i])
+            new_coords = use_pointing_model(np.array(xy), self.pointing_model[i])
             centroid_xs.append(new_coords[0][0])
             centroid_ys.append(new_coords[0][1])
         self.centroid_xs = np.array(centroid_xs)
@@ -191,6 +192,9 @@ class TargetData(object):
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
 
+#        self.tpf_bkg = np.nanmedian(self.tpf, axis=(1,2))            
+#        self.tpf     = np.array([self.tpf[i]-self.tpf_bkg[i] for i in range(len(self.time))])
+        self.tpf = self.tpf
         if save_postcard == False:
             try:
                 os.remove(source.postcard.filename)
@@ -269,7 +273,10 @@ class TargetData(object):
             return
 
 
-        self.flux_err   = None
+        self.flux_err = None
+        ############################################### 
+        ###############################################
+        self.flux_bkg = None  
 
         if (self.aperture is None):
 
@@ -282,11 +289,12 @@ class TargetData(object):
             stds = []
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
-                    all_lc_err[a][cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                    all_raw_lc[a][cad] = np.sum( self.tpf[cad] * self.all_apertures[a] )
-
-                all_corr_lc[a] = self.jitter_corr(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))*np.nanmedian(all_raw_lc[a])
-                stds.append( np.std(all_corr_lc[a]) )
+                    all_lc_err[a, cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
+                    all_raw_lc[a, cad] = np.sum( self.tpf[cad] * self.all_apertures[a] )
+                ## Remove something from all_raw_lc before passing into jitter_corr ##
+                all_corr_lc[a] = self.jitter_corr(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
+                stds.append( np.std(all_corr_lc[a]))
+                all_corr_lc[a] = all_corr_lc[a] * np.nanmedian(all_raw_lc[a])
 
             self.all_raw_lc  = np.array(all_raw_lc)
             self.all_lc_err  = np.array(all_lc_err)
@@ -298,6 +306,7 @@ class TargetData(object):
             self.raw_flux = self.all_raw_lc[best_ind]
             self.aperture = self.all_apertures[best_ind]
             self.flux_err = self.all_lc_err[best_ind]
+            self.aperture_size = np.sum(self.aperture)
 
         else:
             if np.shape(aperture) == np.shape(self.tpf[0]):
@@ -342,11 +351,13 @@ class TargetData(object):
         Hopefully in the future, MAST will put in some quality flags for us.
         Our flags and their flags will be combnied, if they create flags.
         """
-        bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+3*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+3*np.std(self.centroid_ys)))
+        tess_quality = np.loadtxt('/Users/AdinaFeinstein/Documents/ELLIE/eleanor/quality_flags.txt')
+        lim = 2.5
+        bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+lim*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+lim*np.std(self.centroid_ys)))
 
         quality = np.zeros(np.shape(self.time))
         quality[bad] = 1
-        self.quality = quality
+        self.quality = quality+tess_quality
 
 
 
@@ -483,8 +494,6 @@ class TargetData(object):
             raise ValueError("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
 
 
-
-
     def jitter_corr(self, flux, cen=0.0):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
@@ -497,37 +506,51 @@ class TargetData(object):
         cen: float, optional
             Center of the 2-d paraboloid for which the correction is performed.
         """
-        def parabola(params, x, y, f_obs, y_err):
-            nonlocal cen
-            c1, c2, c3, c4, c5 = params
-            f_corr = f_obs * (c1 + c2*(x-cen) + c3*(x-cen)**2 + c4*(y-cen) + c5*(y-cen)**2)
-            return np.sum( ((1-f_corr)/y_err)**2)
+        flux = np.array(flux)
 
+        # Inputs: light curve & quality flag
+        def norm(l, q):
+            l = l[q]
+            l /= np.nanmedian(l)
+            l -= 1
+            return l
 
-        # Masks out anything >= 2.5 sigma above the mean
-        mask = np.ones(len(flux), dtype=bool)
-        for i in range(5):
-            lc_new = []
-            std_mask = np.std(flux[mask])
+        def fhat(xhat, data):
+            return np.dot(data, xhat)
 
-            inds = np.where(flux <= np.mean(flux)-2.5*std_mask)
-            y_err = np.ones(len(flux))**np.std(flux)
-            for j in inds:
-                y_err[j] = np.inf
-                mask[j]  = False
+        def xhat(mat, lc):
+            ATA = np.dot(mat.T, mat)
+            ATAinv = np.linalg.inv(ATA)
+            ATf = np.dot(mat.T, lc)
+            xhat = np.dot(ATAinv, ATf)
+            return xhat
 
-            if i == 0:
-                initGuess = [3, 3, 3, 3, 3]
-            else:
-                initGuess = test.x
+        def find_break(t):
+            t   = np.diff(t)
+            ind = np.where( t > np.mean(t)+2*np.std(t))[0][0]
+            return ind
 
-            bnds = ((-15.,15.), (-15.,15.), (-15.,15.), (-15.,15.), (-15.,15.))
-            centroid_xs, centroid_ys = self.centroid_xs-np.median(self.centroid_xs), self.centroid_ys-np.median(self.centroid_ys)
-            test = minimize(parabola, initGuess, args=(centroid_xs, centroid_ys, flux, y_err), bounds=bnds)
-            c1, c2, c3, c4, c5 = test.x
-        lc_new = flux * (c1 + c2*(centroid_xs-cen) + c3*(centroid_xs-cen)**2 + c4*(centroid_ys-cen) + c5*(centroid_ys-cen)**2)
-        return np.copy(lc_new)
+        q = self.quality == 0
+        norm_l = norm(flux, q)
+        cm     = np.column_stack( (self.centroid_xs[q]   , self.centroid_ys[q],
+                                   self.centroid_xs[q]**2, self.centroid_ys[q]**2))
+        x = xhat(cm, norm_l)
+        
+        cm  = np.column_stack( (self.centroid_xs   , self.centroid_ys,
+                                self.centroid_xs**2, self.centroid_ys**2))
 
+        f_mod = fhat(x, cm)
+        lc_reg = flux/f_mod
+        # Breaks the light curve into two sections
+        brk = find_break(self.time)
+        f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
+
+        poly_fit1 = np.polyval( np.polyfit(self.time[f], flux[f], 1), self.time[f])
+        poly_fit2 = np.polyval( np.polyfit(self.time[s], flux[s], 1), self.time[s])
+        
+        return np.append( flux[f]/poly_fit1, flux[s]/poly_fit2)
+
+        
 
     def set_header(self):
         """Defines the header for the TPF."""
@@ -603,7 +626,6 @@ class TargetData(object):
         ext1 = Table()
         ext1['TIME']       = self.time
         ext1['TPF']        = self.tpf
-#        ext1['FLUX']       = self.tpf
         ext1['TPF_ERR']    = self.tpf_err
         ext1['RAW_FLUX']   = self.raw_flux
         ext1['CORR_FLUX']  = self.corr_flux
@@ -613,6 +635,7 @@ class TargetData(object):
         ext1['Y_CENTROID'] = self.centroid_ys
         ext1['X_COM']      = self.x_com
         ext1['Y_COM']      = self.y_com
+        ext1['FLUX_BKG']   = self.flux_bkg
 
         # Creates table for second extension (all apertures)
         ext2 = Table()
