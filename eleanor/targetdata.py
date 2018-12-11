@@ -193,6 +193,9 @@ class TargetData(object):
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
 
+        self.bkg_subtraction()
+#        self.tpf = self.tpf - self.flux_bkg
+
         self.tpf = self.tpf
         if save_postcard == False:
             try:
@@ -305,8 +308,6 @@ class TargetData(object):
 
         self.flux_err = None
 
-        self.bkg_subtraction()
-
         if (self.aperture is None):
 
             self.all_lc_err  = None
@@ -319,7 +320,7 @@ class TargetData(object):
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
                     all_lc_err[a, cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                    all_raw_lc[a, cad] = np.sum( (self.tpf[cad] - self.flux_bkg[cad]) * self.all_apertures[a] )
+                    all_raw_lc[a, cad] = np.sum( (self.tpf[cad]-self.flux_bkg[cad]) * self.all_apertures[a] )
 
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
 #                all_corr_lc[a] = self.jitter_corr(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
@@ -370,7 +371,17 @@ class TargetData(object):
 
         summed_pixels = np.sum(self.aperture * self.tpf, axis=0)
         brightest = np.where(summed_pixels == np.max(summed_pixels))
-        cen = (brightest[0][0], brightest[1][0])
+        cen = [brightest[0][0], brightest[1][0]]
+
+        if cen[0] < 3.0:
+            cen[0] = 3
+        if cen[1] < 3.0:
+            cen[1] = 3
+        if cen[0]+3 > np.shape(self.tpf[0])[0]:
+            cen[0] = np.shape(self.tpf[0])[0]-3
+        if cen[1]+3 > np.shape(self.tpf[0])[1]:
+            cen[1] = np.shape(self.tpf[0])[1]-3
+
         for a in range(len(self.tpf)):
             data = self.tpf[a, cen[0]-3:cen[0]+2, cen[1]-3:cen[1]+2]
             c_0  = quadratic_2d(data)
