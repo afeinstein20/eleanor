@@ -51,6 +51,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
 
     # Set the output filename format
     sector = os.path.split(middle_fn)[-1].split("-")[1] # Scrapes sector from the filename
+
     info   = (sector, primary_header["CAMERA"],
               primary_header["CCD"], primary_header["IMAGTYPE"].strip())
     info_str = '{0}-{1}-{2}-{3}'.format(info[0], info[1], info[2], info[3])
