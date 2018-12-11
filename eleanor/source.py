@@ -4,7 +4,11 @@ from astropy.table import Table
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+import os
 import sys
+from os.path import join, abspath
+import warnings
+from . import PACKAGEDIR
 
 import urllib
 from .mast import *
@@ -15,7 +19,7 @@ __all__ = ['Source', 'multi_sectors']
 
 def multi_sectors(sectors, tic=None, gaia=None, coords=None):
     """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
-    
+
     Parameters
     ----------
     tic : int, optional
@@ -25,7 +29,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
     coords : tuple, optional
         The (RA, Dec) coords of the object in degrees.
     sectors : list or str
-        The list of sectors for which data should be returned, or `all` to return all sectors 
+        The list of sectors for which data should be returned, or `all` to return all sectors
         for which there are data.
     """
     objs = []
@@ -36,10 +40,14 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
             if star.sector is not None:
                 objs.append(star)
+        if len(objs) < len(sectors):
+            warnings.warn('Only {} targets found instead of desired {}. Your '
+                          'target may not have been observed yet in these sectors.'
+                          ''.format(len(objs), len(sectors)))
         return objs
     else:
         raise TypeError("Sectors needs to be either 'all' or a type(list) to work.")
-    
+
 
 def load_postcard_guide():
     """Load and return the postcard coordinates guide."""
@@ -47,7 +55,7 @@ def load_postcard_guide():
 #    guide_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/postcard.guide')
 #    guide = guide_link.read().decode('utf-8')
 #    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
-    guide = Table.read('/Users/AdinaFeinstein/Documents/ELLIE/postcard.guide', format='ascii.basic')
+    guide = Table.read(abspath(join(PACKAGEDIR, os.pardir,'postcard.guide')), format='ascii.basic')
     return guide
 
 class Source(object):
@@ -63,9 +71,9 @@ class Source(object):
         The (RA, Dec) coords of the object in degrees or an astropy SkyCoord object.
     fn : str, optional
         Filename of a TPF corresponding to the desired source.
-    sector : int or str 
-        The sector for which data should be returned, or `recent` to 
-        obtain data for the most recent sector which contains this target. 
+    sector : int or str
+        The sector for which data should be returned, or `recent` to
+        obtain data for the most recent sector which contains this target.
 
     Attributes
     ----------
@@ -111,7 +119,7 @@ class Source(object):
             self.chip     = hdr['CHIP']
             self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
             self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
-                    
+
         else:
             if self.coords is not None:
                 if type(self.coords) is SkyCoord:
@@ -127,12 +135,12 @@ class Source(object):
 
             elif self.gaia is not None:
                 self.coords = coords_from_gaia(self.gaia)
-                self.tic, self.tess_mag = tic_from_coords(self.coords)
+                self.tic, self.tess_mag, _ = tic_from_coords(self.coords)
 
             elif self.tic is not None:
                 self.coords, self.tess_mag = coords_from_tic(self.tic)
                 self.gaia = gaia_from_coords(self.coords)
-                
+
             else:
                 assert False, ("Source: one of the following keywords must be given: "
                                "tic, gaia, coords, fn.")
@@ -175,7 +183,7 @@ class Source(object):
         if self.usr_sec is None:
             for sec in np.unique(guide['SECTOR']):
                 cam_chip_loop(sec)
-            
+
             if self.sector is None:
                 raise SearchError("TESS has not (yet) observed your target.")
 

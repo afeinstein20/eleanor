@@ -1,9 +1,9 @@
 codecov:
   token: d423a258-e122-4865-82b8-b5e65bd1f5d8
 status:
- project: yes
- patch: yes
- changes: no
+  project: yes
+  patch: yes
+  changes: no
 comment:
   layout: "reach, diff, flags, files"
   behavior: default

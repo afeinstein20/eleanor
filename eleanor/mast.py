@@ -159,7 +159,8 @@ def coords_from_gaia(gaia_id):
     adql = 'SELECT gaia.source_id, ra, dec FROM gaiadr2.gaia_source AS gaia WHERE gaia.source_id={0}'.format(gaia_id)
     job = Gaia.launch_job(adql)
     table = job.get_results()
-    return table
+    coords = (table['ra'].data[0], table['dec'].data[0])
+    return coords
 
 def tic_from_coords(coords):
     """Returns TIC ID, Tmag, and separation of best match(es) to input coords."""

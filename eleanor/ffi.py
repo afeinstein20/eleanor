@@ -28,7 +28,7 @@ def use_pointing_model(coords, pointing_model):
     coords : tuple
         Corrected position of star(s).
     """
-    pointing_model = np.reshape(list(pointing_model), (3,3))#.T
+    pointing_model = np.reshape(list(pointing_model), (3,3))
     A = np.column_stack([coords[0], coords[1], np.ones_like(coords[0])])
     fhat = np.dot(A, pointing_model)
     return fhat
@@ -123,7 +123,7 @@ class ffi:
         else:
             # if it doesn't exist, make a new cache directory
             try:
-                os.mkdir(download_dir)
+                os.makedirs(download_dir)
             # downloads locally if OS error occurs
             except OSError:
                 warnings.warn('Warning: unable to create {}. '
@@ -269,7 +269,7 @@ class ffi:
             no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
             pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
             xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
-            
+
             solution = self.build_pointing_model(xy.T, pos_inferred.T)
 
             xy = apply_pointing_model(xy.T, solution)

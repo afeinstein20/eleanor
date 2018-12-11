@@ -1,7 +1,7 @@
 {
-  "eleanor/tests/test_targetdata.py": true,
   "eleanor/tests/test_tpfs.py": true,
   "eleanor/tests/testing.py": true,
+  "make_guide.py": true,
   "testing.py": true,
   "tests/test_tpfs.py": true
 }

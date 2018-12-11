@@ -1,3 +1,4 @@
+__pycache__
 */__pycache__
 */*/__pycache__
 ellie.egg-info
@@ -8,5 +9,5 @@ dist
 build
 dist
 .cache/
-.coveralls.yml
+.coverage
 .eggs

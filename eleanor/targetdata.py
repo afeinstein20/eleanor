@@ -126,13 +126,11 @@ class TargetData(object):
 
 
     def load_pointing_model(self, sector, camera, chip):
-
-#        pointing_link = urllib.request.urlopen('http://jet.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
-#                                                                                                                          camera,
-#                                                                                                                          chip))
-#        pointing = pointing_link.read().decode('utf-8')
-#        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
-        pointing = Table.read('/Users/AdinaFeinstein/Documents/ELLIE/pointingModel_1_4-1.txt', format='ascii.basic')
+        pointing_link = urllib.request.urlopen('http://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
+                                                                                                                                  camera,
+                                                                                                                                  chip))
+        pointing = pointing_link.read().decode('utf-8')
+        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
         self.pointing_model = pointing
         return
 
@@ -569,17 +567,17 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
                                      comment='Associated Gaia ID'))
         self.header.append(fits.Card(keyword='SECTOR', value=self.source_info.sector,
-                                     comment='Sector'))      
+                                     comment='Sector'))
         self.header.append(fits.Card(keyword='CAMERA', value=self.source_info.camera,
-                                     comment='Camera'))   
+                                     comment='Camera'))
         self.header.append(fits.Card(keyword='CHIP', value=self.source_info.chip,
-                                     comment='Chip'))                                  
+                                     comment='Chip'))
         self.header.append(fits.Card(keyword='CHIPPOS1', value=self.source_info.position_on_chip[0],
                                      comment='central x pixel of TPF in FFI chip'))
         self.header.append(fits.Card(keyword='CHIPPOS2', value=self.source_info.position_on_chip[1],
                                      comment='central y pixel of TPF in FFI'))
         self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
-                                     comment='Postcard'))        
+                                     comment='Postcard'))
         self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
                                      comment='predicted x pixel of source on postcard'))
         self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
