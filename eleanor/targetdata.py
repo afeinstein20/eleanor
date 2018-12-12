@@ -233,7 +233,7 @@ class TargetData(object):
             def weighted(data, apertures, err):
                 return aperture_photometry(data, apertures, error=err, method='exact')
 
-            r_list = np.arange(1.5,4,0.5)
+            r_list = np.arange(2,4,0.5)
 
             # Center gives binary mask; exact gives weighted mask
             circles, rectangles, self.all_apertures = [], [], []
