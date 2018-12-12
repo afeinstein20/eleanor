@@ -108,7 +108,7 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=9, width=9, save_postcard=True):
+    def __init__(self, source, height=9, width=9, save_postcard=True, do_pca=True):
         self.source_info = source
 
         if source.premade:
@@ -123,8 +123,9 @@ class TargetData(object):
             self.set_quality()
             self.create_apertures(height, width)
             self.get_lightcurve()
+            if do_pca == True:
+                self.pca()
             self.center_of_mass()
-            self.set_header()
 
 
     def load_pointing_model(self, sector, camera, chip):
@@ -194,7 +195,7 @@ class TargetData(object):
         self.dimensions = np.shape(self.tpf)
 
         self.bkg_subtraction()
-#        self.tpf = self.tpf - self.flux_bkg
+        self.bkg_subtraction(scope='postcard')
 
         self.tpf = self.tpf
         if save_postcard == False:
@@ -278,7 +279,11 @@ class TargetData(object):
             bkg_value = bkg.calc_background(flux[i])
             self.flux_bkg.append(bkg_value)
 
-        self.flux_bkg = np.array(self.flux_bkg)
+        if scope.lower() == 'postcard':
+            warnings.warn('Using scope = "postcard" sets the attribute self.flux_bkg_post rather than self.flux_bkg')
+            self.flux_bkg_post = np.array(self.flux_bkg)
+        else:
+            self.flux_bkg = np.array(self.flux_bkg)
 
 
     def get_lightcurve(self, aperture=False):
@@ -301,7 +306,7 @@ class TargetData(object):
                 lc[cad]     = np.sum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc)
-            self.corr_flux  = self.jitter_corr(flux=lc)
+            self.corr_flux  = self.k2_correction(flux=lc)
             self.flux_err   = np.array(lc_err)
             return
 
@@ -312,33 +317,57 @@ class TargetData(object):
 
             self.all_lc_err  = None
 
-            all_raw_lc     = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_lc_err = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_raw_lc  = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_lc_err  = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_corr_lc = np.copy(all_raw_lc)
+            all_raw_post= np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_corr_post= np.copy(all_raw_post)
 
-            stds = []
+            stds, post_stds = [], []
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
-                    all_lc_err[a, cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                    all_raw_lc[a, cad] = np.sum( (self.tpf[cad]-self.flux_bkg[cad]) * self.all_apertures[a] )
+                    all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
+                    all_raw_lc[a, cad]   = np.sum( (self.tpf[cad]-self.flux_bkg[cad]) * self.all_apertures[a] )
+                    all_raw_post[a, cad] = np.sum( (self.tpf[cad]-self.flux_bkg_post[cad]) * self.all_apertures[a] )
 
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
-#                all_corr_lc[a] = self.jitter_corr(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
-                all_corr_lc[a] = self.k2_correction(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
-                q = self.quality == 0
-                lc_obj = lightcurve.LightCurve(time = self.time[q][0:500], 
-                                       flux = all_corr_lc[a][q][0:500])
-                flat_lc = lc_obj.flatten(polyorder=2, window_length=51)
-                stds.append( np.std(flat_lc.flux))
+                all_corr_lc[a]  = self.k2_correction(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
+                all_corr_post[a]= self.k2_correction(flux=all_raw_post[a]/np.nanmedian(all_raw_post[a]))
 
-                all_corr_lc[a] = all_corr_lc[a] * np.nanmedian(all_raw_lc[a])
+                q = self.quality == 0
+
+                lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500], 
+                                       flux = all_corr_lc[a][q][0:500])
+                flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
+                stds.append( np.std(flat_lc_tpf.flux))
+
+                lc_obj_post = lightcurve.LightCurve(time = self.time[q][0:500],
+                                       flux = all_corr_post[a][q][0:500])
+                flat_lc_post = lc_obj_post.flatten(polyorder=2, window_length=51)
+                post_stds.append( np.std(flat_lc_post.flux))
+
+                all_corr_lc[a]  = all_corr_lc[a]  * np.nanmedian(all_raw_lc[a])
+                all_corr_post[a]= all_corr_post[a]* np.nanmedian(all_raw_post[a])
 
             self.all_raw_lc  = np.array(all_raw_lc)
             self.all_lc_err  = np.array(all_lc_err)
             self.all_corr_lc = np.array(all_corr_lc)
 
-            best_ind = np.where(stds == np.min(stds))[0][0]
-            self.best_ind = best_ind
+            best_ind_tpf  = np.where(stds == np.min(stds))[0][0]
+            best_ind_post = np.where(post_stds == np.min(post_stds))[0][0]
+
+            best_ind = best_ind_tpf
+            ## Checks if postcard or tpf level bkg subtraction is better ##
+            ## Prints bkg_type to TPF header ##
+#            if stds[best_ind_tpf] <= post_stds[best_ind_post]:
+#                best_ind = best_ind_tpf
+#                self.bkg_type = 'TPF_LEVEL'
+#            else:
+#                best_ind = best_ind_post
+#                self.bkg_type = 'PC_LEVEL'
+#                all_corr_lc   = all_corr_post
+#                all_raw_lc    = all_raw_post
+
             self.corr_flux= self.all_corr_lc[best_ind]
             self.raw_flux = self.all_raw_lc[best_ind]
             self.aperture = self.all_apertures[best_ind]
@@ -355,6 +384,31 @@ class TargetData(object):
                 raise Exception("We could not find a custom aperture. Please either create a 2D array that is the same shape as the TPF. "
                                 "Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
 
+        return
+
+
+    def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=8):
+        """ Applies PCA to self.corr_flux light curve to further remove systematics
+
+        Parameters
+        ---------- 
+        flux : numpy.ndarray
+             Flux array the user wishes to apply PCA to. Defaults to self.corr_flux
+        """
+        if flux is None:
+            flux = self.corr_flux
+
+        A = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/{}'.format(matrix_fn))
+
+        def matrix(f):
+            nonlocal A
+            ATA     = np.dot(A.T, A)
+            invATA  = np.linalg.inv(ATA)
+            A_coeff = np.dot(invATA, A.T)
+            return np.dot(A_coeff, f)
+        
+        self.modes    = modes
+        self.pca_flux = flux - np.dot(A[:,0:modes], matrix(flux)[0:modes])
         return
 
 
@@ -398,7 +452,7 @@ class TargetData(object):
         Hopefully in the future, MAST will put in some quality flags for us.
         Our flags and their flags will be combnied, if they create flags.
         """
-        tess_quality = np.loadtxt('/Users/AdinaFeinstein/Documents/ELLIE/eleanor/quality_flags.txt')
+        tess_quality = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
         lim = 2.5
         bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+lim*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+lim*np.std(self.centroid_ys)))
 
@@ -669,7 +723,10 @@ class TargetData(object):
                                      comment='Height of the TPF in pixels'))
         self.header.append(fits.Card(keyword='TPF_W', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
-
+        self.header.append(fits.Card(keyword='BKG_LVL', value=self.bkg_type,
+                                     comment='Stage at which background is subtracted'))
+        self.header.append(fits.Card(keyword='MODES', value=self.modes,
+                                     comment='Number of modes used in PCA analysis'))
 
 
     def save(self, output_fn=None, directory=None):
@@ -682,6 +739,8 @@ class TargetData(object):
         directory : str, optional
             Directory to save file into.
         """
+
+        self.set_header()
 
         # if the user did not specify a directory, set it to default
         if directory is None:
