@@ -14,6 +14,7 @@ from muchbettermoments import quadratic_2d
 import urllib
 import os
 import warnings
+import pickle
 
 from .ffi import use_pointing_model
 from .postcard import Postcard
@@ -177,6 +178,9 @@ class TargetData(object):
         x_low_lim = med_x-x_length
         x_upp_lim = med_x+x_length+1
 
+        if height % 2 == 0 or width % 2 == 0:
+            warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
+
         post_y_upp, post_x_upp = self.post_obj.dimensions[0], self.post_obj.dimensions[1]
 
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
@@ -198,7 +202,6 @@ class TargetData(object):
         self.dimensions = np.shape(self.tpf)
 
         self.bkg_subtraction()
-#        self.bkg_subtraction(scope='postcard')
 
         self.tpf = self.tpf
         if save_postcard == False:
@@ -215,47 +218,52 @@ class TargetData(object):
         self.all_apertures = None
 
         # Saves some time by pre-loading apertures for 9x9 TPFs
-        if (height,width) == (9,9):
-            ap_path = eleanor.__path__[0]+'/default_apertures.npy'
-            self.all_apertures = np.load(ap_path)
+        ap_path = eleanor.__path__[0]+'/default_apertures.pickle'
+        pickle_in = open(ap_path, "rb")
+        pickle_dict = pickle.load(pickle_in)
+        self.aperture_names = np.array(list(pickle_dict.keys()))
+        all_apertures  = np.array(list(pickle_dict.values()))
+
+        default = 9
 
         # Creates aperture based on the requested size of TPF
+        if (height, width) == (default, default):
+            self.all_apertures = all_apertures
+
         else:
-            # Creates a circular and rectangular aperture
-            def circle(pos,r):
-                return CircularAperture(pos,r)
-            def rectangle(pos, l, w, t):
-                return RectangularAperture(pos, l, w, t)
+            new_aps = []
 
-            # Completes either binary or weighted aperture photometry
-            def binary(data, apertures, err):
-                return aperture_photometry(data, apertures, error=err, method='center')
-            def weighted(data, apertures, err):
-                return aperture_photometry(data, apertures, error=err, method='exact')
+            h_diff = height-default; w_diff = width-default
+            half_h = int(np.abs(h_diff/2)) ; half_w = int(np.abs(w_diff/2))
+            print(half_h, int(len(all_apertures[0][:,0])-half_h))
 
-            r_list = np.arange(2.5,4.5,0.5)
+            # HEIGHT PADDING
+            if h_diff > 0:
+                h_pad = (half_h, half_h)
+            elif h_diff < 0:
+                warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
+                h_pad = (0,0)
+                all_apertures = all_apertures[:, half_h:int(len(all_apertures[0][:,0])-half_h), :]
+            else:
+                h_pad = (0,0)
+                
+            # WIDTH PADDING
+            if w_diff > 0:
+                w_pad = (half_w, half_w)
+            elif w_diff < 0:
+                warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
+                w_pad = (0,0)
+                all_apertures = all_apertures[:, :, half_w:int(len(all_apertures[0][0])-half_w)]
+            else:
+                w_pad=(0,0)
 
-            # Center gives binary mask; exact gives weighted mask
-            circles, rectangles, self.all_apertures = [], [], []
-
-            center = ((width-1)/2, (height-1)/2)
-            
-            for r in r_list:
-                ap_circ = circle( center, r )
-                ap_rect = rectangle( center, r, r, 0.0)
-                circles.append(ap_circ); rectangles.append(ap_rect)
-                for method in ['center', 'exact']:
-                    circ_mask = ap_circ.to_mask(method=method)[0].to_image(shape=((
-                                np.shape( self.tpf[0]))))
-                    rect_mask = ap_rect.to_mask(method=method)[0].to_image(shape=((
-                                np.shape( self.tpf[0]))))
-                    self.all_apertures.append(circ_mask)
-                    self.all_apertures.append(rect_mask)
-            self.all_apertures = np.array(self.all_apertures)
+        for a in range(len(all_apertures)):
+            new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
+        self.all_apertures = np.array(new_aps)
 
 
     def bkg_subtraction(self, scope="tpf", sigma=2.5):
-        """Completes background subtract in a TPF frame
+        """Completes background subtraction in a TPF frame.
 
         Allows the user to choose postcard or TPF level background subtraction, otherwise sets default to TPF.
         Allows the user to determine sigma limit on background, otherwise sets sigma=2.5.
@@ -265,7 +273,7 @@ class TargetData(object):
         scope : string
             "tpf" or "postcard" are accepted. "tpf" is the default.
         sigma : float
-            A float with desired sigma cut on background subtraction
+            A float with desired sigma cut on background subtraction.
         """
         if scope.lower() == 'postcard':
             time = self.post_obj.time
@@ -751,18 +759,9 @@ class TargetData(object):
         if directory is None:
             directory = self.fetch_dir()
 
-        # Creates column names for FITS tables
-        r = np.arange(2.5,4.5,0.5)
-        colnames=[]
-        for i in r:
-            colnames.append('_'.join(str(e) for e in ['circle', 'binary', i]))
-            colnames.append('_'.join(str(e) for e in ['rectangle', 'binary', i]))
-            colnames.append('_'.join(str(e) for e in ['circle', 'weighted', i]))
-            colnames.append('_'.join(str(e) for e in ['rectangle', 'weighted', i]))
-        raw       = [e+'_raw'  for e in colnames]
-#        print(len(self.all_apertures), len(r))
-        errors    = [e+'_err'  for e in colnames]
-        corrected = [e+'_corr' for e in colnames]
+        raw       = [e+'_raw'  for e in self.aperture_names]
+        errors    = [e+'_err'  for e in self.aperture_names]
+        corrected = [e+'_corr' for e in self.aperture_names]
 
         # Creates table for first extension (tpf, tpf_err, best lc, time, centroids)
         ext1 = Table()
@@ -785,7 +784,7 @@ class TargetData(object):
         # Creates table for second extension (all apertures)
         ext2 = Table()
         for i in range(len(self.all_apertures)):
-            ext2[colnames[i]] = self.all_apertures[i]
+            ext2[self.aperture_names[i]] = self.all_apertures[i]
 
         # Creates table for third extention (all raw & corrected fluxes and errors)
         ext3 = Table()
@@ -795,7 +794,7 @@ class TargetData(object):
             ext3[errors[i]]    = self.all_lc_err[i]
 
         # Appends aperture to header
-        self.header.append(fits.Card(keyword='APERTURE', value=colnames[self.best_ind],
+        self.header.append(fits.Card(keyword='APERTURE', value=self.aperture_names[self.best_ind],
                                      comment='Best aperture used for lightcurves in extension 1'))
 
         # Writes TPF to FITS file
