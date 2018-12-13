@@ -103,7 +103,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
 
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
-    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END", "QUALITY"]
+    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END", "BKG"]
     primary_dtype = [np.float32, np.float32, np.float32, "O", "O", np.float32]
     primary_data = np.empty(len(fns), list(zip(primary_cols, primary_dtype)))
 
@@ -207,7 +207,8 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 for i in range(len(fns)):
                     b = bkg(pixel_data[:, :, i])
                     primary_data[i][len(primary_cols)-1] = b
-
+                    pixel_data[:, :, i] = pixel_data[:, :, i] - b
+                    
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
                 
