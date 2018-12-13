@@ -170,3 +170,7 @@ class Postcard(object):
     def wcs(self):
         return WCS(self.header)
 
+
+    @property
+    def quality(self):
+        return self.hdu[1].data['QUALITY']
