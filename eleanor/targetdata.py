@@ -235,7 +235,6 @@ class TargetData(object):
 
             h_diff = height-default; w_diff = width-default
             half_h = int(np.abs(h_diff/2)) ; half_w = int(np.abs(w_diff/2))
-            print(half_h, int(len(all_apertures[0][:,0])-half_h))
 
             # HEIGHT PADDING
             if h_diff > 0:
