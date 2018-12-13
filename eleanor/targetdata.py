@@ -31,9 +31,13 @@ class TargetData(object):
     source : ellie.Source
         The source object to use.
     height : int, optional
-        Height in pixels of TPF to retrieve. Default 9.
+        Height in pixels of TPF to retrieve. Default value is 9 pixels. Must be an odd number, 
+        or else will return an aperture one pixel taller than requested so target 
+        falls on central pixel.
     width : int, optional
-        Width in pixels of TPF to retrieve. Default 9.
+        Width in pixels of TPF to retrieve. Default value is 9 pixels. Must be an odd number, 
+        or else will return an aperture one pixel wider than requested so target 
+        falls on central pixel.
 
 
     Attributes
@@ -262,18 +266,17 @@ class TargetData(object):
 
 
     def bkg_subtraction(self, scope="tpf", sigma=2.5):
-        """Completes background subtraction in a TPF frame.
-
-        Allows the user to choose postcard or TPF level background subtraction, otherwise sets default to TPF.
-        Allows the user to determine sigma limit on background, otherwise sets sigma=2.5.
+        """Subtracts background flux from target pixel file.
 
         Parameters
         ---------- 
-        scope : string
-            "tpf" or "postcard" are accepted. "tpf" is the default.
+        scope : string, "tpf" or "postcard"
+            If `tpf`, will use data from the target pixel file only to estimate and remove the background. 
+            If `postcard`, will use data from the entire postcard region to estimate and remove the background.
         sigma : float
-            A float with desired sigma cut on background subtraction.
+            The standard deviation cut used to determine which pixels are representative of the background in each cadence.
         """
+        
         if scope.lower() == 'postcard':
             time = self.post_obj.time
             flux = np.swapaxes(self.post_obj.flux, 0, 2)
@@ -297,10 +300,11 @@ class TargetData(object):
 
 
     def get_lightcurve(self, aperture=False):
-        """Extracts a light curve using the given aperture and TPF.
-
-        Allows the user to pass in a mask to use, otherwise sets best lightcurve and aperture (min std).
-        Mask is a 2D array of the same shape as TPF (9x9).
+        """Extracts a light curve using the given aperture and TPF. 
+        Can pass a user-defined aperture mask, otherwise determines which of a set of pre-determined apertures 
+        provides the lowest scatter in the light curve.
+        Produces a mask, a numpy.ndarray object of the same shape as the target pixel file, which every pixel assigned 
+        a weight in the range [0, 1].
 
         Parameters
         ----------
@@ -309,6 +313,7 @@ class TargetData(object):
             create a light curve. If not set, ideal aperture is inferred automatically. If set, uses this
             aperture at the expense of all other set apertures.
         """
+        
         def apply_mask(mask):
             lc     = np.zeros(len(self.tpf))
             lc_err = np.zeros(len(self.tpf))
@@ -398,12 +403,15 @@ class TargetData(object):
 
 
     def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=8):
-        """ Applies PCA to self.corr_flux light curve to further remove systematics
+        """ Applies cotrending basis vectors, found through principal component analysis, to light curve to 
+        remove systematics shared by nearby stars.
 
         Parameters
         ---------- 
         flux : numpy.ndarray
-             Flux array the user wishes to apply PCA to. Defaults to self.corr_flux
+            Flux array to which cotrending basis vectors are applied. Default is `self.corr_flux`.
+        modes : int
+            Number of cotrending basis vectors to apply. Default is 8.
         """
         if flux is None:
             flux = self.corr_flux
@@ -612,11 +620,13 @@ class TargetData(object):
 
 
     def k2_correction(self, flux):
-        """
-        dlkkldkl
+        """Remove any systematics that are correlated with spacecraft pointing, as inferred through telescope 
+        pointing model.
 
         Parameters
         ---------- 
+        flux : numpy.ndarray
+            Flux array to which detrending applied.
         """
         brk = self.find_break()
     
