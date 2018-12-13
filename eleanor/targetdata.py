@@ -357,7 +357,7 @@ class TargetData(object):
             self.all_corr_lc = np.array(all_corr_lc)
 
             best_ind_tpf  = np.where(stds == np.min(stds))[0][0]
-            best_ind_post = np.where(post_stds == np.min(post_stds))[0][0]
+#            best_ind_post = np.where(post_stds == np.min(post_stds))[0][0]
 
             best_ind = best_ind_tpf
             ## Checks if postcard or tpf level bkg subtraction is better ##
@@ -752,15 +752,16 @@ class TargetData(object):
             directory = self.fetch_dir()
 
         # Creates column names for FITS tables
-        r = np.arange(1.5,4,0.5)
+        r = np.arange(2.5,4.5,0.5)
         colnames=[]
         for i in r:
             colnames.append('_'.join(str(e) for e in ['circle', 'binary', i]))
             colnames.append('_'.join(str(e) for e in ['rectangle', 'binary', i]))
             colnames.append('_'.join(str(e) for e in ['circle', 'weighted', i]))
             colnames.append('_'.join(str(e) for e in ['rectangle', 'weighted', i]))
-        raw       = [e+'_raw' for e in colnames]
-        errors    = [e+'_err' for e in colnames]
+        raw       = [e+'_raw'  for e in colnames]
+#        print(len(self.all_apertures), len(r))
+        errors    = [e+'_err'  for e in colnames]
         corrected = [e+'_corr' for e in colnames]
 
         # Creates table for first extension (tpf, tpf_err, best lc, time, centroids)
