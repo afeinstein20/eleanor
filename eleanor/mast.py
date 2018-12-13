@@ -164,16 +164,18 @@ def coords_from_gaia(gaia_id):
 
 def tic_from_coords(coords):
     """Returns TIC ID, Tmag, and separation of best match(es) to input coords."""
-    tess = crossmatch_by_position(coords, 0.5, 'Mast.Tic.Crossmatch')[0]
+    tess = crossmatch_by_position(coords, 0.1, 'Mast.Tic.Crossmatch')
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
     sepTess = crossmatch_distance(coords, tessPos)
-    return tess['MatchID'], [tess['Tmag']], sepTess/u.arcsec
+    print(sepTess[sepTess==np.min(sepTess)])
+    return int(tess[sepTess==np.min(sepTess)]['MatchID'].data[0]), [tess[sepTess==np.min(sepTess)]['Tmag'].data[0]], sepTess[sepTess==np.min(sepTess)]/u.arcsec
 
 def gaia_from_coords(coords):
     """Returns Gaia ID of best match(es) to input coords."""
-    gaia = crossmatch_by_position(coords, 0.01, 'Mast.GaiaDR2.Crossmatch')[0]
+    gaia = crossmatch_by_position(coords, 0.01, 'Mast.GaiaDR2.Crossmatch')
     gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
-    return gaia['MatchID']
+    sepGaia = crossmatch_distance(coords, gaiaPos)
+    return int(gaia[sepGaia==np.min(sepGaia)]['MatchID'].data[0])
 
 def crossmatch_distance(pos, match):
     """Returns distance in arcsec between two sets of coordinates."""
