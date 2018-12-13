@@ -11,7 +11,6 @@ import copy
 from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-#ELEANORURL = 'http://astro.uchicago.edu/~bmontet/TESS_postcards/'
 ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/'
 
 class Postcard(object):
@@ -169,7 +168,6 @@ class Postcard(object):
     @property
     def wcs(self):
         return WCS(self.header)
-
 
     @property
     def quality(self):
