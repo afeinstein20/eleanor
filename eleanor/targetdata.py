@@ -17,7 +17,7 @@ import os.path
 import warnings
 import pickle
 
-from .ffi import use_pointing_model
+from .ffi import use_pointing_model, load_pointing_model
 from .postcard import Postcard
 
 __all__  = ['TargetData']
@@ -124,7 +124,7 @@ class TargetData(object):
             self.aperture = None
             self.post_obj = Postcard(source.postcard)
             self.time  = self.post_obj.time
-            self.load_pointing_model(source.sector, source.camera, source.chip)
+            self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
             self.get_tpf_from_postcard(source.coords, source.postcard, height, width, save_postcard)
             self.set_quality()
             self.create_apertures(height, width)
@@ -147,7 +147,7 @@ class TargetData(object):
         self.pointing_model = pointing
         return
 
-
+      
     def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
         """Gets TPF from postcard."""
 
@@ -478,10 +478,7 @@ class TargetData(object):
 
 
     def set_quality(self):
-        """Currently (10/13/2018), this function sets a flag for when the centroid is
-        3 sigma away from the mean either in the x or y direction.
-        Hopefully in the future, MAST will put in some quality flags for us.
-        Our flags and their flags will be combnied, if they create flags.
+        """ Reads in quality flags set in the postcard
         """
         file = urlopen('https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
         tess_quality = Table.read(file.read().decode('utf-8'), format='ascii.basic')
@@ -493,7 +490,6 @@ class TargetData(object):
         quality = np.zeros(np.shape(self.time))
         quality[bad] = 1
         self.quality = quality+tess_quality_flags
-
 
 
     def psf_lightcurve(self, nstars=1, model='gaussian', xc=[4.5], yc=[4.5]):
