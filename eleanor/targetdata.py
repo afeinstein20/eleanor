@@ -11,7 +11,7 @@ from astropy.stats import SigmaClip
 from time import strftime
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
-import urllib
+from urllib.request import urlopen
 import os
 import os.path
 import warnings
@@ -139,9 +139,9 @@ class TargetData(object):
 
     def load_pointing_model(self, sector, camera, chip):
 
-        pointing_link = urllib.request.urlopen('http://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
-                                                                                                                                  camera,
-                                                                                                                                  chip))
+        pointing_link = urlopen('http://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
+                                                                                                                   camera,
+                                                                                                                   chip))
         pointing = pointing_link.read().decode('utf-8')
         pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
         self.pointing_model = pointing
@@ -480,7 +480,7 @@ class TargetData(object):
         Hopefully in the future, MAST will put in some quality flags for us.
         Our flags and their flags will be combnied, if they create flags.
         """
-        file = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
+        file = urlopen('https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
         tess_quality = Table.read(file.read().decode('utf-8'), format='ascii.basic')
         tess_quality_flags = [q[0] for q in tess_quality]
         tess_quality_flags.append(0.0)
