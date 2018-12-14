@@ -480,14 +480,16 @@ class TargetData(object):
         Hopefully in the future, MAST will put in some quality flags for us.
         Our flags and their flags will be combnied, if they create flags.
         """
-        path = os.path.join(os.pardir, 'https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
-        tess_quality = np.loadtxt(os.path.abspath(path))
+        file = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
+        tess_quality = Table.read(file.read().decode('utf-8'), format='ascii.basic')
+        tess_quality_flags = [q[0] for q in tess_quality]
+        tess_quality_flags.append(0.0)
         lim = 2.5
         bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+lim*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+lim*np.std(self.centroid_ys)))
 
         quality = np.zeros(np.shape(self.time))
         quality[bad] = 1
-        self.quality = quality+tess_quality
+        self.quality = quality+tess_quality_flags
 
 
 
