@@ -481,7 +481,7 @@ class TargetData(object):
         Our flags and their flags will be combnied, if they create flags.
         """
         path = os.path.join(os.pardir, 'https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
-        tess_quality = np.loadtxt(os.join.abspath(path))
+        tess_quality = np.loadtxt(os.path.abspath(path))
         lim = 2.5
         bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+lim*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+lim*np.std(self.centroid_ys)))
 
