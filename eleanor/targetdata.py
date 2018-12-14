@@ -426,7 +426,10 @@ class TargetData(object):
         if flux is None:
             flux = self.corr_flux
 
-        A = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/{}'.format(matrix_fn))
+        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/{}'.format(matrix_fn))
+        A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
+        for i in range(0, len(A), 16):
+            yield A[i:i+16]
 
         def matrix(f):
             nonlocal A
