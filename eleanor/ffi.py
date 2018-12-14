@@ -4,13 +4,27 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
 from astropy.wcs import WCS
+from astropy.table import Table
 from astropy.nddata import Cutout2D
 from astropy.utils.data import download_file
 import requests
 from bs4 import BeautifulSoup
 import warnings
+import urllib
 
 from .mast import tic_by_contamination
+
+
+def load_pointing_model(sector, camera, chip):
+    """ Loads in pointing model from website. 
+    """
+    pointing_link = urllib.request.urlopen('http://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
+                                                                                                                              camera,
+                                                                                                                              chip))
+    pointing = pointing_link.read().decode('utf-8')
+    pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
+    return pointing
+
 
 def use_pointing_model(coords, pointing_model):
     """Applies pointing model to correct the position of star(s) on postcard.
@@ -32,6 +46,45 @@ def use_pointing_model(coords, pointing_model):
     A = np.column_stack([coords[0], coords[1], np.ones_like(coords[0])])
     fhat = np.dot(A, pointing_model)
     return fhat
+
+
+def set_quality_flags(ffi_time, shortCad_fn, sector, camera, chip):
+    """ Uses the quality flags in a 2-minute target to create quality flags
+        in the postcards.
+    We create our own quality flag as well, using our pointing model.
+    """
+    def pm_quality():
+        return
+
+    # Obtains information for 2-minute target
+    twoMin     = fits.open(shortCad_fn)
+    twoMinTime = twoMin[1].data['TIME']
+    twoMinQual = twoMin[1].data['QUALITY']
+
+    perFFIcad = []
+    for i in range(len(ffi_time)-1):
+        where = np.where( (twoMinTime >= ffi_time[i]) &
+                          (twoMinTime <  ffi_time[i+1]) )[0]
+        perFFIcad.append(where)
+    # Adds in last cadence
+    perFFIcad.append( np.where(twoMinTime > ffi_time[len(ffi_time)-1:])[0])
+    perFFIcad = np.array(perFFIcad)
+
+    # Binary string for values which apply to the FFIs
+    ffi_apply = int('110010111101', 2)
+
+    convolve_ffi = []
+    for cadences in perFFIcad:
+        v = np.bitwise_or.redice(twoMinQual[cadences])
+        convolve_ffi.append(v)
+    convolve_ffi = np.array(convolve_ffi)
+
+    flags    = np.bitwise_and(convolve_ffi, ffi_apply)
+    pm_flags = pm_quality()*4096
+
+    # Prints quality flags to a file, to be read in when creating the postcards
+    fn = 'quality_flags_sec{}_{}-{}'.format(sector, camera, chip)
+    np.save(fn, flags+pm_flags)
 
 
 class ffi:
