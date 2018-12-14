@@ -13,6 +13,7 @@ from astropy.io import fits
 from muchbettermoments import quadratic_2d
 import urllib
 import os
+import os.path
 import warnings
 import pickle
 
@@ -479,7 +480,8 @@ class TargetData(object):
         Hopefully in the future, MAST will put in some quality flags for us.
         Our flags and their flags will be combnied, if they create flags.
         """
-        tess_quality = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
+        path = os.path.join(os.pardir, 'https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
+        tess_quality = np.loadtxt(os.join.abspath(path))
         lim = 2.5
         bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+lim*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+lim*np.std(self.centroid_ys)))
 
