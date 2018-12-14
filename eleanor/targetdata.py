@@ -260,9 +260,9 @@ class TargetData(object):
             else:
                 w_pad=(0,0)
 
-        for a in range(len(all_apertures)):
-            new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
-        self.all_apertures = np.array(new_aps)
+            for a in range(len(all_apertures)):
+                new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
+            self.all_apertures = np.array(new_aps)
 
 
     def bkg_subtraction(self, scope="tpf", sigma=2.5):
@@ -341,13 +341,19 @@ class TargetData(object):
             stds, post_stds = [], []
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
-                    all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                    all_raw_lc[a, cad]   = np.sum( (self.tpf[cad]-self.flux_bkg[cad]) * self.all_apertures[a] )
-#                    all_raw_post[a, cad] = np.sum( (self.tpf[cad]-self.flux_bkg_post[cad]) * self.all_apertures[a] )
+                    try:
+                        all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
+                        all_raw_lc[a, cad]   = np.sum( (self.tpf[cad]-self.flux_bkg[cad]) * self.all_apertures[a] )
+                        # all_raw_post[a, cad] = np.sum( (self.tpf[cad]-self.flux_bkg_post[cad]) * self.all_apertures[a] )
+                    except ValueError:
+                        continue
 
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
-                all_corr_lc[a]  = self.k2_correction(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
-#                all_corr_post[a]= self.k2_correction(flux=all_raw_post[a]/np.nanmedian(all_raw_post[a]))
+                try:
+                    all_corr_lc[a]  = self.k2_correction(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
+                    # all_corr_post[a]= self.k2_correction(flux=all_raw_post[a]/np.nanmedian(all_raw_post[a]))
+                except IndexError:
+                    continue
 
                 q = self.quality == 0
 
@@ -368,7 +374,10 @@ class TargetData(object):
             self.all_lc_err  = np.array(all_lc_err)
             self.all_corr_lc = np.array(all_corr_lc)
 
-            best_ind_tpf  = np.where(stds == np.min(stds))[0][0]
+            try:
+                best_ind_tpf  = np.where(stds == np.min(stds))[0][0]
+            except ValueError:
+                best_ind_tpf = 0
 #            best_ind_post = np.where(post_stds == np.min(post_stds))[0][0]
 
             best_ind = best_ind_tpf
