@@ -12,13 +12,13 @@ from bs4 import BeautifulSoup
 import warnings
 import urllib
 
-from .mast import tic_by_contamination
+from mast import tic_by_contamination
 
 
 def load_pointing_model(sector, camera, chip):
     """ Loads in pointing model from website. 
     """
-    pointing_link = urllib.request.urlopen('http://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
+    pointing_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
                                                                                                                               camera,
                                                                                                                               chip))
     pointing = pointing_link.read().decode('utf-8')
@@ -57,7 +57,7 @@ def pm_quality(time, sector, camera, chip):
         def outliers(x, y, poly, mask):
             dist = (y - poly[0]*x - poly[1])/np.sqrt(poly[0]**2+1**2)
             std  = np.std(dist)
-            ind  = np.where((distance > 2*std) | (distance < -2*std))[0]
+            ind  = np.where((dist > 2*std) | (dist < -2*std))[0]
             mask[ind] = 1
             return mask
 
@@ -70,11 +70,11 @@ def pm_quality(time, sector, camera, chip):
             new_coords = use_pointing_model(np.array([cen_x, cen_y]), pm[i])
             cent_x.append(new_coords[0][0])
             cent_y.append(new_coords[0][1])
-            cent_x = np.array(cent_x); cent_y = np.array(cent_y)
+        cent_x = np.array(cent_x); cent_y = np.array(cent_y)
 
         # Finds gap in orbits
         t = np.diff(time)
-        ind = np.where( t > np.mean(t)+2*np.std(t))[0][0]
+        brk = np.where( t > np.mean(t)+2*np.std(t))[0][0]
         brk += 1
 
         # Initiates lists for each orbit
@@ -115,20 +115,18 @@ def set_quality_flags(ffi_time, shortCad_fn, sector, camera, chip):
     perFFIcad = np.array(perFFIcad)
 
     # Binary string for values which apply to the FFIs
-    ffi_apply = int('110010111101', 2)
+    ffi_apply = int('100010101111', 2)
 
     convolve_ffi = []
     for cadences in perFFIcad:
-        v = np.bitwise_or.redice(twoMinQual[cadences])
+        v = np.bitwise_or.reduce(twoMinQual[cadences])
         convolve_ffi.append(v)
     convolve_ffi = np.array(convolve_ffi)
 
     flags    = np.bitwise_and(convolve_ffi, ffi_apply)
     pm_flags = pm_quality(ffi_time, sector, camera, chip) * 4096
-
-    # Prints quality flags to a file, to be read in when creating the postcards
-    fn = 'quality_flags_sec{}_{}-{}'.format(sector, camera, chip)
-    np.save(fn, flags+pm_flags)
+    
+    return flags+pm_flags
 
 
 class ffi:
