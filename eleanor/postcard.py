@@ -172,3 +172,7 @@ class Postcard(object):
     @property
     def quality(self):
         return self.hdu[1].data['QUALITY']
+
+    @property
+    def bkg(self):
+        return self.hdu[1].data['BKG']
