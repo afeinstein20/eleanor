@@ -12,7 +12,7 @@ from bs4 import BeautifulSoup
 import warnings
 import urllib
 
-from mast import tic_by_contamination
+from .mast import tic_by_contamination
 
 
 def load_pointing_model(sector, camera, chip):
