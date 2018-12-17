@@ -14,7 +14,7 @@ from time import strftime
 from astropy.wcs import WCS
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
-
+from eleanor.ffi import set_quality_flags
 #from eleanor.version import __version__
 
 
@@ -103,8 +103,8 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
 
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
-    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END", "BKG"]
-    primary_dtype = [np.float32, np.float32, np.float32, "O", "O", np.float32]
+    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END", "BKG", "QUALITY"]
+    primary_dtype = [np.float32, np.float32, np.float32, "O", "O", np.float32, np.int64]
     primary_data = np.empty(len(fns), list(zip(primary_cols, primary_dtype)))
 
     # Make sure that the sector, camera, chip, and dimensions are the
@@ -134,7 +134,6 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
 
         if not is_raw:
             all_errs[:, :, i] = fitsio.read(name, 2)
-
 
     wmax, hmax = 2048, 2092
 
@@ -203,10 +202,9 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 pixel_data = all_ffis[w:w+dw, h:h+dh, :]
 
                 # Adds in quality column for each cadence in primary_data
-                quality = np.empty(len(fns))
                 for i in range(len(fns)):
                     b = bkg(pixel_data[:, :, i])
-                    primary_data[i][len(primary_cols)-1] = b
+                    primary_data[i][len(primary_cols)-2] = b
                     pixel_data[:, :, i] = pixel_data[:, :, i] - b
                     
                 # Saves the primary hdu
