@@ -248,9 +248,9 @@ class TargetData(object):
             else:
                 w_pad=(0,0)
 
-        for a in range(len(all_apertures)):
-            new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
-        self.all_apertures = np.array(new_aps)
+            for a in range(len(all_apertures)):
+                new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
+            self.all_apertures = np.array(new_aps)
 
 
     def bkg_subtraction(self, scope="tpf", sigma=2.5):
@@ -634,7 +634,7 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def jitter_corr(self, flux, cen=0.0):
+    def jitter_corr(self, flux, quality, cen=0.0):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         Following Equation 1 of Knutson et al. 2008, ApJ, 673, 526.
@@ -665,7 +665,7 @@ class TargetData(object):
             xhat = np.dot(ATAinv, ATf)
             return xhat
 
-        q = self.quality == 0
+        q = quality == 0
         norm_l = norm(flux, q)
         cm     = np.column_stack( (self.centroid_xs[q]   , self.centroid_ys[q],
                                    self.centroid_xs[q]**2, self.centroid_ys[q]**2))
@@ -683,7 +683,7 @@ class TargetData(object):
         poly_fit1 = np.polyval( np.polyfit(self.time[f], flux[f], 1), self.time[f])
         poly_fit2 = np.polyval( np.polyfit(self.time[s], flux[s], 1), self.time[s])
         
-        return np.append( flux[f]/poly_fit1, flux[s]/poly_fit2)
+        return np.append( lc_reg[f], lc_reg[s])
 
         
 
