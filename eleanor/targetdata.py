@@ -123,6 +123,7 @@ class TargetData(object):
         else:
             self.aperture = None
             self.post_obj = Postcard(source.postcard)
+            self.flux_bkg = self.post_obj.bkg
             self.time  = self.post_obj.time
             self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
             self.get_tpf_from_postcard(source.coords, source.postcard, height, width, save_postcard)
@@ -277,27 +278,20 @@ class TargetData(object):
         sigma : float
             The standard deviation cut used to determine which pixels are representative of the background in each cadence.
         """
+        time = self.time
+        flux = self.tpf
 
-        if scope.lower() == 'postcard':
-            time = self.post_obj.time
-            flux = np.swapaxes(self.post_obj.flux, 0, 2)
-        else:
-            time = self.time
-            flux = self.tpf
-
-        self.flux_bkg = []
+        self.tpf_flux_bkg = []
 
         sigma_clip = SigmaClip(sigma=sigma)
         bkg = MMMBackground(sigma_clip=sigma_clip)
+
         for i in range(len(time)):
             bkg_value = bkg.calc_background(flux[i])
-            self.flux_bkg.append(bkg_value)
+            self.tpf_flux_bkg.append(bkg_value)
 
-        if scope.lower() == 'postcard':
-            warnings.warn('Using scope = "postcard" sets the attribute self.flux_bkg_post rather than self.flux_bkg')
-            self.flux_bkg_post = np.array(self.flux_bkg)
-        else:
-            self.flux_bkg = np.array(self.flux_bkg)
+        self.tpf_flux_bkg = np.array(self.tpf_flux_bkg)
+        
 
 
     def get_lightcurve(self, aperture=False):
@@ -326,7 +320,6 @@ class TargetData(object):
             self.flux_err   = np.array(lc_err)
             return
 
-
         self.flux_err = None
 
         if (self.aperture is None):
@@ -336,62 +329,58 @@ class TargetData(object):
             all_raw_lc  = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_lc_err  = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_corr_lc = np.copy(all_raw_lc)
-            all_raw_post= np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_corr_post= np.copy(all_raw_post)
+            all_raw_tpf = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_corr_tpf= np.copy(all_raw_tpf)
 
-            stds, post_stds = [], []
+            stds, tpf_stds = [], []
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
                     try:
                         all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                        all_raw_lc[a, cad]   = np.sum( (self.tpf[cad]-self.flux_bkg[cad]) * self.all_apertures[a] )
-                        # all_raw_post[a, cad] = np.sum( (self.tpf[cad]-self.flux_bkg_post[cad]) * self.all_apertures[a] )
+                        all_raw_lc[a, cad]   = np.sum( (self.tpf[cad]) * self.all_apertures[a] )
+                        all_raw_tpf[a, cad]  = np.sum( (self.tpf[cad]-self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
                     except ValueError:
                         continue
 
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
                 try:
-                    all_corr_lc[a]  = self.k2_correction(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
-                    # all_corr_post[a]= self.k2_correction(flux=all_raw_post[a]/np.nanmedian(all_raw_post[a]))
+                    all_corr_lc[a] = self.k2_correction(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
+                    all_corr_tpf[a]= self.k2_correction(flux=all_raw_tpf[a]/np.nanmedian(all_raw_tpf[a]))
                 except IndexError:
                     continue
 
                 q = self.quality == 0
 
-                lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500],
+                lc_obj = lightcurve.LightCurve(time = self.time[q][0:500],
                                        flux = all_corr_lc[a][q][0:500])
-                flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
-                stds.append( np.std(flat_lc_tpf.flux))
+                flat_lc = lc_obj_tpf.flatten(polyorder=2, window_length=51)
+                stds.append( np.std(flat_lc.flux))
 
-#                lc_obj_post = lightcurve.LightCurve(time = self.time[q][0:500],
-#                                       flux = all_corr_post[a][q][0:500])
-#                flat_lc_post = lc_obj_post.flatten(polyorder=2, window_length=51)
-#                post_stds.append( np.std(flat_lc_post.flux))
+                lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500],
+                                                   flux = all_corr_tpf[a][q][0:500])
+                flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
+                tpf_stds.append( np.std(flat_lc_tpf.flux))
 
                 all_corr_lc[a]  = all_corr_lc[a]  * np.nanmedian(all_raw_lc[a])
-#                all_corr_post[a]= all_corr_post[a]* np.nanmedian(all_raw_post[a])
+                all_corr_tpf[a] = all_corr_tpf[a] * np.nanmedian(all_raw_tpf[a])
 
             self.all_raw_lc  = np.array(all_raw_lc)
             self.all_lc_err  = np.array(all_lc_err)
             self.all_corr_lc = np.array(all_corr_lc)
 
-            try:
-                best_ind_tpf  = np.where(stds == np.min(stds))[0][0]
-            except ValueError:
-                best_ind_tpf = 0
-#            best_ind_post = np.where(post_stds == np.min(post_stds))[0][0]
+            best_ind_tpf = np.where(tpf_stds == np.min(tpf_stds))[0][0]
+            best_ind     = np.where(stds == np.min(stds))[0][0]
 
-            best_ind = best_ind_tpf
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
-#            if stds[best_ind_tpf] <= post_stds[best_ind_post]:
-#                best_ind = best_ind_tpf
-#                self.bkg_type = 'TPF_LEVEL'
-#            else:
-#                best_ind = best_ind_post
-#                self.bkg_type = 'PC_LEVEL'
-#                all_corr_lc   = all_corr_post
-#                all_raw_lc    = all_raw_post
+            if stds[best_ind] <= post_stds[best_ind_tpf]:
+                best_ind = best_ind
+                self.bkg_type = 'PC_LEVEL'
+            else:
+                best_ind = best_ind_tpf
+                self.bkg_type = 'TPF_LEVEL'
+                all_corr_lc   = all_corr_tpf
+                all_raw_lc    = all_raw_tpf
 
             self.corr_flux= self.all_corr_lc[best_ind]
             self.raw_flux = self.all_raw_lc[best_ind]
@@ -797,7 +786,13 @@ class TargetData(object):
         ext1['Y_CENTROID'] = self.centroid_ys
         ext1['X_COM']      = self.x_com
         ext1['Y_COM']      = self.y_com
-        ext1['FLUX_BKG']   = self.flux_bkg
+
+
+        if self.bkg_type == "PC_LEVEL":
+            ext1['FLUX_BKG'] = self.flux_bkg
+        else:
+            ext1['FLUX_BKG'] = self.flux_bkg + self.tpf_flux_bkg 
+        
 
         if self.pca_flux is not None:
             ext1['PCA_FLUX'] = self.pca_flux
