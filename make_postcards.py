@@ -14,7 +14,7 @@ from time import strftime
 from astropy.wcs import WCS
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
-from eleanor.ffi import set_quality_flags
+from .ffi import set_quality_flags
 #from eleanor.version import __version__
 
 
@@ -25,7 +25,7 @@ def bkg(flux, sigma=2.5):
     return bkg.calc_background(flux)
 
 
-def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
+def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=None):
     # Make sure that the output directory exists
     os.makedirs(outdir, exist_ok=True)
 
@@ -122,7 +122,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
         info = new_info
 
         # Save the info for the primary HDU
-        for k, dtype in zip(primary_cols[0:len(primary_cols)-1], primary_dtype[0:len(primary_dtype)-1]):
+        for k, dtype in zip(primary_cols[0:len(primary_cols)-2], primary_dtype[0:len(primary_dtype)-2]):
             if dtype == "O":
                 primary_data[k][i] = hdr[k].encode("ascii")
             else:
@@ -206,7 +206,12 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                     b = bkg(pixel_data[:, :, i])
                     primary_data[i][len(primary_cols)-2] = b
                     pixel_data[:, :, i] = pixel_data[:, :, i] - b
-                    
+                    if i==0 and j==0:
+                        print("Getting quality flags")
+                        quality_array = set_quality_flags( (primary_data['TSTART']+primary_data['TSTOP'])/2.,
+                                                           sc_fn, 1, new_info[1], new_info[2] )
+                    primary_data[i][len(primary_cols)-1] = quality_array[i]
+
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
                 
@@ -228,6 +233,8 @@ if __name__ == "__main__":
                         help='the pattern for the input FFI filenames')
     parser.add_argument('output_dir',
                         help='the output directory')
+    parser.add_argument('sc_fn',
+                        help='the short cadence filename for this sector, camera, chip')
     parser.add_argument('--width', type=int, default=104,
                         help='the width of the postcards')
     parser.add_argument('--height', type=int, default=148,
@@ -240,6 +247,7 @@ if __name__ == "__main__":
 
     fns = sorted(glob.glob(args.file_pattern))
     outdir = args.output_dir
-    make_postcards(fns, outdir,
+    sc_fn  = args.sc_fn
+    make_postcards(fns, outdir, sc_fn,
                    width=args.width, height=args.height,
                    wstep=args.wstep, hstep=args.hstep)
