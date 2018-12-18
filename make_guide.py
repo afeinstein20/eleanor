@@ -51,4 +51,4 @@ else:
 postcards = postcard_names(dirname)
 table = get_headers(postcards)
 
-ascii.write(table, os.path.join(dirname, 'postcard.guide'))
+ascii.write(table, os.path.join(dirname, 'postcard.guide'), overwrite=True)
