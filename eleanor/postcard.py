@@ -11,7 +11,7 @@ import copy
 from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/'
+#ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/'
 
 class Postcard(object):
     """TESS FFI data for one postcard across one sector.
@@ -48,7 +48,7 @@ class Postcard(object):
         (`x`, `y`) coordinates corresponding to the location of 
         the postcard's (0,0) pixel on the FFI.
     """
-    def __init__(self, filename, location=None):
+    def __init__(self, filename, ELEANORURL, location=None):
         if location is not None:
             self.filename = '{}{}'.format(location, filename)
             self.local_path = copy.copy(self.filename)
@@ -59,6 +59,7 @@ class Postcard(object):
                 self.local_path = self.filename
                 self.hdu = fits.open(self.local_path)
             else:
+                print(ELEANORURL, filename)
                 self.filename = '{}{}'.format(ELEANORURL, filename)
                 local_path = download_file(self.filename, cache=True)
                 self.local_path = local_path
