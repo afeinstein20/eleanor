@@ -95,25 +95,27 @@ def pm_quality(time, sector, camera, chip):
         return np.append(mask1, mask2)
 
 
-def set_quality_flags(ffi_time, shortCad_fn, sector, camera, chip):
+def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip):
     """ Uses the quality flags in a 2-minute target to create quality flags
         in the postcards.
     We create our own quality flag as well, using our pointing model.
     """
     # Obtains information for 2-minute target
     twoMin     = fits.open(shortCad_fn)
-    twoMinTime = twoMin[1].data['TIME']
+    twoMinTime = twoMin[1].data['TIME']-twoMin[1].data['TIMECORR']
+    finite     = np.isfinite(twoMinTime)
     twoMinQual = twoMin[1].data['QUALITY']
 
-    perFFIcad = []
-    for i in range(len(ffi_time)-1):
-        where = np.where( (twoMinTime >= ffi_time[i]) &
-                          (twoMinTime <  ffi_time[i+1]) )[0]
-        perFFIcad.append(where)
-    # Adds in last cadence
-    perFFIcad.append( np.where(twoMinTime > ffi_time[len(ffi_time)-1:])[0])
-    perFFIcad = np.array(perFFIcad)
+    twoMinTime = twoMinTime[finite]
+    twoMinQual = twoMinQual[finite]
 
+    perFFIcad = []
+    for i in range(len(ffi_start)):
+        where = np.where( (twoMinTime > ffi_start[i]) &
+                          (twoMinTime < ffi_stop[i]) )[0]
+        perFFIcad.append(where)
+
+    perFFIcad = np.array(perFFIcad)
     # Binary string for values which apply to the FFIs
     ffi_apply = int('100010101111', 2)
 
@@ -124,7 +126,7 @@ def set_quality_flags(ffi_time, shortCad_fn, sector, camera, chip):
     convolve_ffi = np.array(convolve_ffi)
 
     flags    = np.bitwise_and(convolve_ffi, ffi_apply)
-    pm_flags = pm_quality(ffi_time, sector, camera, chip) * 4096
+    pm_flags = pm_quality(ffi_stop, sector, camera, chip) * 4096
     
     return flags+pm_flags
 

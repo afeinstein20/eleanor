@@ -200,18 +200,19 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                     dict(name="SECTOR", value=sector[1::],
                          comment="TESS sector"))
 
-                pixel_data = all_ffis[w:w+dw, h:h+dh, :]
+                pixel_data = all_ffis[w:w+dw, h:h+dh, :] + 0.0
 
                 # Adds in quality column for each cadence in primary_data
-                for i in range(len(fns)):
-                    b = bkg(pixel_data[:, :, i])
-                    primary_data[i][len(primary_cols)-2] = b
-                    pixel_data[:, :, i] = pixel_data[:, :, i] - b
-                    if i==0 and j==0:
+                for k in range(len(fns)):
+                    b = bkg(pixel_data[:, :, k])
+                    primary_data[k][len(primary_cols)-2] = b
+                    pixel_data[:, :, k] -= b
+                    if i==0 and j==0 and k==0:
                         print("Getting quality flags")
-                        quality_array = set_quality_flags( (primary_data['TSTART']+primary_data['TSTOP'])/2.,
-                                                           sc_fn, 1, new_info[1], new_info[2] )
-                    primary_data[i][len(primary_cols)-1] = quality_array[i]
+                        quality_array = set_quality_flags( primary_data['TSTART']-primary_data['BARYCORR'],
+                                                           primary_data['TSTOP']-primary_data['BARYCORR'],
+                                                           sc_fn, sector[1::], new_info[1], new_info[2] )
+                    primary_data[k][len(primary_cols)-1] = quality_array[k]
 
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
