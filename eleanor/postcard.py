@@ -11,7 +11,7 @@ import copy
 from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-ELEANORURL = 'http://astro.uchicago.edu/~bmontet/TESS_postcards/'
+ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/'
 
 class Postcard(object):
     """TESS FFI data for one postcard across one sector.
@@ -169,3 +169,10 @@ class Postcard(object):
     def wcs(self):
         return WCS(self.header)
 
+    @property
+    def quality(self):
+        return self.hdu[1].data['QUALITY']
+
+    @property
+    def bkg(self):
+        return self.hdu[1].data['BKG']
