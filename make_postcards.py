@@ -14,7 +14,8 @@ from time import strftime
 from astropy.wcs import WCS
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
-from .ffi import set_quality_flags
+
+from eleanor.ffi import set_quality_flags
 #from eleanor.version import __version__
 
 
@@ -127,7 +128,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                 primary_data[k][i] = hdr[k].encode("ascii")
             else:
                 primary_data[k][i] = hdr[k]
-                
+
 
         # Save the data
         all_ffis[:, :, i] = data
@@ -214,7 +215,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
 
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
-                
+
                 # Save the image data
                 fitsio.write(outfn, pixel_data)
 
