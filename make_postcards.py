@@ -12,9 +12,11 @@ import fitsio
 import numpy as np
 from time import strftime
 from astropy.wcs import WCS
+from astropy.table import Table
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
-from .ffi import set_quality_flags
+
+from eleanor.ffi import ffi, set_quality_flags
 #from eleanor.version import __version__
 
 
@@ -67,6 +69,12 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
 
     outfn_fmt = "hlsp_eleanor_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}.fits".format(info_str)
     outfn_fmt = os.path.join(outdir, outfn_fmt).format
+
+    # Build the pointing model
+    # FIXME: this should include *building* the pointing model
+    pm_fn = 'pointingModel_{0:04d}_{1}-{2}.txt'.format(int(info[0][1:]), info[1], info[2])
+    with open(os.path.join(outdir, pm_fn), "r") as f:
+        pm = Table.read(f.read(), format='ascii.basic')
 
     # We want to shift the WCS for each postcard so let's store the default
     # reference pixel
@@ -127,7 +135,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                 primary_data[k][i] = hdr[k].encode("ascii")
             else:
                 primary_data[k][i] = hdr[k]
-                
+
 
         # Save the data
         all_ffis[:, :, i] = data
@@ -210,12 +218,13 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                         print("Getting quality flags")
                         quality_array = set_quality_flags( primary_data['TSTART']-primary_data['BARYCORR'],
                                                            primary_data['TSTOP']-primary_data['BARYCORR'],
-                                                           sc_fn, sector[1::], new_info[1], new_info[2] )
+                                                           sc_fn, sector[1::], new_info[1], new_info[2],
+                                                           pm=pm)
                     primary_data[k][len(primary_cols)-1] = quality_array[k]
 
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
-                
+
                 # Save the image data
                 fitsio.write(outfn, pixel_data)
 
