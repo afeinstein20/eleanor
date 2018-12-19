@@ -213,6 +213,7 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
                                       ],
                           'ra':pos[0],
                           'dec':pos[1],
+                          'timeout':600,
                           'radius':r
                           }}
     blob = {}
