@@ -122,7 +122,7 @@ class TargetData(object):
 
         else:
             self.aperture = None
-            self.post_obj = Postcard(source.postcard)
+            self.post_obj = Postcard(source.postcard, source.ELEANORURL)
             self.flux_bkg = self.post_obj.bkg
             self.time  = self.post_obj.time
             self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
@@ -138,17 +138,6 @@ class TargetData(object):
             self.center_of_mass()
 
 
-    def load_pointing_model(self, sector, camera, chip):
-
-        pointing_link = urlopen('http://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
-                                                                                                                   camera,
-                                                                                                                   chip))
-        pointing = pointing_link.read().decode('utf-8')
-        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
-        self.pointing_model = pointing
-        return
-
-      
     def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
         """Gets TPF from postcard."""
 

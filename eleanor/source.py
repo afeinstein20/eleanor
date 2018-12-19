@@ -147,6 +147,9 @@ class Source(object):
             self.locate_on_tess() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
 
+        self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
+                                                                                                                                 self.camera,
+                                                                                                                                 self.chip)
 
 
     def locate_on_chip(self, guide):

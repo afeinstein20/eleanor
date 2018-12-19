@@ -9,7 +9,7 @@ import tqdm
 
 
 def postcard_names(loc):
-    return list(glob.glob(os.path.join(loc, "*.fits")))
+    return list(glob.glob(os.path.join(loc, "*/*.fits")))
 
 
 def get_headers(cards):
@@ -32,13 +32,14 @@ def get_headers(cards):
             row = [hdr[k] for k in hdrKeys]
             row.append(os.path.split(cards[i])[-1])
             row = np.array(row)
+
             for r in range(len(row[counts])+1):
                 dtype.append('S60')
             t = Table(names=names, dtype=dtype)
 
         row = np.array([hdr[k] for k in hdrKeys])
         row = row[counts]
-        row = np.append(row, os.path.split(cards[i]))
+        row = np.append(row, os.path.split(cards[i])[-1])
         t.add_row(row)
     return t
 

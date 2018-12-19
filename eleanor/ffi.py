@@ -18,9 +18,10 @@ from .mast import tic_by_contamination
 def load_pointing_model(sector, camera, chip):
     """ Loads in pointing model from website. 
     """
-    pointing_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/pointingModel_{}_{}-{}.txt'.format(sector,
-                                                                                                                              camera,
-                                                                                                                              chip))
+    sector = int(sector)
+    pointing_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector,
+                                                                                                                                                                                   camera,
+                                                                                                                                                                                   chip))
     pointing = pointing_link.read().decode('utf-8')
     pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
     return pointing
@@ -280,7 +281,7 @@ class ffi:
         return xhat
 
 
-    def pointing_model_per_cadence(self):
+    def pointing_model_per_cadence(self, out_dir=None):
         """Step through build_pointing_model for each cadence."""
 
         def find_isolated(x, y):
@@ -336,7 +337,11 @@ class ffi:
             return np.array(new_coords)
 
 
-        pm_fn = 'pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip)
+        pm_fn = 'pointingModel_{0:04d}_{}-{}.txt'.format(self.sector, self.camera, self.chip)
+
+        if out_dir is not None:
+            pm_fn = out_dir+ '/' + pm_fn
+
         with open(pm_fn, 'w') as tf:
             tf.write('0 1 2 3 4 5 6 7 8\n')
 
