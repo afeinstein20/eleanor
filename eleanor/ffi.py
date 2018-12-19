@@ -351,7 +351,7 @@ class ffi:
 
         r = 6.0#*np.sqrt(1.2)
         contam = [0.0, 5e-3]
-        tmag_lim = 12.5
+        tmag_lim = [7.5, 12.5]
 
         t  = tic_by_contamination(pos, r, contam, tmag_lim)
 
