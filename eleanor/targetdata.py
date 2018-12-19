@@ -304,7 +304,7 @@ class TargetData(object):
             for cad in range(len(self.tpf)):
                 lc[cad]     = np.sum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * mask))
-            self.raw_flux   = np.array(lc)
+            self.raw_flux   = np.array(lc) 
             self.corr_flux  = self.k2_correction(flux=lc)
             self.flux_err   = np.array(lc_err)
             return
@@ -315,61 +315,70 @@ class TargetData(object):
 
             self.all_lc_err  = None
 
-            all_raw_lc  = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_raw_lc_pc_sub  = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_lc_err  = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_corr_lc = np.copy(all_raw_lc)
-            all_raw_tpf = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_corr_tpf= np.copy(all_raw_tpf)
+            all_corr_lc_pc_sub = np.copy(all_raw_lc_pc_sub)
+            all_raw_lc_tpf_sub = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_corr_lc_tpf_sub = np.copy(all_raw_lc_tpf_sub)
+            
+            for epoch in range(len(self.time)):
+                self.tpf[epoch] -= self.tpf_flux_bkg[epoch]
 
-            stds, tpf_stds = [], []
+            pc_stds, tpf_stds = [], []
             for a in range(len(self.all_apertures)):
                 for cad in range(len(self.tpf)):
                     try:
                         all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                        all_raw_lc[a, cad]   = np.sum( (self.tpf[cad]) * self.all_apertures[a] )
-                        all_raw_tpf[a, cad]  = np.sum( (self.tpf[cad]-self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
+                        all_raw_lc_tpf_sub[a, cad]   = np.sum( (self.tpf[cad]) * self.all_apertures[a] )
+                        all_raw_lc_pc_sub[a, cad]  = np.sum( (self.tpf[cad] + self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
                     except ValueError:
                         continue
 
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
                 try:
-                    all_corr_lc[a] = self.k2_correction(flux=all_raw_lc[a]/np.nanmedian(all_raw_lc[a]))
-                    all_corr_tpf[a]= self.k2_correction(flux=all_raw_tpf[a]/np.nanmedian(all_raw_tpf[a]))
+                    all_corr_lc_pc_sub[a] = self.k2_correction(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
+                    all_corr_lc_tpf_sub[a]= self.k2_correction(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
                 except IndexError:
                     continue
 
                 q = self.quality == 0
 
                 lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500],
-                                       flux = all_corr_lc[a][q][0:500])
-                flat_lc = lc_obj_tpf.flatten(polyorder=2, window_length=51)
-                stds.append( np.std(flat_lc.flux))
-
-                lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500],
-                                                   flux = all_corr_tpf[a][q][0:500])
+                                       flux = all_corr_lc_tpf_sub[a][q][0:500])
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
+                print(np.std(flat_lc_tpf.flux))
                 tpf_stds.append( np.std(flat_lc_tpf.flux))
 
-                all_corr_lc[a]  = all_corr_lc[a]  * np.nanmedian(all_raw_lc[a])
-                all_corr_tpf[a] = all_corr_tpf[a] * np.nanmedian(all_raw_tpf[a])
+                lc_obj_pc = lightcurve.LightCurve(time = self.time[q][0:500],
+                                                   flux = all_corr_lc_pc_sub[a][q][0:500])
+                flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51)
+                print(np.std(flat_lc_pc.flux))
+                pc_stds.append( np.std(flat_lc_pc.flux))
 
-            self.all_raw_lc  = np.array(all_raw_lc)
+                all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
+                all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
+
+            self.all_raw_lc  = np.array(all_raw_lc_pc_sub)
             self.all_lc_err  = np.array(all_lc_err)
-            self.all_corr_lc = np.array(all_corr_lc)
+            self.all_corr_lc = np.array(all_corr_lc_pc_sub)
 
             best_ind_tpf = np.where(tpf_stds == np.min(tpf_stds))[0][0]
-            best_ind     = np.where(stds == np.min(stds))[0][0]
+            best_ind_pc  = np.where(pc_stds == np.min(pc_stds))[0][0]
+            print(pc_stds[best_ind_pc])
+            print(tpf_stds[best_ind_tpf])
 
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
-            if stds[best_ind] <= tpf_stds[best_ind_tpf]:
-                best_ind = best_ind
+            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
+                best_ind = best_ind_pc
                 self.bkg_type = 'PC_LEVEL'
+                for epoch in range(len(self.time)):
+                    self.tpf[epoch] += self.tpf_flux_bkg[epoch]
             else:
                 best_ind = best_ind_tpf
                 self.bkg_type = 'TPF_LEVEL'
-                all_corr_lc   = all_corr_tpf
-                all_raw_lc    = all_raw_tpf
+                self.all_raw_lc  = np.array(all_raw_lc_tpf_sub)
+                self.all_corr_lc = np.array(all_corr_lc_tpf_sub)
 
             self.corr_flux= self.all_corr_lc[best_ind]
             self.raw_flux = self.all_raw_lc[best_ind]
@@ -461,16 +470,8 @@ class TargetData(object):
     def set_quality(self):
         """ Reads in quality flags set in the postcard
         """
-        file = urlopen('https://archipelago.uchicago.edu/tess_postcards/quality_flags.txt')
-        tess_quality = Table.read(file.read().decode('utf-8'), format='ascii.basic')
-        tess_quality_flags = [q[0] for q in tess_quality]
-        tess_quality_flags.append(0.0)
-        lim = 2.5
-        bad = np.where( (self.centroid_xs > np.mean(self.centroid_xs)+lim*np.std(self.centroid_xs)) | (self.centroid_ys > np.mean(self.centroid_ys)+lim*np.std(self.centroid_ys)))
-
-        quality = np.zeros(np.shape(self.time))
-        quality[bad] = 1
-        self.quality = quality+tess_quality_flags
+        self.quality = self.post_obj.quality
+        return
 
 
     def psf_lightcurve(self, nstars=1, model='gaussian', xc=[4.5], yc=[4.5]):
