@@ -16,7 +16,7 @@ from .mast import tic_by_contamination
 
 
 def load_pointing_model(sector, camera, chip):
-    """ Loads in pointing model from website. 
+    """ Loads in pointing model from website.
     """
     sector = int(sector)
     pointing_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector,
@@ -49,7 +49,7 @@ def use_pointing_model(coords, pointing_model):
     return fhat
 
 
-def pm_quality(time, sector, camera, chip):
+def pm_quality(time, sector, camera, chip, pm=None):
         """ Fits a line to the centroid motions using the pointing model.
             A quality flag is set if the centroid is > 2*sigma away from
                 the majority of the centroids.
@@ -62,11 +62,13 @@ def pm_quality(time, sector, camera, chip):
             mask[ind] = 1
             return mask
 
-        cen_x, cen_y = 1024, 1024 # Uses a point in the center of the FFI     
+        cen_x, cen_y = 1024, 1024 # Uses a point in the center of the FFI
         cent_x,cent_y = [], []
 
-        pm = load_pointing_model(sector, camera, chip)
-        # Applies centroids 
+        if pm is None:
+            pm = load_pointing_model(sector, camera, chip)
+
+        # Applies centroids
         for i in range(len(pm)):
             new_coords = use_pointing_model(np.array([cen_x, cen_y]), pm[i])
             cent_x.append(new_coords[0][0])
@@ -84,7 +86,7 @@ def pm_quality(time, sector, camera, chip):
 
         # Initiates masks
         mask1 = np.zeros(len(x1)); mask2 = np.zeros(len(x2))
-        
+
         # Loops through and searches for points > 2 sigma away from distribution
         for i in np.arange(0,10,1):
             poly1  = np.polyfit(x1[mask1==0], y1[mask1==0], 1)
@@ -96,7 +98,8 @@ def pm_quality(time, sector, camera, chip):
         return np.append(mask1, mask2)
 
 
-def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip):
+def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip,
+                      pm=None):
     """ Uses the quality flags in a 2-minute target to create quality flags
         in the postcards.
     We create our own quality flag as well, using our pointing model.
@@ -127,8 +130,8 @@ def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip):
     convolve_ffi = np.array(convolve_ffi)
 
     flags    = np.bitwise_and(convolve_ffi, ffi_apply)
-    pm_flags = pm_quality(ffi_stop, sector, camera, chip) * 4096
-    
+    pm_flags = pm_quality(ffi_stop, sector, camera, chip, pm=pm) * 4096
+
     return flags+pm_flags
 
 
@@ -319,7 +322,7 @@ class ffi:
                 Indexes into input arrays corresponding to good sources.
             """
             cenx, ceny, good = [], [], []
-            
+
             for i in range(len(x)):
                  if x[i] > 0. and y[i] > 0.:
                      tpf = Cutout2D(image, position=(x[i], y[i]), size=(7,7), mode='partial')
@@ -337,7 +340,7 @@ class ffi:
             return np.array(new_coords)
 
 
-        pm_fn = 'pointingModel_{0:04d}_{}-{}.txt'.format(self.sector, self.camera, self.chip)
+        pm_fn = 'pointingModel_{0:04d}_{1}-{2}.txt'.format(self.sector, self.camera, self.chip)
 
         if out_dir is not None:
             pm_fn = out_dir+ '/' + pm_fn
@@ -382,3 +385,6 @@ class ffi:
 
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
+
+        with open(pm_fn, "r") as tf:
+            return Table.read(tf.read(), format='ascii.basic')
