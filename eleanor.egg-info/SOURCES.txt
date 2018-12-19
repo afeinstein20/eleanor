@@ -11,7 +11,6 @@ eleanor/movie.py
 eleanor/postcard.py
 eleanor/source.py
 eleanor/targetdata.py
-eleanor/track_pm_centroid.py
 eleanor/utils.py
 eleanor/version.py
 eleanor/visualize.py

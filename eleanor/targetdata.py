@@ -131,7 +131,7 @@ class TargetData(object):
             self.create_apertures(height, width)
             self.get_lightcurve()
             if do_pca == True:
-                self.pca()
+                self.pca()  
             else:
                 self.modes = None
                 self.pca_flux = None
@@ -340,7 +340,7 @@ class TargetData(object):
 
                 q = self.quality == 0
 
-                lc_obj = lightcurve.LightCurve(time = self.time[q][0:500],
+                lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500],
                                        flux = all_corr_lc[a][q][0:500])
                 flat_lc = lc_obj_tpf.flatten(polyorder=2, window_length=51)
                 stds.append( np.std(flat_lc.flux))
@@ -362,7 +362,7 @@ class TargetData(object):
 
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
-            if stds[best_ind] <= post_stds[best_ind_tpf]:
+            if stds[best_ind] <= tpf_stds[best_ind_tpf]:
                 best_ind = best_ind
                 self.bkg_type = 'PC_LEVEL'
             else:
@@ -388,6 +388,7 @@ class TargetData(object):
                                 "Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
 
         return
+    
 
 
     def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=8):
@@ -406,8 +407,10 @@ class TargetData(object):
 
         matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/{}'.format(matrix_fn))
         A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
-        for i in range(0, len(A), 16):
-            yield A[i:i+16]
+        A = np.asarray(A)
+        la = len(A)
+        A  = A.reshape((int(la/16), 16))
+            
 
         def matrix(f):
             nonlocal A
@@ -418,7 +421,7 @@ class TargetData(object):
 
         self.modes    = modes
         self.pca_flux = flux - np.dot(A[:,0:modes], matrix(flux)[0:modes])
-        return
+
 
 
     def center_of_mass(self):
