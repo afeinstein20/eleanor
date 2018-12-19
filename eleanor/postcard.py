@@ -59,7 +59,6 @@ class Postcard(object):
                 self.local_path = self.filename
                 self.hdu = fits.open(self.local_path)
             else:
-                print(ELEANORURL, filename)
                 self.filename = '{}{}'.format(ELEANORURL, filename)
                 local_path = download_file(self.filename, cache=True)
                 self.local_path = local_path
