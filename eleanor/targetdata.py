@@ -32,13 +32,16 @@ class TargetData(object):
     source : ellie.Source
         The source object to use.
     height : int, optional
-        Height in pixels of TPF to retrieve. Default value is 9 pixels. Must be an odd number,
+        Height in pixels of TPF to retrieve. Default value is 13 pixels. Must be an odd number,
         or else will return an aperture one pixel taller than requested so target
         falls on central pixel.
     width : int, optional
-        Width in pixels of TPF to retrieve. Default value is 9 pixels. Must be an odd number,
+        Width in pixels of TPF to retrieve. Default value is 13 pixels. Must be an odd number,
         or else will return an aperture one pixel wider than requested so target
         falls on central pixel.
+    bkg_size : int, optional
+        Size of box to use for background estimation. If not set, will default to the width of the 
+        target pixel file.
 
 
     Attributes
@@ -114,19 +117,22 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=9, width=9, save_postcard=True, do_pca=True):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, bkg_size=None):
         self.source_info = source
 
         if source.premade:
             self.load()
 
         else:
+            if bkg_size is None:
+                bkg_size = width
+            
             self.aperture = None
             self.post_obj = Postcard(source.postcard, source.ELEANORURL)
             self.flux_bkg = self.post_obj.bkg
             self.time  = self.post_obj.time
             self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
-            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, save_postcard)
+            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard)
             self.set_quality()
             self.create_apertures(height, width)
             self.get_lightcurve()
@@ -138,7 +144,7 @@ class TargetData(object):
             self.center_of_mass()
 
 
-    def get_tpf_from_postcard(self, pos, postcard, height, width, save_postcard):
+    def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard):
         """Gets TPF from postcard."""
 
         self.tpf         = None
@@ -167,11 +173,18 @@ class TargetData(object):
         self.cen_x, self.cen_y = med_x, med_y
 
         y_length, x_length = int(np.floor(height/2.)), int(np.floor(width/2.))
+        y_bkg_len, x_bkg_len = int(np.floor(bkg_size/2.)), int(np.floor(bkg_size/2.))
 
         y_low_lim = med_y-y_length
         y_upp_lim = med_y+y_length+1
         x_low_lim = med_x-x_length
         x_upp_lim = med_x+x_length+1
+        
+        y_low_bkg = med_y-y_bkg_len
+        y_upp_bkg = med_y+y_bkg_len + 1
+        x_low_bkg = med_x-x_bkg_len
+        x_upp_bkg = med_x+x_bkg_len + 1
+    
 
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
@@ -187,12 +200,22 @@ class TargetData(object):
             y_upp_lim = post_y_upp+1
         if x_upp_lim >  post_x_upp:
             x_upp_lim = post_x_upp+1
+            
+        if y_low_bkg <= 0:
+            y_low_bkg = 0
+        if x_low_bkg <= 0:
+            x_low_bkg = 0
+        if y_upp_bkg  > post_y_upp:
+            y_upp_bkg = post_y_upp+1
+        if x_upp_bkg >  post_x_upp:
+            x_upp_bkg = post_x_upp+1
 
         if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
             warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
             warnings.warn("WARNING: Your postage stamp may not be centered.")
 
         self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+        self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
 
@@ -268,7 +291,7 @@ class TargetData(object):
             The standard deviation cut used to determine which pixels are representative of the background in each cadence.
         """
         time = self.time
-        flux = self.tpf
+        flux = self.bkg_tpf
 
         self.tpf_flux_bkg = []
 
@@ -346,13 +369,11 @@ class TargetData(object):
                 lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500],
                                        flux = all_corr_lc_tpf_sub[a][q][0:500])
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
-                print(np.std(flat_lc_tpf.flux))
                 tpf_stds.append( np.std(flat_lc_tpf.flux))
 
                 lc_obj_pc = lightcurve.LightCurve(time = self.time[q][0:500],
                                                    flux = all_corr_lc_pc_sub[a][q][0:500])
                 flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51)
-                print(np.std(flat_lc_pc.flux))
                 pc_stds.append( np.std(flat_lc_pc.flux))
 
                 all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
@@ -364,8 +385,6 @@ class TargetData(object):
 
             best_ind_tpf = np.where(tpf_stds == np.min(tpf_stds))[0][0]
             best_ind_pc  = np.where(pc_stds == np.min(pc_stds))[0][0]
-            print(pc_stds[best_ind_pc])
-            print(tpf_stds[best_ind_tpf])
 
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
