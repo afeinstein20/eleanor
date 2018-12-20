@@ -16,6 +16,7 @@ import os
 import os.path
 import warnings
 import pickle
+import eleanor
 
 from .ffi import use_pointing_model, load_pointing_model
 from .postcard import Postcard
@@ -722,10 +723,12 @@ class TargetData(object):
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
 
         # Removes postcard specific header information
-        for keyword in ['POST_H', 'POST_W', 'CEN_X', 'CEN_Y', 'CEN_RA', 'CEN_DEC', 'POSTPIX1', 'POSTPIX2']:
+        for keyword in ['POST_H', 'POST_W', 'CEN_X', 'CEN_Y', 'CEN_RA', 'CEN_DEC', 'POSTPIX1', 'POSTPIX2', 'SECTOR', 'VERSION']:
             self.header.remove(keyword)
 
         # Adds TPF specific header information
+        self.header.append(fits.Card(keyword='VERSION', value=eleanor.__version__,
+                                     comment='eleanor version used for light curve production'))
         self.header.append(fits.Card(keyword='TIC_ID', value=self.source_info.tic,
                                      comment='TESS Input Catalog ID'))
         self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag,
@@ -743,7 +746,7 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='CHIPPOS2', value=self.source_info.position_on_chip[1],
                                      comment='central y pixel of TPF in FFI'))
         self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
-                                     comment='Postcard'))
+                                     comment=''))
         self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
                                      comment='predicted x pixel of source on postcard'))
         self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
@@ -756,6 +759,8 @@ class TargetData(object):
                                      comment='Height of the TPF in pixels'))
         self.header.append(fits.Card(keyword='TPF_W', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
+        self.header.append(fits.Card(keyword='BKG_SIZE', value=np.shape(self.bkg_tpf[0])[1],
+                                           comment='Size of region used for background subtraction'))
 #        self.header.append(fits.Card(keyword='BKG_LVL', value=self.bkg_type,
 #                                     comment='Stage at which background is subtracted'))
 
