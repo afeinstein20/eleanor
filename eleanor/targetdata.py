@@ -120,7 +120,7 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, bkg_size=None, crowded_field = False):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field = False):
         self.source_info = source
 
         if source.premade:
@@ -147,6 +147,10 @@ class TargetData(object):
                 self.pca()  
             else:
                 self.modes = None
+                self.pca_flux = None
+            if do_psf == True:
+                self.psf_lightcurve()
+            else:
                 self.pca_flux = None
             self.center_of_mass()
 
@@ -518,7 +522,7 @@ class TargetData(object):
         return
 
 
-    def psf_lightcurve(self, nstars=1, model='gaussian', xc=[4.5], yc=[4.5]):
+    def psf_lightcurve(self, nstars=1, model='gaussian', xc=None, yc=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -541,6 +545,13 @@ class TargetData(object):
         import tensorflow as tf
         from vaneska.models import Gaussian
         from tqdm import tqdm
+        
+        tf.logging.set_verbosity(tf.logging.ERROR)
+        
+        if yc is None:
+            yc = 0.5*np.ones(nstars)*np.shape(self.tpf[0])[1]
+        if xc is None:
+            xc = 0.5*np.ones(nstars)*np.shape(self.tpf[0])[0]
 
         if len(xc) != nstars:
             raise ValueError('xc must have length nstars')
@@ -548,8 +559,8 @@ class TargetData(object):
             raise ValueError('yc must have length nstars')
 
 
-        flux = tf.Variable(np.ones(nstars)*1000, dtype=tf.float64)
-        bkg = tf.Variable(np.nanmedian(self.tpf[0]), dtype=tf.float64)
+        flux = tf.Variable(np.ones(nstars)*np.max(self.tpf[0]), dtype=tf.float64)
+        bkg = tf.Variable(self.flux_bkg[0], dtype=tf.float64)
         xshift = tf.Variable(0.0, dtype=tf.float64)
         yshift = tf.Variable(0.0, dtype=tf.float64)
 
@@ -579,20 +590,28 @@ class TargetData(object):
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
+        
 
-        optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4)
+        var_to_bounds = {flux: (0, np.infty), 
+                         xshift: (-1.0, 1.0),
+                         yshift: (-1.0, 1.0),
+                         a: (0, np.infty),
+                         b: (0, np.infty),
+                         c: (0, np.infty)}          
+
+        optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
         fout = np.zeros((len(self.tpf), nstars))
         xout = np.zeros(len(self.tpf))
         yout = np.zeros(len(self.tpf))
 
         for i in tqdm(range(len(self.tpf))):
-            optimizer.minimize(session=sess, feed_dict={data:self.tpf[i]}) # we could also pass a pointing model here
+            optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i]}) # we could also pass a pointing model here
                                                                            # and just fit a single offset in all frames
 
             fout[i] = sess.run(flux)
-            xout[i] = sess.run(xshift)
-            yout[i] = sess.run(yshift)
+            #xout[i] = sess.run(xshift)
+            #yout[i] = sess.run(yshift)
 
         sess.close()
 
@@ -837,6 +856,8 @@ class TargetData(object):
 
         if self.pca_flux is not None:
             ext1['PCA_FLUX'] = self.pca_flux
+        if self.psf_flux is not None:
+            ext1['PSF_FLUX'] = self.psf_flux
 
         # Creates table for second extension (all apertures)
         ext2 = Table()
