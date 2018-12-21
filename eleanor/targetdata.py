@@ -43,6 +43,8 @@ class TargetData(object):
     bkg_size : int, optional
         Size of box to use for background estimation. If not set, will default to the width of the 
         target pixel file.
+    crowded_field : bool, optional
+        If true, will return a light curve built using a small aperture (not more than 9 pixels in size).
 
 
     Attributes
@@ -118,7 +120,7 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, bkg_size=None):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, bkg_size=None, crowded_field = False):
         self.source_info = source
 
         if source.premade:
@@ -127,6 +129,10 @@ class TargetData(object):
         else:
             if bkg_size is None:
                 bkg_size = width
+            if crowded_field == True:
+                self.crowded_field = True
+            else:
+                self.crowded_field = False
             
             self.aperture = None
             self.post_obj = Postcard(source.postcard, source.ELEANORURL)
@@ -219,6 +225,14 @@ class TargetData(object):
         self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
+        
+        summed_tpf = np.sum(self.tpf, axis=0)
+        mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
+        if np.abs(mpix[0] - x_length) > 1:
+            self.crowded_field = True
+        if np.abs(mpix[1] - y_length) > 1:
+            self.crowded_field = True
+            
 
         self.bkg_subtraction()
 
@@ -242,6 +256,7 @@ class TargetData(object):
         pickle_dict = pickle.load(pickle_in)
         self.aperture_names = np.array(list(pickle_dict.keys()))
         all_apertures  = np.array(list(pickle_dict.values()))
+        
 
         default = 9
 
@@ -348,8 +363,12 @@ class TargetData(object):
             for epoch in range(len(self.time)):
                 self.tpf[epoch] -= self.tpf_flux_bkg[epoch]
 
-            pc_stds, tpf_stds = [], []
-            for a in range(len(self.all_apertures)):
+            pc_stds = np.ones(len(self.all_apertures)) 
+            tpf_stds = np.ones(len(self.all_apertures)) 
+            
+            ap_size = np.sum(self.all_apertures, axis=(1,2))
+
+            for a in range(len(self.all_apertures)):       
                 for cad in range(len(self.tpf)):
                     try:
                         all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
@@ -370,12 +389,12 @@ class TargetData(object):
                 lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500],
                                        flux = all_corr_lc_tpf_sub[a][q][0:500])
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
-                tpf_stds.append( np.std(flat_lc_tpf.flux))
+                tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
                 lc_obj_pc = lightcurve.LightCurve(time = self.time[q][0:500],
                                                    flux = all_corr_lc_pc_sub[a][q][0:500])
                 flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51)
-                pc_stds.append( np.std(flat_lc_pc.flux))
+                pc_stds[a] = np.std(flat_lc_pc.flux)
 
                 all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
                 all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
@@ -383,9 +402,14 @@ class TargetData(object):
             self.all_raw_lc  = np.array(all_raw_lc_pc_sub)
             self.all_lc_err  = np.array(all_lc_err)
             self.all_corr_lc = np.array(all_corr_lc_pc_sub)
+            
+            if self.crowded_field == True:
+                tpf_stds[ap_size > 9] = 1.0
+                pc_stds[ap_size > 9] = 1.0
 
             best_ind_tpf = np.where(tpf_stds == np.min(tpf_stds))[0][0]
             best_ind_pc  = np.where(pc_stds == np.min(pc_stds))[0][0]
+            
 
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
