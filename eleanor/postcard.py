@@ -176,3 +176,7 @@ class Postcard(object):
     @property
     def bkg(self):
         return self.hdu[1].data['BKG']
+    
+    @property 
+    def barycorr(self):
+        return self.hdu[1].data['BARYCORR']

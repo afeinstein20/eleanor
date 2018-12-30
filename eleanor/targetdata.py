@@ -5,6 +5,8 @@ from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from photutils import MMMBackground
 from lightkurve import SFFCorrector, lightcurve
 from scipy.optimize import minimize
+from astropy import time, coordinates as coord, units as u
+from astropy.coordinates import SkyCoord, Angle
 from astropy.table import Table, Column
 from astropy.wcs import WCS
 from astropy.stats import SigmaClip
@@ -45,7 +47,12 @@ class TargetData(object):
         target pixel file.
     crowded_field : bool, optional
         If true, will return a light curve built using a small aperture (not more than 9 pixels in size).
-
+    do_pca : bool, optional
+        If true, will return a PCA-corrected light curve.
+    do_psf : bool, optional
+        If true, will return a light curve made with a simple PSF model.
+    cal_cadences : tuple, optional
+        Start and end cadence numbers to use for optimal aperture selection.
 
     Attributes
     ----------
@@ -120,24 +127,30 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field = False):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None):
         self.source_info = source
 
         if source.premade:
             self.load()
 
-        else:
+        else:            
+            self.aperture = None
+            self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+            self.flux_bkg = self.post_obj.bkg
+            self.get_time(source.coords)
+    
+            
             if bkg_size is None:
                 bkg_size = width
             if crowded_field == True:
                 self.crowded_field = True
             else:
                 self.crowded_field = False
+            if cal_cadences is None:
+                self.cal_cadences = (0, len(self.post_obj.time))
+            else:
+                self.cal_cadences = cal_cadences
             
-            self.aperture = None
-            self.post_obj = Postcard(source.postcard, source.ELEANORURL)
-            self.flux_bkg = self.post_obj.bkg
-            self.time  = self.post_obj.time
             self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
             self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard)
             self.set_quality()
@@ -151,9 +164,23 @@ class TargetData(object):
             if do_psf == True:
                 self.psf_lightcurve()
             else:
-                self.pca_flux = None
+                self.psf_flux = None
             self.center_of_mass()
 
+    def get_time(self, coords):
+        """Gets time, including light travel time correction to solar system barycenter for object given location"""
+        t0 = self.post_obj.time - self.post_obj.barycorr
+        
+        ra = Angle(coords[0], u.deg)
+        dec = Angle(coords[1], u.deg)
+        
+        greenwich = coord.EarthLocation.of_site('greenwich')
+        times = time.Time(t0+2457000, format='jd',
+                   scale='utc', location=greenwich)
+        ltt_bary = times.light_travel_time(SkyCoord(ra, dec)).value
+        
+        self.time = t0 + ltt_bary
+        self.barycorr = ltt_bary
 
     def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard):
         """Gets TPF from postcard."""
@@ -390,13 +417,13 @@ class TargetData(object):
 
                 q = self.quality == 0
 
-                lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][0:500],
-                                       flux = all_corr_lc_tpf_sub[a][q][0:500])
+                lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+                                       flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
-                lc_obj_pc = lightcurve.LightCurve(time = self.time[q][0:500],
-                                                   flux = all_corr_lc_pc_sub[a][q][0:500])
+                lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+                                                   flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
                 flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51)
                 pc_stds[a] = np.std(flat_lc_pc.flux)
 
@@ -836,6 +863,7 @@ class TargetData(object):
         # Creates table for first extension (tpf, tpf_err, best lc, time, centroids)
         ext1 = Table()
         ext1['TIME']       = self.time
+        ext1['BARYCORR']   = self.barycorr
         ext1['TPF']        = self.tpf
         ext1['TPF_ERR']    = self.tpf_err
         ext1['RAW_FLUX']   = self.raw_flux
