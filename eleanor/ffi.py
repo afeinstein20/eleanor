@@ -19,7 +19,7 @@ def load_pointing_model(sector, camera, chip):
     """ Loads in pointing model from website.
     """
     sector = int(sector)
-    pointing_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector,
+    pointing_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/pointingModel_{0}_{1}-{2}.txt'.format(sector,
                                                                                                                                                                                    camera,
                                                                                                                                                                                    chip))
     pointing = pointing_link.read().decode('utf-8')
