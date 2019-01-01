@@ -71,10 +71,10 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
     outfn_fmt = os.path.join(outdir, outfn_fmt).format
 
     # Build the pointing model
-    # FIXME: this should include *building* the pointing model
-    pm_fn = 'pointingModel_{0:04d}_{1}-{2}.txt'.format(int(info[0][1:]), info[1], info[2])
-    with open(os.path.join(outdir, pm_fn), "r") as f:
-        pm = Table.read(f.read(), format='ascii.basic')
+    f = ffi(sector=int(info[0][1:]), camera=info[1], chip=info[2])
+    f.local_paths = fns
+    f.sort_by_date()
+    pm = f.pointing_model_per_cadence()
 
     # We want to shift the WCS for each postcard so let's store the default
     # reference pixel
