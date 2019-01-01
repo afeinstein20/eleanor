@@ -51,7 +51,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
 
 def load_postcard_guide():
     """Load and return the postcard coordinates guide."""
-    guide_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/postcard.guide')
+    guide_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/postcard.guide')
     guide = guide_link.read().decode('utf-8')
     guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
     return guide
