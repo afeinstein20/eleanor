@@ -216,5 +216,12 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
                           'timeout':600,
                           'radius':r
                           }}
-    headers, outString = mastQuery(request)
-    return jsonTable(json.loads(outString))
+    blob = {}
+    while 'fields' not in blob:
+        headers, outString = mastQuery(request)
+        blob = json.loads(outString)
+        if 'fields' not in blob:
+            print(blob)
+            print("retrying...")
+            time.sleep(30)
+    return jsonTable(blob)
