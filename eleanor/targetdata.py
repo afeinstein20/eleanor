@@ -302,7 +302,7 @@ class TargetData(object):
             new_aps = []
 
             h_diff = height-default; w_diff = width-default
-            half_h = int(np.abs(h_diff/2)) ; half_w = int(np.abs(w_diff/2))
+            half_h = int(np.ceil(np.abs(h_diff/2))) ; half_w = int(np.ceil(np.abs(w_diff/2)))
 
             # HEIGHT PADDING
             if h_diff > 0:
