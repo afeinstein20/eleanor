@@ -104,7 +104,7 @@ def cone_search(pos, r, service):
     """
     request = {'service': service,
                'params': {'ra':pos[0], 'dec':pos[1], 'radius':r},
-               'format':'json'}
+               'format':'json', 'removecache':True}
     headers, outString = mastQuery(request)
     return jsonTable(json.loads(outString))
 
@@ -133,7 +133,7 @@ def crossmatch_by_position(pos, r, service):
     request = {'service':service,
                'data':crossmatchInput,
                'params': {'raColumn':'ra', 'decColumn':'dec', 'radius':r},
-               'format':'json'}
+               'format':'json', 'removecache':True}
     headers, outString = mastQuery(request)
     return jsonTable(json.loads(outString))
 
@@ -164,7 +164,7 @@ def coords_from_gaia(gaia_id):
 
 def tic_from_coords(coords):
     """Returns TIC ID, Tmag, and separation of best match(es) to input coords."""
-    tess = crossmatch_by_position(coords, 0.1, 'Mast.Tic.Crossmatch')
+    tess = crossmatch_by_position(coords, 0.01, 'Mast.Tic.Crossmatch')
     tessPos = [tess['MatchRA'], tess['MatchDEC']]
     sepTess = crossmatch_distance(coords, tessPos)
     return int(tess[sepTess==np.min(sepTess)]['MatchID'].data[0]), [tess[sepTess==np.min(sepTess)]['Tmag'].data[0]], sepTess[sepTess==np.min(sepTess)]/u.arcsec
