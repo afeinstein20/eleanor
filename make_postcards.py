@@ -12,9 +12,11 @@ import fitsio
 import numpy as np
 from time import strftime
 from astropy.wcs import WCS
+from astropy.table import Table
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
 
+from eleanor.ffi import ffi, set_quality_flags
 #from eleanor.version import __version__
 
 
@@ -25,7 +27,7 @@ def bkg(flux, sigma=2.5):
     return bkg.calc_background(flux)
 
 
-def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
+def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=None):
     # Make sure that the output directory exists
     os.makedirs(outdir, exist_ok=True)
 
@@ -68,6 +70,12 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     outfn_fmt = "hlsp_eleanor_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}.fits".format(info_str)
     outfn_fmt = os.path.join(outdir, outfn_fmt).format
 
+    # Build the pointing model
+    f = ffi(sector=int(info[0][1:]), camera=info[1], chip=info[2])
+    f.local_paths = fns
+    f.sort_by_date()
+    pm = f.pointing_model_per_cadence()
+
     # We want to shift the WCS for each postcard so let's store the default
     # reference pixel
     crpix_h = float(primary_header["CRPIX1"])
@@ -103,8 +111,8 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
 
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
-    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END", "BKG"]
-    primary_dtype = [np.float32, np.float32, np.float32, "O", "O", np.float32]
+    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END", "BKG", "QUALITY"]
+    primary_dtype = [np.float32, np.float32, np.float32, "O", "O", np.float32, np.int64]
     primary_data = np.empty(len(fns), list(zip(primary_cols, primary_dtype)))
 
     # Make sure that the sector, camera, chip, and dimensions are the
@@ -122,19 +130,18 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
         info = new_info
 
         # Save the info for the primary HDU
-        for k, dtype in zip(primary_cols[0:len(primary_cols)-1], primary_dtype[0:len(primary_dtype)-1]):
+        for k, dtype in zip(primary_cols[0:len(primary_cols)-2], primary_dtype[0:len(primary_dtype)-2]):
             if dtype == "O":
                 primary_data[k][i] = hdr[k].encode("ascii")
             else:
                 primary_data[k][i] = hdr[k]
-                
+
 
         # Save the data
         all_ffis[:, :, i] = data
 
         if not is_raw:
             all_errs[:, :, i] = fitsio.read(name, 2)
-
 
     wmax, hmax = 2048, 2092
 
@@ -200,18 +207,24 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                     dict(name="SECTOR", value=sector[1::],
                          comment="TESS sector"))
 
-                pixel_data = all_ffis[w:w+dw, h:h+dh, :]
+                pixel_data = all_ffis[w:w+dw, h:h+dh, :] + 0.0
 
                 # Adds in quality column for each cadence in primary_data
-                quality = np.empty(len(fns))
-                for i in range(len(fns)):
-                    b = bkg(pixel_data[:, :, i])
-                    primary_data[i][len(primary_cols)-1] = b
-                    pixel_data[:, :, i] = pixel_data[:, :, i] - b
-                    
+                for k in range(len(fns)):
+                    b = bkg(pixel_data[:, :, k])
+                    primary_data[k][len(primary_cols)-2] = b
+                    pixel_data[:, :, k] -= b
+                    if i==0 and j==0 and k==0:
+                        print("Getting quality flags")
+                        quality_array = set_quality_flags( primary_data['TSTART']-primary_data['BARYCORR'],
+                                                           primary_data['TSTOP']-primary_data['BARYCORR'],
+                                                           sc_fn, sector[1::], new_info[1], new_info[2],
+                                                           pm=pm)
+                    primary_data[k][len(primary_cols)-1] = quality_array[k]
+
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
-                
+
                 # Save the image data
                 fitsio.write(outfn, pixel_data)
 
@@ -230,6 +243,8 @@ if __name__ == "__main__":
                         help='the pattern for the input FFI filenames')
     parser.add_argument('output_dir',
                         help='the output directory')
+    parser.add_argument('sc_fn',
+                        help='the short cadence filename for this sector, camera, chip')
     parser.add_argument('--width', type=int, default=104,
                         help='the width of the postcards')
     parser.add_argument('--height', type=int, default=148,
@@ -242,6 +257,7 @@ if __name__ == "__main__":
 
     fns = sorted(glob.glob(args.file_pattern))
     outdir = args.output_dir
-    make_postcards(fns, outdir,
+    sc_fn  = args.sc_fn
+    make_postcards(fns, outdir, sc_fn,
                    width=args.width, height=args.height,
                    wstep=args.wstep, hstep=args.hstep)

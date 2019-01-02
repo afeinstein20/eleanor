@@ -4,13 +4,28 @@ import matplotlib.pyplot as plt
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
 from astropy.wcs import WCS
+from astropy.table import Table
 from astropy.nddata import Cutout2D
 from astropy.utils.data import download_file
 import requests
 from bs4 import BeautifulSoup
 import warnings
+import urllib
 
 from .mast import tic_by_contamination
+
+
+def load_pointing_model(sector, camera, chip):
+    """ Loads in pointing model from website.
+    """
+    sector = int(sector)
+    pointing_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/pointingModel_{0}_{1}-{2}.txt'.format(sector,
+                                                                                                                                                                                   camera,
+                                                                                                                                                                                   chip))
+    pointing = pointing_link.read().decode('utf-8')
+    pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
+    return pointing
+
 
 def use_pointing_model(coords, pointing_model):
     """Applies pointing model to correct the position of star(s) on postcard.
@@ -32,6 +47,92 @@ def use_pointing_model(coords, pointing_model):
     A = np.column_stack([coords[0], coords[1], np.ones_like(coords[0])])
     fhat = np.dot(A, pointing_model)
     return fhat
+
+
+def pm_quality(time, sector, camera, chip, pm=None):
+        """ Fits a line to the centroid motions using the pointing model.
+            A quality flag is set if the centroid is > 2*sigma away from
+                the majority of the centroids.
+        """
+
+        def outliers(x, y, poly, mask):
+            dist = (y - poly[0]*x - poly[1])/np.sqrt(poly[0]**2+1**2)
+            std  = np.std(dist)
+            ind  = np.where((dist > 2*std) | (dist < -2*std))[0]
+            mask[ind] = 1
+            return mask
+
+        cen_x, cen_y = 1024, 1024 # Uses a point in the center of the FFI
+        cent_x,cent_y = [], []
+
+        if pm is None:
+            pm = load_pointing_model(sector, camera, chip)
+
+        # Applies centroids
+        for i in range(len(pm)):
+            new_coords = use_pointing_model(np.array([cen_x, cen_y]), pm[i])
+            cent_x.append(new_coords[0][0])
+            cent_y.append(new_coords[0][1])
+        cent_x = np.array(cent_x); cent_y = np.array(cent_y)
+
+        # Finds gap in orbits
+        t = np.diff(time)
+        brk = np.where( t > np.mean(t)+2*np.std(t))[0][0]
+        brk += 1
+
+        # Initiates lists for each orbit
+        x1 = cent_x[0:brk]; y1 = cent_y[0:brk]
+        x2 = cent_x[brk:len(cent_x)+1];y2 = cent_y[brk:len(cent_y)+1]
+
+        # Initiates masks
+        mask1 = np.zeros(len(x1)); mask2 = np.zeros(len(x2))
+
+        # Loops through and searches for points > 2 sigma away from distribution
+        for i in np.arange(0,10,1):
+            poly1  = np.polyfit(x1[mask1==0], y1[mask1==0], 1)
+            poly2  = np.polyfit(x2[mask2==0], y2[mask2==0], 1)
+            mask1  = outliers(x1, y1, poly1, mask1)
+            mask2  = outliers(x2, y2, poly2, mask2)
+
+        # Returns a total mask for each orbit
+        return np.append(mask1, mask2)
+
+
+def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip,
+                      pm=None):
+    """ Uses the quality flags in a 2-minute target to create quality flags
+        in the postcards.
+    We create our own quality flag as well, using our pointing model.
+    """
+    # Obtains information for 2-minute target
+    twoMin     = fits.open(shortCad_fn)
+    twoMinTime = twoMin[1].data['TIME']-twoMin[1].data['TIMECORR']
+    finite     = np.isfinite(twoMinTime)
+    twoMinQual = twoMin[1].data['QUALITY']
+
+    twoMinTime = twoMinTime[finite]
+    twoMinQual = twoMinQual[finite]
+
+    perFFIcad = []
+    for i in range(len(ffi_start)):
+        where = np.where( (twoMinTime > ffi_start[i]) &
+                          (twoMinTime < ffi_stop[i]) )[0]
+        perFFIcad.append(where)
+
+    perFFIcad = np.array(perFFIcad)
+    # Binary string for values which apply to the FFIs
+    ffi_apply = int('100010101111', 2)
+
+    convolve_ffi = []
+    for cadences in perFFIcad:
+        v = np.bitwise_or.reduce(twoMinQual[cadences])
+        convolve_ffi.append(v)
+    convolve_ffi = np.array(convolve_ffi)
+
+    flags    = np.bitwise_and(convolve_ffi, ffi_apply)
+    pm_flags = pm_quality(ffi_stop, sector, camera, chip, pm=pm) * 4096
+
+    return flags+pm_flags
 
 
 class ffi:
@@ -183,7 +284,7 @@ class ffi:
         return xhat
 
 
-    def pointing_model_per_cadence(self):
+    def pointing_model_per_cadence(self, out_dir=None):
         """Step through build_pointing_model for each cadence."""
 
         def find_isolated(x, y):
@@ -221,7 +322,7 @@ class ffi:
                 Indexes into input arrays corresponding to good sources.
             """
             cenx, ceny, good = [], [], []
-            
+
             for i in range(len(x)):
                  if x[i] > 0. and y[i] > 0.:
                      tpf = Cutout2D(image, position=(x[i], y[i]), size=(7,7), mode='partial')
@@ -239,7 +340,11 @@ class ffi:
             return np.array(new_coords)
 
 
-        pm_fn = 'pointingModel_{}_{}-{}.txt'.format(self.sector, self.camera, self.chip)
+        pm_fn = 'pointingModel_{0:04d}_{1}-{2}.txt'.format(self.sector, self.camera, self.chip)
+
+        if out_dir is not None:
+            pm_fn = out_dir+ '/' + pm_fn
+
         with open(pm_fn, 'w') as tf:
             tf.write('0 1 2 3 4 5 6 7 8\n')
 
@@ -249,7 +354,7 @@ class ffi:
 
         r = 6.0#*np.sqrt(1.2)
         contam = [0.0, 5e-3]
-        tmag_lim = 12.5
+        tmag_lim = [7.5, 12.5]
 
         t  = tic_by_contamination(pos, r, contam, tmag_lim)
 
@@ -280,3 +385,6 @@ class ffi:
 
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
+
+        with open(pm_fn, "r") as tf:
+            return Table.read(tf.read(), format='ascii.basic')

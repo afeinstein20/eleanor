@@ -51,7 +51,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
 
 def load_postcard_guide():
     """Load and return the postcard coordinates guide."""
-    guide_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/postcard.guide')
+    guide_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/postcard.guide')
     guide = guide_link.read().decode('utf-8')
     guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
     return guide
@@ -147,6 +147,9 @@ class Source(object):
             self.locate_on_tess() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
 
+        self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
+                                                                                                                                 self.camera,
+                                                                                                                                 self.chip)
 
 
     def locate_on_chip(self, guide):
