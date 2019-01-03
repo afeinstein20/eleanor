@@ -478,7 +478,7 @@ class TargetData(object):
     
 
 
-    def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=8):
+    def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=4):
         """ Applies cotrending basis vectors, found through principal component analysis, to light curve to
         remove systematics shared by nearby stars.
 
@@ -492,11 +492,13 @@ class TargetData(object):
         if flux is None:
             flux = self.corr_flux
 
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/{}'.format(matrix_fn))
+        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/tpfs/pca_components_s{0:04d}_{1}.txt'.format(self.source_info.sector,
+                                                                                                                            self.source_info.camera))
         A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
         A = np.asarray(A)
+
         la = len(A)
-        A  = A.reshape((int(la/16), 16))
+        A  = A.reshape((int(la/16), 16))  # Hard coded 4 a reason -- fight me
             
 
         def matrix(f):
