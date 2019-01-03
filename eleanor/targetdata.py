@@ -156,7 +156,7 @@ class TargetData(object):
             self.set_quality()
             self.create_apertures(height, width)
             
-            self.centroid_xs = self.centroid_xs + np.arange(len(self.centroid_xs))*1e-6 # hackity hack hack until we have real PM
+#            self.centroid_xs = self.centroid_xs + np.arange(len(self.centroid_xs))*1e-6 # hackity hack hack until we have real PM
             
             self.get_lightcurve()
             if do_pca == True:
