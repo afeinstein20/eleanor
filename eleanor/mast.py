@@ -148,7 +148,7 @@ def coords_from_tic(tic):
         TESS apparent magnitude.
     """
 
-    ticData = Catalogs.query_object('tic'+tic, radius=.0001, catalog="TIC")
+    ticData = Catalogs.query_object('tic'+str(tic), radius=.0001, catalog="TIC")
     return [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data
 
 def coords_from_gaia(gaia_id):
