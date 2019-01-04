@@ -925,11 +925,14 @@ class TargetData(object):
         primary_hdu = fits.PrimaryHDU(header=self.header)
         data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
+        
+        if output_fn == None:
+            path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(
+                    self.source_info.tic, self.source_info.sector))
+        else:
+            path = os.path.join(directory, output_fn)
 
-        hdu.writeto(os.path.join(directory,
-                                 'hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(
-                    self.source_info.tic, self.source_info.sector)),
-                    overwrite=True)
+        hdu.writeto(path, overwrite=True)
 
 
 
