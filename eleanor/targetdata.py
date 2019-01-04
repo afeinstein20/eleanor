@@ -641,20 +641,24 @@ class TargetData(object):
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
         fout = np.zeros((len(self.tpf), nstars))
-        xout = np.zeros(len(self.tpf))
-        yout = np.zeros(len(self.tpf))
+        bkgout = np.zeros(len(self.tpf))
+        #xout = np.zeros(len(self.tpf))
+        #yout = np.zeros(len(self.tpf))
 
         for i in tqdm(range(len(self.tpf))):
             optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i]}) # we could also pass a pointing model here
                                                                            # and just fit a single offset in all frames
 
             fout[i] = sess.run(flux)
+            bkgout[i] = sess.run(bkg)
             #xout[i] = sess.run(xshift)
             #yout[i] = sess.run(yshift)
 
         sess.close()
 
         self.psf_flux = fout[:,0]
+        self.psf_bkg = bkgout
+        
         return
 
 
