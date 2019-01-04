@@ -554,7 +554,7 @@ class TargetData(object):
         return
 
 
-    def psf_lightcurve(self, nstars=1, model='gaussian', xc=None, yc=None):
+    def psf_lightcurve(self, nstars=1, model='gaussian', likelihood='gaussian', xc=None, yc=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -565,6 +565,8 @@ class TargetData(object):
         model: string, optional
             PSF model to be applied. Presently must be `gaussian`, which models a single Gaussian.
             Will be extended in the future once TESS PRF models are made publicly available.
+        likelihood: string, optinal
+            The data statistics given the parameters. Options are: 'gaussian' and 'poisson'.
         xc: list, optional
             The x-coordinates of stars in the zeroth cadence. Must have length `nstars`.
             While the positions of stars will be fit in all cadences, the relative positions of
@@ -615,7 +617,12 @@ class TargetData(object):
         mean += bkg
 
         data = tf.placeholder(dtype=tf.float64, shape=self.tpf[0].shape)
-        nll = tf.reduce_sum(tf.squared_difference(mean, data))
+        if likelihood == 'gaussian':
+            nll = tf.reduce_sum(tf.squared_difference(mean, data))
+        elif likelihood == 'poisson':
+            nll = tf.reduce_sum(tf.subtract(mean, tf.multiply(data, tf.log(mean))))
+        else:
+            raise ValueError("likelihood argument {0} not supported".format(likelihood))
 
         var_list = [flux, xshift, yshift, a, b, c, bkg]
         grad = tf.gradients(nll, var_list)
