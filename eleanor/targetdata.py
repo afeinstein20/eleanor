@@ -565,6 +565,8 @@ class TargetData(object):
         model: string, optional
             PSF model to be applied. Presently must be `gaussian`, which models a single Gaussian.
             Will be extended in the future once TESS PRF models are made publicly available.
+        likelihood: string, optinal
+            The data statistics given the parameters. Options are: 'gaussian' and 'poisson'.
         xc: list, optional
             The x-coordinates of stars in the zeroth cadence. Must have length `nstars`.
             While the positions of stars will be fit in all cadences, the relative positions of
@@ -612,15 +614,15 @@ class TargetData(object):
             raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
                                                                     # and a gentle return
 
-        mean += bkg
-
         data = tf.placeholder(dtype=tf.float64, shape=self.tpf[0].shape)
         bkgval = tf.placeholder(dtype=tf.float64)
+        
+        mean += bkg
 
         if likelihood == 'gaussian':
             nll = tf.reduce_sum(tf.squared_difference(mean, data))
         elif likelihood == 'poisson':
-            nll = tf.reduce_sum(tf.subtract(mean+bkgval, tf.multiply(data+bkgval, tf.log(mean+bkgval))))
+            nll = tf.reduce_sum(tf.subtract(mean, tf.multiply(data+bkgval, tf.log(mean))))
         else:
             raise ValueError("likelihood argument {0} not supported".format(likelihood))
 
@@ -647,7 +649,7 @@ class TargetData(object):
         #yout = np.zeros(len(self.tpf))
 
         for i in tqdm(range(len(self.tpf))):
-            optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i], bkgval:np.median(self.flux_bkg)}) # we could also pass a pointing model here
+            optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i], bkgval:self.flux_bkg[i]}) # we could also pass a pointing model here
                                                                            # and just fit a single offset in all frames
 
             fout[i] = sess.run(flux)
