@@ -926,6 +926,7 @@ class TargetData(object):
         data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
 
+        
         hdu.writeto(os.path.join(directory,
                                  'hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(
                     self.source_info.tic, self.source_info.sector)),
