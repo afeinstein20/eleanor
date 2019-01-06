@@ -378,7 +378,7 @@ class TargetData(object):
                 lc[cad]     = np.sum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc) 
-            self.corr_flux  = self.k2_correction(flux=lc)
+            self.corr_flux  = self.jitter_corr(flux=lc, skip=50)
             self.flux_err   = np.array(lc_err)
             return
 
@@ -413,8 +413,8 @@ class TargetData(object):
 
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
                 try:
-                    all_corr_lc_pc_sub[a] = self.k2_correction(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
-                    all_corr_lc_tpf_sub[a]= self.k2_correction(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
+                    all_corr_lc_pc_sub[a] = self.jitter_corr(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
+                    all_corr_lc_tpf_sub[a]= self.jitter_corr(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
                 except IndexError:
                     continue
 
@@ -432,7 +432,6 @@ class TargetData(object):
 
                 all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
                 all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
-
             self.all_raw_lc  = np.array(all_raw_lc_pc_sub)
             self.all_lc_err  = np.array(all_lc_err)
             self.all_corr_lc = np.array(all_corr_lc_pc_sub)
@@ -752,19 +751,23 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def jitter_corr(self, flux, quality, cen=0.0):
+    def jitter_corr(self, flux, skip=30):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
-        Following Equation 1 of Knutson et al. 2008, ApJ, 673, 526.
 
         Parameters
         ----------
-        flux: numpy.ndarray
-            Time series of raw flux observations to be corrected.
-        cen: float, optional
-            Center of the 2-d paraboloid for which the correction is performed.
+        skip: int
+            The number of cadences at the start of each orbit to skip in determining optimal model weights.
         """
         flux = np.array(flux)
+        quality = self.quality
+        q = quality == 0
+
+        cx = self.centroid_xs 
+        cy = self.centroid_ys
+        t  = self.time-self.time[0]
+
 
         # Inputs: light curve & quality flag
         def norm(l, q):
@@ -783,26 +786,42 @@ class TargetData(object):
             xhat = np.dot(ATAinv, ATf)
             return xhat
 
-        q = quality == 0
-        norm_l = norm(flux, q)
-        cm     = np.column_stack( (self.centroid_xs[q]   , self.centroid_ys[q],
-                                   self.centroid_xs[q]**2, self.centroid_ys[q]**2))
-        x = xhat(cm, norm_l)
+        def rotate_centroids(centroid_col, centroid_row):
+            centroids = np.array([centroid_col, centroid_row])
+            _, eig_vecs = np.linalg.eigh(np.cov(centroids))
+            return np.dot(eig_vecs, centroids)
 
-        cm  = np.column_stack( (self.centroid_xs   , self.centroid_ys,
-                                self.centroid_xs**2, self.centroid_ys**2))
+        def calc_corr(mask, cx, cy, skip=50):
+            qm = quality[mask] == 0
+            medval = np.nanmedian(flux[mask][qm])
+            norm_l = norm(flux[mask], qm)
+            cx, cy = rotate_centroids(cx[mask], cy[mask])
+            cx -= np.median(cx)
+            cy -= np.median(cy)
+            bkg = self.flux_bkg[mask]
+            bkg -= np.min(bkg)
 
-        f_mod = fhat(x, cm)
-        lc_reg = flux/f_mod
-        # Breaks the light curve into two sections
+
+
+            cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
+                                       bkg[qm][skip:], t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
+            x = xhat(cm, norm_l[skip:])
+            cm = np.column_stack((cx, cy, cx**2, cy**2, bkg, t[mask], np.ones_like(t[mask])))
+            fmod = fhat(x, cm)
+            lc_pred = (fmod+1)
+            return lc_pred
+
+
         brk = self.find_break()
         f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
 
-        poly_fit1 = np.polyval( np.polyfit(self.time[f], flux[f], 1), self.time[f])
-        poly_fit2 = np.polyval( np.polyfit(self.time[s], flux[s], 1), self.time[s])
-        return np.append( lc_reg[f], lc_reg[s])
+        lc_pred = calc_corr(f, cx, cy, skip)
+        corr_f = flux[f]/lc_pred
 
+        lc_pred = calc_corr(s, cx, cy, skip)
+        corr_s = flux[s]/lc_pred
 
+        return np.append(corr_f, corr_s)
 
 
     def set_header(self):
@@ -925,12 +944,15 @@ class TargetData(object):
         primary_hdu = fits.PrimaryHDU(header=self.header)
         data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
-
         
-        hdu.writeto(os.path.join(directory,
-                                 'hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(
-                    self.source_info.tic, self.source_info.sector)),
-                    overwrite=True)
+        if output_fn == None:
+            path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_lc_TIC{}_s{}_v0.1.fits'.format(
+                    self.source_info.tic, self.source_info.sector))
+        else:
+            path = os.path.join(directory, output_fn)
+
+        hdu.writeto(path, overwrite=True)
+
 
 
 
