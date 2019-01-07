@@ -4,10 +4,10 @@ README.md
 setup.cfg
 setup.py
 eleanor/__init__.py
+eleanor/default_apertures.pickle
 eleanor/eleanor.py
 eleanor/ffi.py
 eleanor/mast.py
-eleanor/movie.py
 eleanor/postcard.py
 eleanor/source.py
 eleanor/targetdata.py
