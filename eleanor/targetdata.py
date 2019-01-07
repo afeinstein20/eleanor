@@ -156,8 +156,6 @@ class TargetData(object):
             self.set_quality()
             self.create_apertures(height, width)
             
-#            self.centroid_xs = self.centroid_xs + np.arange(len(self.centroid_xs))*1e-6 # hackity hack hack until we have real PM
-            
             self.get_lightcurve()
             if do_pca == True:
                 self.pca()  
@@ -644,8 +642,6 @@ class TargetData(object):
 
         fout = np.zeros((len(self.tpf), nstars))
         bkgout = np.zeros(len(self.tpf))
-        #xout = np.zeros(len(self.tpf))
-        #yout = np.zeros(len(self.tpf))
 
         for i in tqdm(range(len(self.tpf))):
             optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i], bkgval:np.median(self.flux_bkg)}) # we could also pass a pointing model here
@@ -653,8 +649,6 @@ class TargetData(object):
 
             fout[i] = sess.run(flux)
             bkgout[i] = sess.run(bkg)
-            #xout[i] = sess.run(xshift)
-            #yout[i] = sess.run(yshift)
 
         sess.close()
 
@@ -868,8 +862,12 @@ class TargetData(object):
                                            comment='Width of the TPF in pixels'))
         self.header.append(fits.Card(keyword='BKG_SIZE', value=np.shape(self.bkg_tpf[0])[1],
                                            comment='Size of region used for background subtraction'))
-#        self.header.append(fits.Card(keyword='BKG_LVL', value=self.bkg_type,
-#                                     comment='Stage at which background is subtracted'))
+        self.header.append(fits.Card(keyword='BKG_LVL', value=self.bkg_type,
+                                     comment='Stage at which background is subtracted'))
+#        self.header.append(fits.Card(keyword='POST_FN', value=self.source_info.postcard,
+#                                     comment='Postcard the target is located on'))
+        self.header.append(fits.Card(keyword='URL', value=self.source_info.ELEANORURL,
+                                     comment='URL eleanor files are located at'))
 
         if self.modes is not None:
             self.header.append(fits.Card(keyword='MODES', value=self.modes,
@@ -911,7 +909,7 @@ class TargetData(object):
         ext1['Y_CENTROID'] = self.centroid_ys
         ext1['X_COM']      = self.x_com
         ext1['Y_COM']      = self.y_com
-
+        ext1['FLUX_BKG']   = self.flux_bkg
 
         if self.bkg_type == "PC_LEVEL":
             ext1['FLUX_BKG'] = self.flux_bkg
@@ -975,15 +973,23 @@ class TargetData(object):
         # Loads in everything from the first extension
         cols  = hdu[1].columns.names
         table = hdu[1].data
-        self.time        = table[cols[0]]
-        self.tpf         = table[cols[1]]
-        self.tpf_err     = table[cols[2]]
-        self.raw_flux    = table[cols[3]]
-        self.corr_flux   = table[cols[4]]
-        self.flux_err    = table[cols[5]]
-        self.quality     = table[cols[6]]
-        self.centroid_xs = table[cols[7]]
-        self.centroid_ys = table[cols[8]]
+        self.time        = table['TIME']
+        self.tpf         = table['TPF']
+        self.tpf_err     = table['TPF_ERR']
+        self.raw_flux    = table['RAW_FLUX']
+        self.corr_flux   = table['CORR_FLUX']
+        self.flux_err    = table['FLUX_ERR']
+        self.quality     = table['QUALITY']
+        self.centroid_xs = table['X_CENTROID']
+        self.centroid_ys = table['Y_CENTROID']
+        self.x_com       = table['X_COM']
+        self.y_com       = table['Y_COM']
+        self.flux_bkg    = table['FLUX_BKG']
+
+        if 'PSF_FLUX' in cols:
+            self.psf_flux = table['PSF_FLUX']
+        if 'PCA_FLUX' in cols:
+            self.pca_flux = table['PCA_FLUX']
 
         # Loads in apertures from second extension
         self.all_apertures = []
@@ -996,6 +1002,9 @@ class TargetData(object):
                 self.aperture = table[i]
             else:
                 self.all_apertures.append(table[i])
+
+        # Loads in data from the postcard
+ #       self.post_obj = Postcard(hdr['POST_FN'], hdr['URL'])
 
         # Loads in remaining light curves from third extension
         cols  = hdu[3].columns.names
