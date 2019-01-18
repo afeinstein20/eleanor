@@ -131,7 +131,7 @@ class TargetData(object):
         self.source_info = source
 
         if source.premade:
-            self.load()
+            self.load(self.source_info.fn_dir)
 
         else:            
             self.aperture = None
@@ -257,7 +257,7 @@ class TargetData(object):
         self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
-        
+
         summed_tpf = np.sum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
         if np.abs(mpix[0] - x_length) > 1:

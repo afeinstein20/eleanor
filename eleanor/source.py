@@ -93,7 +93,7 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None):
+    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None):
         self.tic     = tic
         self.gaia    = gaia
         self.coords  = coords
@@ -168,11 +168,12 @@ class Source(object):
                     d = {}
                     for j,col in enumerate(random_postcard.colnames):
                         d[col] = random_postcard[j]
+
                     hdr = fits.Header(cards=d) # make WCS info from one postcard header
                     xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
                     x_zero, y_zero = hdr['POSTPIX1'], hdr['POSTPIX2']
-                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
-                    if (0 <= xy[0] < 2048) & (44 <= xy[1] < 2092):
+#                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
+                    if (44 <= xy[0] < 2092) & (0 <= xy[1] < 2048):
                         self.sector = sec
                         self.camera = cam
                         self.chip = chip
