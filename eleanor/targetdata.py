@@ -136,9 +136,9 @@ class TargetData(object):
         else:            
             self.aperture = None
             self.post_obj = Postcard(source.postcard, source.ELEANORURL)
-            self.flux_bkg = self.post_obj.bkg
+            self.flux_bkg = self.post_obj.bkg 
             self.get_time(source.coords)
-    
+     
             
             if bkg_size is None:
                 bkg_size = width
