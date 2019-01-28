@@ -128,7 +128,7 @@ class TargetData(object):
     """
 
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None):
-        self.source_info = source
+        self.source_info = source 
 
         if source.premade:
             self.load(self.source_info.fn_dir)
