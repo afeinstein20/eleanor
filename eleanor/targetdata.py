@@ -944,7 +944,7 @@ class TargetData(object):
         hdu = fits.HDUList(data_list)
         
         if output_fn == None:
-            path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_v{2}_lc.fits'.format(
+            path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(
                     self.source_info.tic, self.source_info.sector, eleanor.__version__))
         else:
             path = os.path.join(directory, output_fn)
