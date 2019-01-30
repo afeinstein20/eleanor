@@ -836,6 +836,8 @@ class TargetData(object):
                                      comment='TESS Input Catalog ID'))
         self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag,
                                      comment='TESS mag'))
+        self.header.append(fits.Card(keyword='TIC_V', value = self.source_info.tic_version,
+                                     comment='TIC Version'))
         self.header.append(fits.Card(keyword='GAIA_ID', value=self.source_info.gaia,
                                      comment='Associated Gaia ID'))
         self.header.append(fits.Card(keyword='SECTOR', value=self.source_info.sector,
