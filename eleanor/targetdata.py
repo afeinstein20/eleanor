@@ -795,8 +795,6 @@ class TargetData(object):
             bkg = self.flux_bkg[mask]
             bkg -= np.min(bkg)
 
-
-
             cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
                                        bkg[qm][skip:], t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
             x = xhat(cm, norm_l[skip:])
