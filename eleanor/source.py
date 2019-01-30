@@ -49,11 +49,14 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
         raise TypeError("Sectors needs to be either 'all' or a type(list) to work.")
 
 
-def load_postcard_guide():
+def load_postcard_guide(sector):
     """Load and return the postcard coordinates guide."""
-    guide_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/postcard.guide')
-    guide = guide_link.read().decode('utf-8')
-    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
+    try:
+        guide_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/postcard.guide'.format(sector))
+        guide = guide_link.read().decode('utf-8')
+        guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
+    except urllib.error.HTTPError:
+        return None
     return guide
 
 class Source(object):
@@ -152,7 +155,7 @@ class Source(object):
                                                                                                                                  self.chip)
 
 
-    def locate_on_chip(self, guide):
+    def locate_on_chip(self):#, guide):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
@@ -179,36 +182,47 @@ class Source(object):
                         self.chip = chip
                         self.position_on_chip = np.ravel(xy)
 
-        guide = load_postcard_guide()
+#        guide = load_postcard_guide()
         self.sector=None
 
         if self.usr_sec is None:
-            for sec in np.unique(guide['SECTOR']):
-                cam_chip_loop(sec)
+            self.usr_sec = 'recent'
+#            for sec in np.unique(guide['SECTOR']):
+#                guide = load_postcard_guide(sec)
+#                cam_chip_loop(sec)
 
-            if self.sector is None:
-                raise SearchError("TESS has not (yet) observed your target.")
+#            if self.sector is None:
+#                raise SearchError("TESS has not (yet) observed your target.")
 
-        elif self.usr_sec is not None:
+        if self.usr_sec is not None:
             if type(self.usr_sec) == int:
-                cam_chip_loop(self.usr_sec)
+                guide = load_postcard_guide(self.usr_sec)
+                if guide is None:
+                    raise SearchError("Sorry, this sector isn't available yet. We're working on it!")
+                else:
+                    cam_chip_loop(self.usr_sec)
 
             # Searches for the most recent sector the object was observed in
             elif self.usr_sec.lower() == 'recent':
                 for s in np.arange(15,0,-1):
-                    cam_chip_loop(s)
-                    if self.sector is not None:
-                        break
+                    guide = load_postcard_guide(s)
+                    if guide is not None:
+                        cam_chip_loop(s)
+                        if self.sector is not None:
+                            break
+            if self.sector is None:
+                raise SearchError("TESS has not (yet) observed your target.")
 
-        return
+        return guide
 
 
     def locate_on_tess(self):
         """Finds the best TESS postcard(s) and the position of the source on postcard.
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
-        guide = load_postcard_guide()
-        self.locate_on_chip(guide)
+#        guide = load_postcard_guide(self.sector)
+        self.locate_on_chip()
+        guide = load_postcard_guide(self.sector)
 
         if self.sector is None:
             return
