@@ -128,15 +128,15 @@ class Source(object):
                     assert False, ("Source: invalid coords. Valid input types are: "
                                    "(RA [deg], Dec [deg]) tuple or astropy.coordinates.SkyCoord object.")
 
-                self.tic, self.tess_mag, sep = tic_from_coords(self.coords)
+                self.tic, self.tess_mag, sep, self.tic_version = tic_from_coords(self.coords)
                 self.gaia = gaia_from_coords(self.coords)
 
             elif self.gaia is not None:
                 self.coords = coords_from_gaia(self.gaia)
-                self.tic, self.tess_mag, _ = tic_from_coords(self.coords)
+                self.tic, self.tess_mag, self.tic_version = tic_from_coords(self.coords)
 
             elif self.tic is not None:
-                self.coords, self.tess_mag = coords_from_tic(self.tic)
+                self.coords, self.tess_mag, self.tic_version = coords_from_tic(self.tic)
                 self.gaia = gaia_from_coords(self.coords)
 
             else:
