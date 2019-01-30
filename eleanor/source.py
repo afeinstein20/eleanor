@@ -136,7 +136,7 @@ class Source(object):
 
             elif self.gaia is not None:
                 self.coords = coords_from_gaia(self.gaia)
-                self.tic, self.tess_mag, self.tic_version = tic_from_coords(self.coords)
+                self.tic, self.tess_mag, sep, self.tic_version = tic_from_coords(self.coords)
 
             elif self.tic is not None:
                 self.coords, self.tess_mag, self.tic_version = coords_from_tic(self.tic)
