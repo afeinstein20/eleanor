@@ -135,10 +135,10 @@ class TargetData(object):
 
         else:            
             self.aperture = None
-            if save_postcard = True:
-                self.post_obj = Postcard(source.postcard, source.ELEANORURL, cache=True)
-            else:
-                self.post_obj = Postcard(source.postcard, source.ELEANORURL, cache=False)
+#            if save_postcard == True:
+#                self.post_obj = Postcard(source.postcard, source.ELEANORURL, cache=True)
+#            else:
+            self.post_obj = Postcard(source.postcard, source.ELEANORURL)
             self.flux_bkg = self.post_obj.bkg 
             self.get_time(source.coords)
      
