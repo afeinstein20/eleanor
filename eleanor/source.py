@@ -145,6 +145,7 @@ class Source(object):
             else:
                 assert False, ("Source: one of the following keywords must be given: "
                                "tic, gaia, coords, fn.")
+                
 
             self.tess_mag = self.tess_mag[0]
             self.locate_on_tess() # sets sector, camera, chip, postcard,
