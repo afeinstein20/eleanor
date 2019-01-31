@@ -60,7 +60,7 @@ class Postcard(object):
                 self.hdu = fits.open(self.local_path)
             else:
                 self.filename = '{}{}'.format(ELEANORURL, filename)
-                self.local_path = download_file(self.filename)#, cache=True)
+                self.local_path = download_file(self.filename)#, cache=cache)
                 self.hdu = fits.open(self.local_path)
 
     def __repr__(self):
