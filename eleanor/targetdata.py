@@ -14,7 +14,7 @@ from time import strftime
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
 from urllib.request import urlopen
-import os, sys
+import os, sys, copy
 import os.path
 import warnings
 import pickle
@@ -820,7 +820,7 @@ class TargetData(object):
 
     def set_header(self):
         """Defines the header for the TPF."""
-        self.header = self.post_obj.header
+        self.header = copy.deepcopy(self.post_obj.header)
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
 
         # Removes postcard specific header information
@@ -842,8 +842,6 @@ class TargetData(object):
                                      comment='Associated Gaia ID'))
         self.header.append(fits.Card(keyword='SECTOR', value=self.source_info.sector,
                                      comment='Sector'))
-#        self.header.append(fits.Card(keyword='CAMERA', value=self.source_info.camera,
-#                                     comment='Camera'))
         self.header.append(fits.Card(keyword='CCD', value=self.source_info.chip,
                                      comment='CCD'))
         self.header.append(fits.Card(keyword='CHIPPOS1', value=self.source_info.position_on_chip[0],
@@ -886,7 +884,7 @@ class TargetData(object):
         directory : str, optional
             Directory to save file into.
         """
-
+        
         self.set_header()
 
         # if the user did not specify a directory, set it to default
