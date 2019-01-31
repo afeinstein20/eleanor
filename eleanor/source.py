@@ -188,6 +188,7 @@ class Source(object):
                         self.camera = cam
                         self.chip = chip
                         self.position_on_chip = np.ravel(xy)
+                        self.position_on_chip[0] += 44
 
 #        guide = load_postcard_guide()
         self.sector=None
@@ -274,9 +275,4 @@ class Source(object):
         i = in_file[best_ind]
         postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
                                 guide['CEN_Y'][i] - guide['POST_W'][i]/2.)
-        self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
-
-        i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
-                              guide['CEN_Y'][i] - guide['POST_W'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS

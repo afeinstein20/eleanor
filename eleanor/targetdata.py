@@ -195,7 +195,7 @@ class TargetData(object):
         self.centroid_ys = None
 
         xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
-
+        
         # Apply the pointing model to each cadence to find the centroids
         centroid_xs, centroid_ys = [], []
         for i in range(len(self.pointing_model)):
@@ -204,7 +204,7 @@ class TargetData(object):
             centroid_ys.append(new_coords[0][1])
         self.centroid_xs = np.array(centroid_xs)
         self.centroid_ys = np.array(centroid_ys)
-
+        
         # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
 
@@ -214,7 +214,7 @@ class TargetData(object):
         post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
 
         self.cen_x, self.cen_y = med_x, med_y
-
+        
         y_length, x_length = int(np.floor(height/2.)), int(np.floor(width/2.))
         y_bkg_len, x_bkg_len = int(np.floor(bkg_size/2.)), int(np.floor(bkg_size/2.))
 
@@ -233,8 +233,6 @@ class TargetData(object):
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
 
         post_y_upp, post_x_upp = self.post_obj.dimensions[0], self.post_obj.dimensions[1]
-
-        print(x_low_lim, x_upp_lim)
 
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
@@ -263,7 +261,7 @@ class TargetData(object):
         self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
         self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.dimensions = np.shape(self.tpf)
-
+        
         summed_tpf = np.sum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
         if np.abs(mpix[0] - x_length) > 1:
