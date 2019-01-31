@@ -135,9 +135,9 @@ class TargetData(object):
         else:            
             self.aperture = None
             if save_postcard == True:
-                self.post_obj = Postcard(source.postcard, source.ELEANORURL, cache=True)
+                self.post_obj = Postcard(source.postcard, source.ELEANORURL)
             else:
-                self.post_obj = Postcard(source.postcard, source.ELEANORURL, cache=False)
+                self.post_obj = Postcard(source.postcard, source.ELEANORURL)
             self.flux_bkg = self.post_obj.bkg 
             self.get_time(source.coords)
      
@@ -1044,7 +1044,7 @@ class TargetData(object):
             # downloads locally if OS error occurs
             except OSError:
                 warnings.warn('Warning: unable to create {}. '
-                              'Downloading FFIs to the current '
+                              'Downloading TPFs to the current '
                               'working directory instead.'.format(download_dir))
                 download_dir = '.'
 

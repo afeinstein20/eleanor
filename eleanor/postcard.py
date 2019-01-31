@@ -48,20 +48,30 @@ class Postcard(object):
         (`x`, `y`) coordinates corresponding to the location of 
         the postcard's (0,0) pixel on the FFI.
     """
-    def __init__(self, filename, ELEANORURL, location=None, cache=True):
+    def __init__(self, filename, ELEANORURL, location=None):
         if location is not None:
             self.filename = '{}{}'.format(location, filename)
             self.local_path = copy.copy(self.filename)
             self.hdu = fits.open(self.local_path)
         else:
-            if os.path.isdir('./.eleanor/sector_1/postcards')==True:
-                self.filename = './.eleanor/sector_1/postcards/{}'.format(filename)
-                self.local_path = self.filename
-                self.hdu = fits.open(self.local_path)
-            else:
-                self.filename = '{}{}'.format(ELEANORURL, filename)
-                self.local_path = download_file(self.filename, cache=cache)
-                self.hdu = fits.open(self.local_path)
+            self.post_dir = os.path.join(os.path.expanduser('~'), '.eleanor/postcards')
+            if os.path.isdir(self.post_dir) == False:
+                try:
+                    os.mkdir(self.post_dir)
+                except OSError:
+                    warnings.warn('Warning: unable to create {}. '
+                                  'Downloading postcard to the current '
+                                  'working directory instead.'.format(download_dir))
+                    self.post_dir = '.'
+
+            self.filename = '{}{}'.format(ELEANORURL, filename)
+            self.local_path = '{}/{}'.format(self.post_dir, filename)
+
+            if os.path.isfile(self.local_path) == False:
+                print("Downloading {}".format(self.filename))
+                os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.filename))
+
+            self.hdu = fits.open(self.local_path)
 
     def __repr__(self):
         return "eleanor postcard ({})".format(self.filename)
