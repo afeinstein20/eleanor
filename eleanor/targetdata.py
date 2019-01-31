@@ -135,7 +135,10 @@ class TargetData(object):
 
         else:            
             self.aperture = None
-            self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+            if save_postcard = True:
+                self.post_obj = Postcard(source.postcard, source.ELEANORURL, cache=True)
+            else:
+                self.post_obj = Postcard(source.postcard, source.ELEANORURL, cache=False)
             self.flux_bkg = self.post_obj.bkg 
             self.get_time(source.coords)
      
@@ -890,7 +893,7 @@ class TargetData(object):
         # if the user did not specify a directory, set it to default
         if directory is None:
             directory = self.fetch_dir()
-
+            
         raw       = [e+'_raw'  for e in self.aperture_names]
         errors    = [e+'_err'  for e in self.aperture_names]
         corrected = [e+'_corr' for e in self.aperture_names]
@@ -942,7 +945,7 @@ class TargetData(object):
         primary_hdu = fits.PrimaryHDU(header=self.header)
         data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
-        
+
         if output_fn == None:
             path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(
                     self.source_info.tic, self.source_info.sector, eleanor.__version__))
@@ -957,7 +960,7 @@ class TargetData(object):
     def load(self, directory=None):
         """
         Loads in and sets all the attributes for a pre-created TPF file.
-
+z
         Parameters
         ----------
         directory : str, optional
