@@ -168,6 +168,7 @@ class TargetData(object):
                 self.psf_flux = None
             self.center_of_mass()
 
+
     def get_time(self, coords):
         """Gets time, including light travel time correction to solar system barycenter for object given location"""
         t0 = self.post_obj.time - self.post_obj.barycorr
@@ -269,9 +270,10 @@ class TargetData(object):
         self.bkg_subtraction()
 
         self.tpf = self.tpf
+
         if save_postcard == False:
             try:
-                os.remove(source.postcard.filename)
+                os.remove(self.post_obj.local_path)
             except OSError:
                 pass
         return
