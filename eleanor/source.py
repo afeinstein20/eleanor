@@ -189,17 +189,10 @@ class Source(object):
                         self.position_on_chip = np.ravel(xy)
                         self.position_on_chip[0] += 44
 
-#        guide = load_postcard_guide()
         self.sector=None
 
         if self.usr_sec is None:
             self.usr_sec = 'recent'
-#            for sec in np.unique(guide['SECTOR']):
-#                guide = load_postcard_guide(sec)
-#                cam_chip_loop(sec)
-
-#            if self.sector is None:
-#                raise SearchError("TESS has not (yet) observed your target.")
 
         if self.usr_sec is not None:
             if type(self.usr_sec) == int:
