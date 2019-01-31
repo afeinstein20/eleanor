@@ -37,7 +37,6 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
         sectors = list(np.arange(1,3,1, dtype=int))
     if type(sectors) == list:
         for s in sectors:
-            print(s)
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
             if star.sector is not None:
                 objs.append(star)
