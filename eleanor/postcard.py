@@ -48,7 +48,7 @@ class Postcard(object):
         (`x`, `y`) coordinates corresponding to the location of 
         the postcard's (0,0) pixel on the FFI.
     """
-    def __init__(self, filename, ELEANORURL, location=None):
+    def __init__(self, filename, ELEANORURL, location=None, cache=True):
         if location is not None:
             self.filename = '{}{}'.format(location, filename)
             self.local_path = copy.copy(self.filename)
@@ -60,7 +60,7 @@ class Postcard(object):
                 self.hdu = fits.open(self.local_path)
             else:
                 self.filename = '{}{}'.format(ELEANORURL, filename)
-                self.local_path = download_file(self.filename)#, cache=cache)
+                self.local_path = download_file(self.filename, cache=cache)
                 self.hdu = fits.open(self.local_path)
 
     def __repr__(self):
