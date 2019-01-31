@@ -1,6 +1,5 @@
 import os, sys
 
-from astropy.utils.data import download_file
 from astropy.io import fits
 import matplotlib.pyplot as plt
 from astropy.wcs import WCS
