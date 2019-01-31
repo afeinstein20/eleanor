@@ -130,8 +130,8 @@ class TargetData(object):
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None):
         self.source_info = source 
 
-        if source.premade:
-            self.load(self.source_info.fn_dir)
+        if self.source_info.premade is True:
+            self.load(directory=self.source_info.fn_dir)
 
         else:            
             self.aperture = None
@@ -233,6 +233,8 @@ class TargetData(object):
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
 
         post_y_upp, post_x_upp = self.post_obj.dimensions[0], self.post_obj.dimensions[1]
+
+        print(x_low_lim, x_upp_lim)
 
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
@@ -845,7 +847,7 @@ class TargetData(object):
                                      comment='Associated Gaia ID'))
         self.header.append(fits.Card(keyword='SECTOR', value=self.source_info.sector,
                                      comment='Sector'))
-        self.header.append(fits.Card(keyword='CCD', value=self.source_info.chip,
+        self.header.append(fits.Card(keyword='CHIP', value=self.source_info.chip,
                                      comment='CCD'))
         self.header.append(fits.Card(keyword='CHIPPOS1', value=self.source_info.position_on_chip[0],
                                      comment='central x pixel of TPF in FFI chip'))
@@ -960,7 +962,7 @@ class TargetData(object):
     def load(self, directory=None):
         """
         Loads in and sets all the attributes for a pre-created TPF file.
-z
+
         Parameters
         ----------
         directory : str, optional

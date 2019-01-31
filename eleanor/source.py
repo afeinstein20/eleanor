@@ -105,11 +105,16 @@ class Source(object):
         self.premade = False
         self.usr_sec = sector
 
+        if fn_dir is None:
+            self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
+        else:
+            self.fn_dir  = fn_dir
+
         if self.fn is not None:
             try:
-                hdu = fits.open(self.fn)
+                hdu = fits.open(self.fn_dir + '/' + self.fn)
             except:
-                assert False, "{0} is not a valid filename.".format(fn)
+                assert False, "{0} is not a valid filename or not located in directory {1}".format(fn, fn_dir)
             hdr = hdu[0].header
             self.tic      = hdr['TIC_ID']
             self.tess_mag = hdr['TMAG']
@@ -177,7 +182,7 @@ class Source(object):
                     hdr = fits.Header(cards=d) # make WCS info from one postcard header
                     xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
                     x_zero, y_zero = hdr['POSTPIX1'], hdr['POSTPIX2']
-#                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
+                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
                     if (44 <= xy[0] < 2092) & (0 <= xy[1] < 2048):
                         self.sector = sec
                         self.camera = cam
