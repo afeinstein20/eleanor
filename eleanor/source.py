@@ -52,12 +52,25 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
 def load_postcard_guide(sector):
     """Load and return the postcard coordinates guide."""
     try:
-        guide_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/postcard.guide'.format(sector))
-        guide = guide_link.read().decode('utf-8')
+        user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'
+        values = {'name': 'eleanor',
+                  'language': 'Python' }
+        headers = {'User-Agent': user_agent}
+        
+        data = urllib.parse.urlencode(values)
+        data = data.encode('ascii')
+        
+        guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/postcard.guide'.format(sector)
+        
+        req = urllib.request.Request(guide_link, data, headers)
+        with urllib.request.urlopen(req) as response:
+            guide = response.read().decode('utf-8')
+        
         guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
     except urllib.error.HTTPError:
         return None
     return guide
+
 
 class Source(object):
     """A single source observed by TESS.

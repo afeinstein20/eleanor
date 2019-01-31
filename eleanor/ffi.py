@@ -18,11 +18,20 @@ from .mast import tic_by_contamination
 def load_pointing_model(sector, camera, chip):
     """ Loads in pointing model from website.
     """
-    sector = int(sector)
-    pointing_link = urllib.request.urlopen('https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/pointing_model/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector,
-                                                                                                                                                                                          camera,
-                                                                                                                                                                                          chip))
-    pointing = pointing_link.read().decode('utf-8')
+    user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'
+    values = {'name': 'eleanor',
+              'language': 'Python' }
+    headers = {'User-Agent': user_agent}
+
+    data = urllib.parse.urlencode(values)
+    data = data.encode('ascii')
+
+    guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/pointing_model/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector, camera, chip)
+                                           
+    req = urllib.request.Request(guide_link, data, headers)
+    with urllib.request.urlopen(req) as response:
+        pointing = response.read().decode('utf-8')
+                                                                                                                                                                            
     pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
     return pointing
 
