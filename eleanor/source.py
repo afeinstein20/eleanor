@@ -220,7 +220,6 @@ class Source(object):
         """Finds the best TESS postcard(s) and the position of the source on postcard.
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
-#        guide = load_postcard_guide(self.sector)
         self.locate_on_chip()
         guide = load_postcard_guide(self.sector)
 
