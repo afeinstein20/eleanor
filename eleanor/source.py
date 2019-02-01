@@ -194,7 +194,7 @@ class Source(object):
                     hdr = fits.Header(cards=d) # make WCS info from one postcard header
                     xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
                     x_zero, y_zero = hdr['POSTPIX1'], hdr['POSTPIX2']
-                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
+#                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
                     if (44 <= xy[0] < 2092) & (0 <= xy[1] < 2048):
                         self.sector = sec
                         self.camera = cam
