@@ -10,9 +10,7 @@ eleanor/ffi.py
 eleanor/mast.py
 eleanor/postcard.py
 eleanor/source.py
-eleanor/source_tesscut.py
 eleanor/targetdata.py
-eleanor/targetdata_tesscut.py
 eleanor/utils.py
 eleanor/version.py
 eleanor/visualize.py
