@@ -358,7 +358,7 @@ class TargetData(object):
         
 
 
-    def get_lightcurve(self, aperture=False):
+    def get_lightcurve(self, aperture=None):
         """Extracts a light curve using the given aperture and TPF.
         Can pass a user-defined aperture mask, otherwise determines which of a set of pre-determined apertures
         provides the lowest scatter in the light curve.
