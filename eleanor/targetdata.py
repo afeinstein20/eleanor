@@ -13,6 +13,7 @@ from astropy.stats import SigmaClip
 from time import strftime
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
+from urllib.request import urlopen
 import os, sys, copy
 import os.path
 import warnings
