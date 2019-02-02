@@ -18,7 +18,7 @@ from .mast import tic_by_contamination
 def load_pointing_model(sector, camera, chip):
     """ Loads in pointing model from website.
     """
-    user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'
+    user_agent = 'eleanor 0.1.6'
     values = {'name': 'eleanor',
               'language': 'Python' }
     headers = {'User-Agent': user_agent}

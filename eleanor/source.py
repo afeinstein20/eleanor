@@ -52,7 +52,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
 def load_postcard_guide(sector):
     """Load and return the postcard coordinates guide."""
     try:
-        user_agent = 'Mozilla/5.0 (Windows NT 6.1; Win64; x64)'
+        user_agent = 'eleanor 0.1.6'
         values = {'name': 'eleanor',
                   'language': 'Python' }
         headers = {'User-Agent': user_agent}
