@@ -10,7 +10,6 @@ import copy
 from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-#ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/'
 
 class Postcard(object):
     """TESS FFI data for one postcard across one sector.
@@ -58,10 +57,10 @@ class Postcard(object):
                 try:
                     os.mkdir(self.post_dir)
                 except OSError:
+                    self.post_dir = '.'
                     warnings.warn('Warning: unable to create {}. '
                                   'Downloading postcard to the current '
-                                  'working directory instead.'.format(download_dir))
-                    self.post_dir = '.'
+                                  'working directory instead.'.format(self.post_dir))
 
             self.filename = '{}{}'.format(ELEANORURL, filename)
             self.local_path = '{}/{}'.format(self.post_dir, filename)

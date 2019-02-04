@@ -145,10 +145,9 @@ class TargetData(object):
             
             if bkg_size is None:
                 bkg_size = width
-            if crowded_field == True:
-                self.crowded_field = True
-            else:
-                self.crowded_field = False
+
+            self.crowded_field = crowded_field
+
             if cal_cadences is None:
                 self.cal_cadences = (0, len(self.post_obj.time))
             else:
@@ -1044,9 +1043,9 @@ class TargetData(object):
                 os.mkdir(download_dir)
             # downloads locally if OS error occurs
             except OSError:
+                download_dir = '.'
                 warnings.warn('Warning: unable to create {}. '
                               'Downloading TPFs to the current '
                               'working directory instead.'.format(download_dir))
-                download_dir = '.'
 
         return download_dir
