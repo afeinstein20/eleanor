@@ -1,1 +1,1 @@
-__version__ = "0.1.8rc1"
+ls__version__ = "0.1.8"
