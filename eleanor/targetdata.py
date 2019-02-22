@@ -32,7 +32,7 @@ class TargetData(object):
 
     Parameters
     ----------
-    source : ellie.Source
+    source : eleanor.Source
         The source object to use.
     height : int, optional
         Height in pixels of TPF to retrieve. Default value is 13 pixels. Must be an odd number,
