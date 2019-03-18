@@ -331,7 +331,7 @@ class TargetData(object):
             self.all_apertures = np.array(new_aps)
 
 
-    def bkg_subtraction(self, scope="tpf", sigma=2.5):
+    def bkg_subtraction(self, scope="tpf", sigma=1.2):
         """Subtracts background flux from target pixel file.
 
         Parameters
@@ -347,14 +347,38 @@ class TargetData(object):
 
         self.tpf_flux_bkg = []
 
+        bkg_across_time = np.sum(flux, axis=0)
         sigma_clip = SigmaClip(sigma=sigma)
-        bkg = MMMBackground(sigma_clip=sigma_clip)
+        sigma_mask = sigma_clip(bkg_across_time, masked=True)
+
+        masked_stars = sigma_mask * bkg_across_time
+        
+        height, width = bkg_across_time.shape[0]/2.-0.5, bkg_across_time.shape[1]/2.-0.5
+
+        masked_center = CircularAperture((height, width), 4)
+        masked_center = masked_center.to_mask(method='center')[0].to_image(shape=bkg_across_time.shape)
+        masked_center = 1 - masked_center
+
+        masked_stars = masked_stars * masked_center
+        binary_mask  = np.isfinite(masked_stars) * 1
+
+        mask_sum = np.sum(binary_mask)
+        plt.figure(figsize=(8,8))
+        plt.imshow(masked_stars, origin='lower', vmax=10**7)
+        plt.colorbar()
+        plt.show()
+
+        pixels   = np.zeros( (len(time), mask_sum) )
 
         for i in range(len(time)):
-            bkg_value = bkg.calc_background(flux[i])
-            self.tpf_flux_bkg.append(bkg_value)
+            cut = flux[i][binary_mask == 1]
+            pixels[i] = cut.flatten()
 
-        self.tpf_flux_bkg = np.array(self.tpf_flux_bkg)
+
+
+
+
+#        self.tpf_flux_bkg = np.array(self.tpf_flux_bkg)
         
 
 
