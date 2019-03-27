@@ -32,7 +32,7 @@ class TargetData(object):
 
     Parameters
     ----------
-    source : eleanor.Source
+    source : ellie.Source
         The source object to use.
     height : int, optional
         Height in pixels of TPF to retrieve. Default value is 13 pixels. Must be an odd number,
@@ -145,9 +145,10 @@ class TargetData(object):
             
             if bkg_size is None:
                 bkg_size = width
-
-            self.crowded_field = crowded_field
-
+            if crowded_field == True:
+                self.crowded_field = True
+            else:
+                self.crowded_field = False
             if cal_cadences is None:
                 self.cal_cadences = (0, len(self.post_obj.time))
             else:
@@ -331,7 +332,7 @@ class TargetData(object):
             self.all_apertures = np.array(new_aps)
 
 
-    def bkg_subtraction(self, scope="tpf", sigma=1.2):
+    def bkg_subtraction(self, scope="tpf", sigma=2.5):
         """Subtracts background flux from target pixel file.
 
         Parameters
@@ -347,38 +348,14 @@ class TargetData(object):
 
         self.tpf_flux_bkg = []
 
-        bkg_across_time = np.sum(flux, axis=0)
         sigma_clip = SigmaClip(sigma=sigma)
-        sigma_mask = sigma_clip(bkg_across_time, masked=True)
-
-        masked_stars = sigma_mask * bkg_across_time
-        
-        height, width = bkg_across_time.shape[0]/2.-0.5, bkg_across_time.shape[1]/2.-0.5
-
-        masked_center = CircularAperture((height, width), 4)
-        masked_center = masked_center.to_mask(method='center')[0].to_image(shape=bkg_across_time.shape)
-        masked_center = 1 - masked_center
-
-        masked_stars = masked_stars * masked_center
-        binary_mask  = np.isfinite(masked_stars) * 1
-
-        mask_sum = np.sum(binary_mask)
-        plt.figure(figsize=(8,8))
-        plt.imshow(masked_stars, origin='lower', vmax=10**7)
-        plt.colorbar()
-        plt.show()
-
-        pixels   = np.zeros( (len(time), mask_sum) )
+        bkg = MMMBackground(sigma_clip=sigma_clip)
 
         for i in range(len(time)):
-            cut = flux[i][binary_mask == 1]
-            pixels[i] = cut.flatten()
+            bkg_value = bkg.calc_background(flux[i])
+            self.tpf_flux_bkg.append(bkg_value)
 
-
-
-
-
-#        self.tpf_flux_bkg = np.array(self.tpf_flux_bkg)
+        self.tpf_flux_bkg = np.array(self.tpf_flux_bkg)
         
 
 
@@ -659,10 +636,10 @@ class TargetData(object):
         
 
         var_to_bounds = {flux: (0, np.infty), 
-                         xshift: (-1.0, 1.0),
-                         yshift: (-1.0, 1.0),
+                         xshift: (-1.5, 1.5),
+                         yshift: (-1.5, 1.5),
                          a: (0, np.infty),
-                         b: (0, np.infty),
+                         b: (-np.infty, np.infty),
                          c: (0, np.infty)
                         }
         
@@ -670,6 +647,14 @@ class TargetData(object):
 
         fout = np.zeros((len(self.tpf), nstars))
         bkgout = np.zeros(len(self.tpf))
+        
+        aout = np.zeros(len(self.tpf))
+        bout = np.zeros(len(self.tpf))
+        cout = np.zeros(len(self.tpf))
+        xsout = np.zeros(len(self.tpf))
+        ysout = np.zeros(len(self.tpf))
+
+
 
         for i in tqdm(range(len(self.tpf))):
             optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i], bkgval:np.median(self.flux_bkg)}) # we could also pass a pointing model here
@@ -677,11 +662,21 @@ class TargetData(object):
 
             fout[i] = sess.run(flux)
             bkgout[i] = sess.run(bkg)
+            aout[i] = sess.run(a)
+            bout[i] = sess.run(b)
+            cout[i] = sess.run(c)
+            xsout[i] = sess.run(xshift)
+            ysout[i] = sess.run(yshift)
 
         sess.close()
 
         self.psf_flux = fout[:,0]
         self.psf_bkg = bkgout
+        self.aval = aout
+        self.bval = bout
+        self.cval = cout
+        self.xsval = xsout
+        self.ysval = ysout
         return
 
 
@@ -1067,9 +1062,9 @@ class TargetData(object):
                 os.mkdir(download_dir)
             # downloads locally if OS error occurs
             except OSError:
-                download_dir = '.'
                 warnings.warn('Warning: unable to create {}. '
                               'Downloading TPFs to the current '
                               'working directory instead.'.format(download_dir))
+                download_dir = '.'
 
         return download_dir
