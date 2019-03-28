@@ -809,21 +809,21 @@ class TargetData(object):
             return np.dot(eig_vecs, centroids)
 
         def calc_corr(mask, cx, cy, skip=50):
-            qm = data.quality[mask] == 0
-            medval = np.nanmedian(data.raw_flux[mask][qm])
-            norm_l = norm(data.raw_flux[mask], qm)
+            qm = quality[mask] == 0
+            medval = np.nanmedian(flux[mask][qm])
+            norm_l = norm(flux[mask], qm)
             cx, cy = rotate_centroids(cx[mask], cy[mask])
             cx -= np.median(cx)
             cy -= np.median(cy)
-            bkg = data.flux_bkg[mask]
+            bkg = self.flux_bkg[mask]
             bkg -= np.min(bkg)
+            
+            aval = self.aval[mask]
+            bval = self.bval[mask]
+            cval = self.cval[mask]
 
-            aval = asave
-            bval = bsave
-            cval = csave
-
-            xval = data.xsval[mask]
-            yval = data.ysval[mask]
+            xval = self.xsval[mask]
+            yval = self.ysval[mask]
 
             aval -= np.median(aval)
             bval -= np.median(bval)
@@ -832,18 +832,14 @@ class TargetData(object):
             xval -= np.median(xval)
             yval -= np.median(yval)
 
-            # the line below builds an array of all the entries that we'll regress against. Skips the first 30 cadences from each orbit to avoid thermally weird points
-
-
             cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
                                        aval[qm][skip:], bval[qm][skip:], cval[qm][skip:],
-                                       bkg[qm][skip:], data.time[mask][qm][skip:], np.ones_like(data.time[mask][qm][skip:])))
-            x = xhat(cm, norm_l[skip:]) # does the regression
-            cm = np.column_stack((cx, cy, cx**2, cy**2, aval, bval, cval, bkg, data.time[mask], np.ones_like(data.time[mask])))
-            fmod = fhat(x, cm) # builds a predicted flux at each cadence from the regression (centered around zero)
-            lc_pred = (fmod+1) # now centered around 1
+                                       bkg[qm][skip:], t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
+            x = xhat(cm, norm_l[skip:])
+            cm = np.column_stack((cx, cy, cx**2, cy**2, aval, bval, cval, bkg, t[mask], np.ones_like(t[mask])))
+            fmod = fhat(x, cm)
+            lc_pred = (fmod+1)
             return lc_pred
-
 
 
         brk = self.find_break()
