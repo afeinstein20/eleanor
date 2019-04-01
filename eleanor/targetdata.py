@@ -350,34 +350,14 @@ class TargetData(object):
 
         self.tpf_flux_bkg = []
 
-        bkg_across_time = np.sum(flux, axis=0)
         sigma_clip = SigmaClip(sigma=sigma)
-        sigma_mask = sigma_clip(bkg_across_time, masked=True)
-
-        masked_stars = sigma_mask * bkg_across_time
-        
-        height, width = bkg_across_time.shape[0]/2.-0.5, bkg_across_time.shape[1]/2.-0.5
-
-        masked_center = CircularAperture((height, width), 4)
-        masked_center = masked_center.to_mask(method='center')[0].to_image(shape=bkg_across_time.shape)
-        masked_center = 1 - masked_center
-
-        masked_stars = masked_stars * masked_center
-        binary_mask  = np.isfinite(masked_stars) * 1
-
-        mask_sum = np.sum(binary_mask)
-
-        pixels   = np.zeros( (len(time), mask_sum) )
+        bkg = MMMBackground(sigma_clip=sigma_clip)
 
         for i in range(len(time)):
-            cut = flux[i][binary_mask == 1]
-            pixels[i] = cut.flatten()
+            bkg_value = bkg.calc_background(flux[i])
+            self.tpf_flux_bkg.append(bkg_value)
 
-
-
-
-
-#        self.tpf_flux_bkg = np.array(self.tpf_flux_bkg)
+        self.tpf_flux_bkg = np.array(self.tpf_flux_bkg)
         
 
 
@@ -526,7 +506,7 @@ class TargetData(object):
             Number of cotrending basis vectors to apply. Default is 8.
         """
         if flux is None:
-            flux = self.corr_flux
+            flux = self.raw_flux
 
         A = self.cbvs
 
