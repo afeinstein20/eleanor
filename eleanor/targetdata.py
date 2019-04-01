@@ -366,10 +366,6 @@ class TargetData(object):
         binary_mask  = np.isfinite(masked_stars) * 1
 
         mask_sum = np.sum(binary_mask)
-        plt.figure(figsize=(8,8))
-        plt.imshow(masked_stars, origin='lower', vmax=10**7)
-        plt.colorbar()
-        plt.show()
 
         pixels   = np.zeros( (len(time), mask_sum) )
 
@@ -510,7 +506,7 @@ class TargetData(object):
         Parameters
         ----------
         """
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cbv_components_s{0:04d}_{1:04d}-{2:04d}.txt'.format(self.source_info.sector,
+        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
                                                                                                                                                      self.source_info.camera,
                                                                                                                                                      self.source_info.chip))
         A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
