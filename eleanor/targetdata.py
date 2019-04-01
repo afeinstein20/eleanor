@@ -127,7 +127,7 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None):
         self.source_info = source 
 
         if self.source_info.premade is True:
