@@ -155,10 +155,13 @@ class TargetData(object):
             
             self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
             self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard)
+
             self.set_quality()
-            self.create_apertures(height, width)
+            self.get_cbvs()
             
+            self.create_apertures(height, width)
             self.get_lightcurve()
+
             if do_pca == True:
                 self.pca()  
             else:
@@ -502,8 +505,20 @@ class TargetData(object):
         return
     
 
+    def get_cbvs(self):
+        """ Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.
+        Parameters
+        ----------
+        """
+        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cbv_components_s{0:04d}_{1:04d}-{2:04d}.txt'.format(self.source_info.sector,
+                                                                                                                                                     self.source_info.camera,
+                                                                                                                                                     self.source_info.chip))
+        A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
+        self.cbvs = np.asarray(A)
+        return
 
-    def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=4):
+
+    def pca(self, flux=None, modes=4):
         """ Applies cotrending basis vectors, found through principal component analysis, to light curve to
         remove systematics shared by nearby stars.
 
@@ -517,15 +532,10 @@ class TargetData(object):
         if flux is None:
             flux = self.corr_flux
 
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cbv_components_s{0:04d}_{1:04d}-{2:04d}.txt'.format(self.source_info.sector,
-                                                                                                                                                 self.source_info.camera,
-                                                                                                                                                 self.source_info.chip))
-        A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
-        A = np.asarray(A)
+        A = self.cbvs
 
         la = len(A)
         A  = A.reshape((int(la/16), 16))  # Hard coded 4 a reason -- fight me
-            
 
         def matrix(f):
             nonlocal A
@@ -774,7 +784,7 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def jitter_corr(self, flux, skip=30):
+    def jitter_corr(self, flux, skip=30, modes=4):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
 
@@ -824,8 +834,11 @@ class TargetData(object):
             bkg = self.flux_bkg[mask]
             bkg -= np.min(bkg)
 
+            vv = self.cbvs[mask][:,0:modes]
+
             cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
-                                       bkg[qm][skip:], t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
+                                       vv[qm][skip:], bkg[qm][skip:], t[mask][qm][skip:],
+                                       np.ones_like(t[mask][qm][skip:])))
             x = xhat(cm, norm_l[skip:])
             cm = np.column_stack((cx, cy, cx**2, cy**2, bkg, t[mask], np.ones_like(t[mask])))
             fmod = fhat(x, cm)
