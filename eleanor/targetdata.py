@@ -163,14 +163,16 @@ class TargetData(object):
             self.get_lightcurve()
 
             if do_pca == True:
-                self.pca()  
+                self.corrected_flux(pca=True)
             else:
                 self.modes = None
                 self.pca_flux = None
+
             if do_psf == True:
                 self.psf_lightcurve()
             else:
                 self.psf_flux = None
+
             self.center_of_mass()
 
 
@@ -383,7 +385,7 @@ class TargetData(object):
                 lc[cad]     = np.sum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc) 
-            self.corr_flux  = self.jitter_corr(flux=lc, skip=50)
+            self.corr_flux  = self.corrected_flux(flux=lc, skip=50)
             self.flux_err   = np.array(lc_err)
             return
 
@@ -416,12 +418,8 @@ class TargetData(object):
                     except ValueError:
                         continue
 
-                ## Remove something from all_raw_lc before passing into jitter_corr ##
-                try:
-                    all_corr_lc_pc_sub[a] = self.jitter_corr(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
-                    all_corr_lc_tpf_sub[a]= self.jitter_corr(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
-                except IndexError:
-                    continue
+                all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
+                all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
 
                 q = self.quality == 0
 
@@ -468,6 +466,7 @@ class TargetData(object):
             self.flux_err = self.all_lc_err[best_ind]
             self.aperture_size = np.sum(self.aperture)
             self.best_ind = best_ind
+
         else:
             if np.shape(aperture) == np.shape(self.tpf[0]):
                 self.aperture = aperture
@@ -490,39 +489,9 @@ class TargetData(object):
                                                                                                                                                      self.source_info.camera,
                                                                                                                                                      self.source_info.chip))
         A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
-        self.cbvs = np.asarray(A)
+        cbvs = np.asarray(A)
+        self.cbvs = np.reshape(cbvs, (len(self.time), 16))
         return
-
-
-    def pca(self, flux=None, modes=4):
-        """ Applies cotrending basis vectors, found through principal component analysis, to light curve to
-        remove systematics shared by nearby stars.
-
-        Parameters
-        ----------
-        flux : numpy.ndarray
-            Flux array to which cotrending basis vectors are applied. Default is `self.corr_flux`.
-        modes : int
-            Number of cotrending basis vectors to apply. Default is 8.
-        """
-        if flux is None:
-            flux = self.raw_flux
-
-        A = self.cbvs
-
-        la = len(A)
-        A  = A.reshape((int(la/16), 16))  # Hard coded 4 a reason -- fight me
-
-        def matrix(f):
-            nonlocal A
-            ATA     = np.dot(A.T, A)
-            invATA  = np.linalg.inv(ATA)
-            A_coeff = np.dot(invATA, A.T)
-            return np.dot(A_coeff, f)
-
-        self.modes    = modes
-        self.pca_flux = flux - np.dot(A[:,0:modes], matrix(flux)[0:modes])
-
 
 
     def center_of_mass(self):
@@ -760,7 +729,7 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def jitter_corr(self, flux, skip=30, modes=4):
+    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
 
@@ -769,14 +738,16 @@ class TargetData(object):
         skip: int
             The number of cadences at the start of each orbit to skip in determining optimal model weights.
         """
+        if flux is None:
+            flux = self.raw_flux
+
         flux = np.array(flux)
+
         quality = self.quality
-        q = quality == 0
 
         cx = self.centroid_xs 
         cy = self.centroid_ys
         t  = self.time-self.time[0]
-
 
         # Inputs: light curve & quality flag
         def norm(l, q):
@@ -801,23 +772,33 @@ class TargetData(object):
             return np.dot(eig_vecs, centroids)
 
         def calc_corr(mask, cx, cy, skip=50):
+            nonlocal quality, flux
+
             qm = quality[mask] == 0
+
             medval = np.nanmedian(flux[mask][qm])
             norm_l = norm(flux[mask], qm)
+
             cx, cy = rotate_centroids(cx[mask], cy[mask])
             cx -= np.median(cx)
             cy -= np.median(cy)
+
             bkg = self.flux_bkg[mask]
             bkg -= np.min(bkg)
 
             vv = self.cbvs[mask][:,0:modes]
+            
+            if pca == False:
+                cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
+                                           vv[qm][skip:], bkg[qm][skip:], t[mask][qm][skip:],
+                                           np.ones_like(t[mask][qm][skip:])))
+                cm_full = np.column_stack((cx, cy, cx**2, cy**2, vv, bkg, t[mask], np.ones_like(t[mask])))
+            else:
+                cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
+                cm_full = np.column_stack((vv, np.ones_like(t[mask])))
 
-            cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
-                                       vv[qm][skip:], bkg[qm][skip:], t[mask][qm][skip:],
-                                       np.ones_like(t[mask][qm][skip:])))
             x = xhat(cm, norm_l[skip:])
-            cm = np.column_stack((cx, cy, cx**2, cy**2, bkg, t[mask], np.ones_like(t[mask])))
-            fmod = fhat(x, cm)
+            fmod = fhat(x, cm_full)
             lc_pred = (fmod+1)
             return lc_pred
 
@@ -831,7 +812,10 @@ class TargetData(object):
         lc_pred = calc_corr(s, cx, cy, skip)
         corr_s = flux[s]/lc_pred
 
-        return np.append(corr_f, corr_s)
+        if pca==True:
+            self.pca_flux = np.append(corr_f, corr_s)
+        else:
+            return np.append(corr_f, corr_s)
 
 
     def set_header(self):
