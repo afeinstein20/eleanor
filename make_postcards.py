@@ -71,6 +71,7 @@ def calc_2dbkg(flux, qual, time):
     vv = np.column_stack((vv, np.ones_like(vv[:,0])))
 
     maskvals = np.zeros((104, 148, np.shape(vv)[1]))
+
     GD = np.zeros_like(maskvals)
     for i in range(len(g)):
         for j in range(len(g[0])):
@@ -98,7 +99,7 @@ def calc_2dbkg(flux, qual, time):
                                      method='linear')
 
         array = np.ma.masked_invalid(GD[:,:,i])
-        #xx, yy = np.meshgrid(x, y)
+
         #get only the valid values
         x1 = xx[~array.mask]
         y1 = yy[~array.mask]
@@ -302,6 +303,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
 
                 pixel_data = all_ffis[w:w+dw, h:h+dh, :] + 0.0
                 
+                bkg_array = []
 
                 # Adds in quality column for each cadence in primary_data
                 for k in range(len(fns)):
@@ -315,15 +317,17 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                                                            sc_fn, sector[1::], new_info[1], new_info[2],
                                                            pm=pm)
                     primary_data[k][len(primary_cols)-1] = quality_array[k]
-                    
-                grid_bkg = calc_2dbkg(pixel_data[:,:,k], quality_array, primary_data['TSTART'])
 
+                grid_bkg = calc_2dbkg(pixel_data, quality_array, primary_data['TSTART'])
 
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
 
                 # Save the image data
                 fitsio.write(outfn, pixel_data)
+
+                # Save the background data
+                fitsio.write(outfn, grid_bkg)
 
                 if not is_raw:
                     fitsio.write(outfn, all_errs[w:w+dw, h:h+dh, :])
