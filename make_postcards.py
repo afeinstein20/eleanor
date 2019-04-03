@@ -37,13 +37,23 @@ def do_pca(i, j, data, vv, q):
     lc_pred = (fmod+1) # now centered around 1
     return xvals
 
+def xhat(mat, lc):
+    ATA = np.dot(mat.T, mat)
+    ATAinv = np.linalg.inv(ATA)
+    ATf = np.dot(mat.T, lc)
+    xhat = np.dot(ATAinv, ATf)
+    return xhat
+
+def fhat(xhat, data):
+    return np.dot(data, xhat)
+
 def calc_2dbkg(flux, qual, time):
     q = qual == 0
     med = np.nanmedian(flux[:,:,:], axis=(2))
     g = np.ma.masked_where(med < np.percentile(med, 40), med)
     
     pca = PCA(n_components=5)
-    pca.fit(data[g.mask])
+    pca.fit(flux[g.mask])
     
     modes = 5
     pv = pca.components_[0:modes].T[q]
