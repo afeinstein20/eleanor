@@ -923,6 +923,7 @@ class TargetData(object):
         ext1['X_COM']      = self.x_com
         ext1['Y_COM']      = self.y_com
         ext1['FLUX_BKG']   = self.flux_bkg
+        ext1['2D_BKG']     = self.bkg_2d_tpf
 
         if self.bkg_type == "PC_LEVEL":
             ext1['FLUX_BKG'] = self.flux_bkg
@@ -998,6 +999,7 @@ class TargetData(object):
         self.x_com       = table['X_COM']
         self.y_com       = table['Y_COM']
         self.flux_bkg    = table['FLUX_BKG']
+        self.bkg_2d_tpf  = table['2D_BKG']
 
         if 'PSF_FLUX' in cols:
             self.psf_flux = table['PSF_FLUX']
