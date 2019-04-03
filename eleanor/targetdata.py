@@ -127,7 +127,8 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None,
+                 bkg_type=None):
         self.source_info = source 
 
         if self.source_info.premade is True:
@@ -160,7 +161,7 @@ class TargetData(object):
             self.get_cbvs()
             
             self.create_apertures(height, width)
-            self.get_lightcurve()
+            self.get_lightcurve(bkg_type=bkg_type)
 
             if do_pca == True:
                 self.corrected_flux(pca=True)
@@ -366,7 +367,7 @@ class TargetData(object):
         
 
 
-    def get_lightcurve(self, aperture=None):
+    def get_lightcurve(self, aperture=None, bkg_type=None):
         """Extracts a light curve using the given aperture and TPF.
         Can pass a user-defined aperture mask, otherwise determines which of a set of pre-determined apertures
         provides the lowest scatter in the light curve.
@@ -379,6 +380,7 @@ class TargetData(object):
             (`height`, `width`) array of floats in the range [0,1] with desired weights for each pixel to
             create a light curve. If not set, ideal aperture is inferred automatically. If set, uses this
             aperture at the expense of all other set apertures.
+        bkg_type : string, "constant" or "2d_bkg"
         """
 
         def apply_mask(mask):
@@ -455,17 +457,21 @@ class TargetData(object):
 
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
-            if stds_2d[best_ind_2d] <= tpf_stds[best_ind_tpf]:
+
+            if (stds_2d[best_ind_2d] <= tpf_stds[best_ind_tpf]) or (bkg_type.upper() == '2D_BKG'):
                 best_ind = best_ind_2d
                 self.bkg_type = '2D_BKG'
                 for epoch in range(len(self.time)):
                     self.tpf[epoch] += self.tpf_flux_bkg[epoch]
 
-            else:
+            elif (stds_2d[best_ind_2d] >= tpf_stds[best_ind_tpf]) or (bkg_type.upper() == 'CONSTANT'):
                 best_ind = best_ind_tpf
                 self.bkg_type = 'CONSTANT'
                 self.all_raw_lc  = np.array(all_raw_lc_tpf_sub)
                 self.all_corr_lc = np.array(all_corr_lc_tpf_sub)
+                    
+            if (bkg_type is not None) and ((bkg_type.upper() != '2D_BKG') or (bkg_type != 'CONSTANT')):
+                warnings.warn("You input an unavailable background method. We are returning the background method we deem best for your light curve.")
 
             self.corr_flux= self.all_corr_lc[best_ind]
             self.raw_flux = self.all_raw_lc[best_ind]
