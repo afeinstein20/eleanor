@@ -216,6 +216,7 @@ class TargetData(object):
 
         post_flux = np.transpose(self.post_obj.flux, (2,0,1))
         post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
+        post_2d   = np.transpose(self.post_obj.bkg_2d, (2,0,1))
 
         self.cen_x, self.cen_y = med_x, med_y
         
@@ -261,9 +262,11 @@ class TargetData(object):
             warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
             warnings.warn("WARNING: Your postage stamp may not be centered.")
 
-        self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-        self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
-        self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+        self.tpf        = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+        self.bkg_tpf    = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
+        self.tpf_err    = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+        self.bkg_2d_tpf = post_2d[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+
         self.dimensions = np.shape(self.tpf)
         
         summed_tpf = np.sum(self.tpf, axis=0)
@@ -394,17 +397,20 @@ class TargetData(object):
         if (self.aperture is None):
 
             self.all_lc_err  = None
+            
+            all_lc_err = np.zeros((len(self.all_apertures), len(self.tpf)))
 
-            all_raw_lc_pc_sub  = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_lc_err  = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_corr_lc_pc_sub = np.copy(all_raw_lc_pc_sub)
+            all_raw_lc_2d_sub  = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_corr_lc_2d_sub = np.copy(all_raw_lc_2d_sub)
+
             all_raw_lc_tpf_sub = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_corr_lc_tpf_sub = np.copy(all_raw_lc_tpf_sub)
             
             for epoch in range(len(self.time)):
                 self.tpf[epoch] -= self.tpf_flux_bkg[epoch]
 
-            pc_stds = np.ones(len(self.all_apertures)) 
+            ## STDS for comparing 2D bkg subtration and TPF level bkg subtraction
+            stds_2d = np.ones(len(self.all_apertures)) 
             tpf_stds = np.ones(len(self.all_apertures)) 
             
             ap_size = np.sum(self.all_apertures, axis=(1,2))
@@ -414,11 +420,11 @@ class TargetData(object):
                     try:
                         all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
                         all_raw_lc_tpf_sub[a, cad]   = np.sum( (self.tpf[cad]) * self.all_apertures[a] )
-                        all_raw_lc_pc_sub[a, cad]  = np.sum( (self.tpf[cad] + self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
+                        all_raw_lc_2d_sub[a, cad]  = np.sum( (self.tpf[cad] + self.tpf_flux_bkg[cad] - self.bkg_2d_tpf[cad]) * self.all_apertures[a] )
                     except ValueError:
                         continue
 
-                all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
+                all_corr_lc_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_2d_sub[a]/np.nanmedian(all_raw_lc_2d_sub[a]))
                 all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
 
                 q = self.quality == 0
@@ -428,35 +434,37 @@ class TargetData(object):
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
-                lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                                   flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51)
-                pc_stds[a] = np.std(flat_lc_pc.flux)
+                obj_pc_2d = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+                                                   flux = all_corr_lc_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+                flat_lc_2d = obj_pc_2d.flatten(polyorder=2, window_length=51)
+                stds_2d[a] = np.std(flat_lc_2d.flux)
 
-                all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
+                all_corr_lc_2d_sub[a]  = all_corr_lc_2d_sub[a]  * np.nanmedian(all_raw_lc_2d_sub[a])
                 all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
-            self.all_raw_lc  = np.array(all_raw_lc_pc_sub)
+
+            self.all_raw_lc  = np.array(all_raw_lc_2d_sub)
             self.all_lc_err  = np.array(all_lc_err)
-            self.all_corr_lc = np.array(all_corr_lc_pc_sub)
+            self.all_corr_lc = np.array(all_corr_lc_2d_sub)
             
             if self.crowded_field == True:
                 tpf_stds[ap_size > 9] = 1.0
-                pc_stds[ap_size > 9] = 1.0
+                stds_2d[ap_size > 9] = 1.0
 
             best_ind_tpf = np.where(tpf_stds == np.min(tpf_stds))[0][0]
-            best_ind_pc  = np.where(pc_stds == np.min(pc_stds))[0][0]
-            
+            best_ind_2d  = np.where(stds_2d == np.min(stds_2d))[0][0]
+            print(np.min(tpf_stds), np.min(stds_2d))
 
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
-            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
-                best_ind = best_ind_pc
-                self.bkg_type = 'PC_LEVEL'
-                for epoch in range(len(self.time)):
-                    self.tpf[epoch] += self.tpf_flux_bkg[epoch]
+            if stds_2d[best_ind_2d] <= tpf_stds[best_ind_tpf]:
+                best_ind = best_ind_2d
+                self.bkg_type = '2D_BKG'
+#                for epoch in range(len(self.time)):
+#                    self.tpf[epoch] += self.tpf_flux_bkg[epoch]
+
             else:
                 best_ind = best_ind_tpf
-                self.bkg_type = 'TPF_LEVEL'
+                self.bkg_type = 'CONSTANT'
                 self.all_raw_lc  = np.array(all_raw_lc_tpf_sub)
                 self.all_corr_lc = np.array(all_corr_lc_tpf_sub)
 
