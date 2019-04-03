@@ -458,13 +458,13 @@ class TargetData(object):
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
 
-            if (stds_2d[best_ind_2d] <= tpf_stds[best_ind_tpf]) or (bkg_type.upper() == '2D_BKG'):
+            if (stds_2d[best_ind_2d] <= tpf_stds[best_ind_tpf] and bkg_type is None) or (bkg_type.upper() == '2D_BKG'):
                 best_ind = best_ind_2d
                 self.bkg_type = '2D_BKG'
                 for epoch in range(len(self.time)):
                     self.tpf[epoch] += self.tpf_flux_bkg[epoch]
 
-            elif (stds_2d[best_ind_2d] >= tpf_stds[best_ind_tpf]) or (bkg_type.upper() == 'CONSTANT'):
+            elif (stds_2d[best_ind_2d] >= tpf_stds[best_ind_tpf] and bkg_type is None) or (bkg_type.upper() == 'CONSTANT'):
                 best_ind = best_ind_tpf
                 self.bkg_type = 'CONSTANT'
                 self.all_raw_lc  = np.array(all_raw_lc_tpf_sub)
