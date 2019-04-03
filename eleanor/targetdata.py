@@ -452,15 +452,14 @@ class TargetData(object):
 
             best_ind_tpf = np.where(tpf_stds == np.min(tpf_stds))[0][0]
             best_ind_2d  = np.where(stds_2d == np.min(stds_2d))[0][0]
-            print(np.min(tpf_stds), np.min(stds_2d))
 
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
             if stds_2d[best_ind_2d] <= tpf_stds[best_ind_tpf]:
                 best_ind = best_ind_2d
                 self.bkg_type = '2D_BKG'
-#                for epoch in range(len(self.time)):
-#                    self.tpf[epoch] += self.tpf_flux_bkg[epoch]
+                for epoch in range(len(self.time)):
+                    self.tpf[epoch] += self.tpf_flux_bkg[epoch]
 
             else:
                 best_ind = best_ind_tpf
