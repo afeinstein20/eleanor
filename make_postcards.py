@@ -15,6 +15,10 @@ from astropy.wcs import WCS
 from astropy.table import Table
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
+from sklearn.decomposition import PCA
+from scipy import interpolate
+from scipy.interpolate import interp1d
+
 
 from eleanor.ffi import ffi, set_quality_flags
 #from eleanor.version import __version__
@@ -25,6 +29,85 @@ def bkg(flux, sigma=2.5):
     sigma_clip = SigmaClip(sigma=sigma)
     bkg = MMMBackground(sigma_clip=sigma_clip)
     return bkg.calc_background(flux)
+
+def do_pca(i, j, data, vv, q):
+    xvals = xhat(vv[:], data[i,j,:][q]) # does the regression
+    #cm = np.column_stack((pca.components_[0:modes,q].T, np.ones_like(pca.components_[0,q])))
+    fmod = fhat(xvals, vv) # builds a predicted flux at each cadence from the regression (centered around zero)
+    lc_pred = (fmod+1) # now centered around 1
+    return xvals
+
+def calc_2dbkg(flux, qual, time):
+    q = qual == 0
+    med = np.nanmedian(flux[:,:,:], axis=(2))
+    g = np.ma.masked_where(med < np.percentile(med, 40), med)
+    
+    pca = PCA(n_components=5)
+    pca.fit(data[g.mask])
+    
+    modes = 5
+    pv = pca.components_[0:modes].T[q]
+
+    vv = np.column_stack((pv.T))
+
+    for i in range(-29, 29, 2):
+        if i != 0:
+            if i > 0:
+                rolled = np.pad(pv.T, ((0,0),(i,0)), mode='constant')[:, :-i].T
+            else:
+                rolled = np.pad(pv.T, ((0,0),(0,-i)), mode='constant')[:, -i:].T
+            vv = np.column_stack((vv, rolled))
+
+    vv = np.column_stack((vv, np.ones_like(vv[:,0])))
+
+    maskvals = np.zeros((104, 148, np.shape(vv)[1]))
+    GD = np.zeros_like(maskvals)
+    for i in range(len(g)):
+        for j in range(len(g[0])):
+            if g.mask[i][j] == True:     
+                maskvals[i,j] = do_pca(i,j, flux, vv, q)
+                
+    noval = maskvals[:,:,:] == 0
+    maskvals[noval] = np.nan
+
+    x = np.arange(0, maskvals.shape[1])
+    y = np.arange(0, maskvals.shape[0])    
+
+    xx, yy = np.meshgrid(x, y)
+
+
+    for i in range(np.shape(vv)[1]):
+        array = np.ma.masked_invalid(maskvals[:,:,i])
+        #get only the valid values
+        x1 = xx[~array.mask]
+        y1 = yy[~array.mask]
+        newarr = array[~array.mask]
+
+        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
+                                  (xx, yy),
+                                     method='linear')
+
+        array = np.ma.masked_invalid(GD[:,:,i])
+        #xx, yy = np.meshgrid(x, y)
+        #get only the valid values
+        x1 = xx[~array.mask]
+        y1 = yy[~array.mask]
+        newarr = array[~array.mask]
+
+        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
+                                  (xx, yy),
+                                     method='nearest')
+
+        bkg_arr = np.zeros_like(flux)
+        
+        for i in range(104):
+            for j in range(148):
+                bkg_arr[i,j,q] = np.dot(GD[i,j,:], vv.T)
+                
+        f = interp1d(time[q], bkg_arr[:,:,q], kind='linear', axis=2)
+        fout = f(time)
+
+        return fout
 
 
 def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=None):
@@ -208,6 +291,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                          comment="TESS sector"))
 
                 pixel_data = all_ffis[w:w+dw, h:h+dh, :] + 0.0
+                
 
                 # Adds in quality column for each cadence in primary_data
                 for k in range(len(fns)):
@@ -221,6 +305,9 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                                                            sc_fn, sector[1::], new_info[1], new_info[2],
                                                            pm=pm)
                     primary_data[k][len(primary_cols)-1] = quality_array[k]
+                    
+                grid_bkg = calc_2dbkg(pixel_data[:,:,k], quality_array, primary_data['TSTART'])
+
 
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
