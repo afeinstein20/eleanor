@@ -50,17 +50,17 @@ def fhat(xhat, data):
 def calc_2dbkg(flux, qual, time):
     q = qual == 0
     med = np.nanmedian(flux[:,:,:], axis=(2))
-    g = np.ma.masked_where(med < np.percentile(med, 40), med)
+    g = np.ma.masked_where(med < np.percentile(med, 50.), med)
     
     pca = PCA(n_components=5)
     pca.fit(flux[g.mask])
     
-    modes = 5
+    modes = 3
     pv = pca.components_[0:modes].T[q]
 
     vv = np.column_stack((pv.T))
 
-    for i in range(-29, 29, 2):
+    for i in range(-19, 19, 6):
         if i != 0:
             if i > 0:
                 rolled = np.pad(pv.T, ((0,0),(i,0)), mode='constant')[:, :-i].T
@@ -71,7 +71,6 @@ def calc_2dbkg(flux, qual, time):
     vv = np.column_stack((vv, np.ones_like(vv[:,0])))
 
     maskvals = np.zeros((104, 148, np.shape(vv)[1]))
-
     GD = np.zeros_like(maskvals)
     for i in range(len(g)):
         for j in range(len(g[0])):
@@ -80,6 +79,14 @@ def calc_2dbkg(flux, qual, time):
                 
     noval = maskvals[:,:,:] == 0
     maskvals[noval] = np.nan
+    
+    outmeasure = np.zeros_like(maskvals[:,:,0])
+    for i in range(len(maskvals[0,0])):
+        outmeasure += (np.abs(maskvals[:,:,i]-np.nanmean(maskvals[:,:,i])))/np.nanstd(maskvals[:,:,i])
+
+    metric = outmeasure/len(maskvals[0,0])
+    maskvals[metric > 1.00,:] = np.nan
+        
 
     x = np.arange(0, maskvals.shape[1])
     y = np.arange(0, maskvals.shape[0])    
@@ -93,13 +100,14 @@ def calc_2dbkg(flux, qual, time):
         x1 = xx[~array.mask]
         y1 = yy[~array.mask]
         newarr = array[~array.mask]
+        
 
         GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
                                   (xx, yy),
                                      method='linear')
 
         array = np.ma.masked_invalid(GD[:,:,i])
-
+        xx, yy = np.meshgrid(x, y)
         #get only the valid values
         x1 = xx[~array.mask]
         y1 = yy[~array.mask]
@@ -108,18 +116,19 @@ def calc_2dbkg(flux, qual, time):
         GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
                                   (xx, yy),
                                      method='nearest')
-
-        bkg_arr = np.zeros_like(flux)
         
-        for i in range(104):
-            for j in range(148):
-                bkg_arr[i,j,q] = np.dot(GD[i,j,:], vv.T)
-                
-        f = interp1d(time[q], bkg_arr[:,:,q], kind='linear', axis=2)
-        fout = f(time)
 
-        return fout
 
+    bkg_arr = np.zeros_like(flux)
+
+    for i in range(104):
+        for j in range(148):
+            bkg_arr[i,j,q] = np.dot(GD[i,j,:], vv.T)
+
+    f = interp1d(time[q], bkg_arr[:,:,q], kind='linear', axis=2, bounds_error=False, fill_value='extrapolate')
+    fout = f(time)
+
+    return fout
 
 def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=None):
     # Make sure that the output directory exists
