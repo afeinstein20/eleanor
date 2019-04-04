@@ -212,10 +212,12 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
         all_errs = np.empty((total_width, total_height, len(fns)), dtype=dtype,
                             order="F")
 
+    ffiindex = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cadences_s{0:04}.txt'.format(sector[1::]) 
+
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
-    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END", "BKG", "QUALITY"]
-    primary_dtype = [np.float32, np.float32, np.float32, "O", "O", np.float32, np.int64]
+    primary_cols = ["TSTART", "TSTOP", "BARYCORR", "DATE-OBS", "DATE-END", "BKG", "QUALITY", "FFIINDEX"]
+    primary_dtype = [np.float32, np.float32, np.float32, "O", "O", np.float32, np.int64, np.int64]
     primary_data = np.empty(len(fns), list(zip(primary_cols, primary_dtype)))
 
     # Make sure that the sector, camera, chip, and dimensions are the
@@ -233,7 +235,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
         info = new_info
 
         # Save the info for the primary HDU
-        for k, dtype in zip(primary_cols[0:len(primary_cols)-2], primary_dtype[0:len(primary_dtype)-2]):
+        for k, dtype in zip(primary_cols[0:len(primary_cols)-3], primary_dtype[0:len(primary_dtype)-3]):
             if dtype == "O":
                 primary_data[k][i] = hdr[k].encode("ascii")
             else:
@@ -317,15 +319,18 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                 # Adds in quality column for each cadence in primary_data
                 for k in range(len(fns)):
                     b = bkg(pixel_data[:, :, k])
-                    primary_data[k][len(primary_cols)-2] = b
+                    primary_data[k][len(primary_cols)-3] = b
                     pixel_data[:, :, k] -= b
+
+                    primary_data[k][len(primary_cols)-1] = ffiindex[k]
+
                     if i==0 and j==0 and k==0:
                         print("Getting quality flags")
                         quality_array = set_quality_flags( primary_data['TSTART']-primary_data['BARYCORR'],
                                                            primary_data['TSTOP']-primary_data['BARYCORR'],
                                                            sc_fn, sector[1::], new_info[1], new_info[2],
                                                            pm=pm)
-                    primary_data[k][len(primary_cols)-1] = quality_array[k]
+                    primary_data[k][len(primary_cols)-2] = quality_array[k]
 
                 grid_bkg = calc_2dbkg(pixel_data, quality_array, primary_data['TSTART'])
 
