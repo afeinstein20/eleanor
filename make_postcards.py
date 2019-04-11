@@ -50,17 +50,17 @@ def fhat(xhat, data):
 def calc_2dbkg(flux, qual, time):
     q = qual == 0
     med = np.nanmedian(flux[:,:,:], axis=(2))
-    g = np.ma.masked_where(med < np.percentile(med, 50.), med)
+    g = np.ma.masked_where(med < np.percentile(med, 40.), med)
     
-    pca = PCA(n_components=5)
+    modes = 21
+    
+    pca = PCA(n_components=modes)
     pca.fit(flux[g.mask])
-    
-    modes = 3
     pv = pca.components_[0:modes].T[q]
 
     vv = np.column_stack((pv.T))
 
-    for i in range(-19, 19, 6):
+    for i in range(-15, 15, 6):
         if i != 0:
             if i > 0:
                 rolled = np.pad(pv.T, ((0,0),(i,0)), mode='constant')[:, :-i].T
@@ -129,6 +129,7 @@ def calc_2dbkg(flux, qual, time):
     fout = f(time)
 
     return fout
+
 
 def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=None):
     # Make sure that the output directory exists
