@@ -189,5 +189,9 @@ class Postcard(object):
         return self.hdu[1].data['BARYCORR']
 
     @property
+    def ffiindex(self):
+        return self.hdu[1].data['FIIINDEX']
+
+    @property
     def bkg_2d(self):
         return self.hdu[4].data
