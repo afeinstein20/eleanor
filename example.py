@@ -17,7 +17,8 @@ q = data0.quality == 0
 
 plt.plot(data0.time[q], data0.corr_flux[q]/np.nanmedian(data0.corr_flux[q]), 'k.', label=str(data0.bkg_type))
 plt.plot(data1.time[q], data1.corr_flux[q]/np.nanmedian(data1.corr_flux[q]), 'r.', label=str(data1.bkg_type))
-
+plt.title('The labels in the legend should be 2D_BKG and CONSTANT.')
+plt.legend()
 plt.show()
 plt.close()
 
