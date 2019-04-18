@@ -12,6 +12,7 @@ import fitsio
 import numpy as np
 from time import strftime
 from astropy.wcs import WCS
+from astropy.time import Time
 from astropy.table import Table
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
@@ -213,7 +214,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
         all_errs = np.empty((total_width, total_height, len(fns)), dtype=dtype,
                             order="F")
 
-    ffiindex = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cadences_s{0:04}.txt'.format(sector[1::]) )
+    ffiindex = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cadences_s{0:04d}.txt'.format(int(sector[1::]) ))
 
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
@@ -276,6 +277,35 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                 hdr.add_record(
                     dict(name="CRPIX2", value=crpix_w - w,
                          comment="Y reference pixel"))
+
+                # Shift TSTART and TSTOP in header to first TSTART and
+                # last TSTOP from FFI headers
+                tstart=primary_data['TSTART'][0]
+                tstop=primary_data['TSTOP'][len(primary_data['TSTOP'])-1]
+                hdr.add_record(
+                    dict(name='TSTART', value=tstart,
+                         comment='observation start time in BTJD'))
+                hdr.add_record(
+                    dict(name='TSTOP', value=tstop,
+                         comment='observation stop time in BTJD'))
+                
+                # Same thing as done for TSTART and TSTOP for DATE-OBS and DATE-END
+                hdr.add_record(
+                    dict(name='DATE-OBS', value=primary_data['DATE-OBS'][0],
+                         comment='TSTART as UTC calendar date'))
+                hdr.add_record(
+                    dict(name='DATE-END', value=primary_data['DATE-END'][len(primary_data['DATE-END'])-1],
+                         comment='TSTOP as UTC calendar date'))
+
+                # Adding MJD time for start and stop end time
+                tstart=Time(tstart+2457000, format='jd').mjd
+                tstop=Time(tstop+2457000  , format='jd').mjd
+                hdr.add_record(
+                    dict(name='MJD-BEG', value=tstart,
+                         comment='observation start time in MJD'))
+                hdr.add_record(
+                    dict(name='MJD-END', value=tstop,
+                         comment='observation end time in MJD'))
 
                 # Save the postcard coordinates in the header
                 hdr.add_record(
