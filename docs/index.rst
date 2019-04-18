@@ -38,6 +38,6 @@ Index
 
 * :ref:`genindex`
 
-.. _TESS: https://tess.mit.edu/
+.. _TESS: https://heasarc.gsfc.nasa.gov/docs/tess/
 .. _GitHub: http://github.com/afeinstein20/eleanor
 .. _Git Issues: http://github.com/afeinstein20/eleanor/issues

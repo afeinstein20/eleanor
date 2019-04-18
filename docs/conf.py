@@ -21,7 +21,7 @@ on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 # -- Project information -----------------------------------------------------
 
 project = 'eleanor'
-copyright = '2018, Adina D. Feinstein'
+copyright = '2018-2019, Adina D. Feinstein'
 author = 'Adina D. Feinstein'
 
 # The short X.Y version

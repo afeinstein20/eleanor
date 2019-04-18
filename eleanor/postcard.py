@@ -1,6 +1,5 @@
 import os, sys
 
-from astropy.utils.data import download_file
 from astropy.io import fits
 import matplotlib.pyplot as plt
 from astropy.wcs import WCS
@@ -11,7 +10,6 @@ import copy
 from .mast import crossmatch_by_position
 
 __all__ = ['Postcard']
-#ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s0001/4-1/'
 
 class Postcard(object):
     """TESS FFI data for one postcard across one sector.
@@ -54,15 +52,24 @@ class Postcard(object):
             self.local_path = copy.copy(self.filename)
             self.hdu = fits.open(self.local_path)
         else:
-            if os.path.isdir('./.eleanor/sector_1/postcards')==True:
-                self.filename = './.eleanor/sector_1/postcards/{}'.format(filename)
-                self.local_path = self.filename
-                self.hdu = fits.open(self.local_path)
-            else:
-                self.filename = '{}{}'.format(ELEANORURL, filename)
-                local_path = download_file(self.filename, cache=True)
-                self.local_path = local_path
-                self.hdu = fits.open(self.local_path)
+            self.post_dir = os.path.join(os.path.expanduser('~'), '.eleanor/postcards')
+            if os.path.isdir(self.post_dir) == False:
+                try:
+                    os.mkdir(self.post_dir)
+                except OSError:
+                    self.post_dir = '.'
+                    warnings.warn('Warning: unable to create {}. '
+                                  'Downloading postcard to the current '
+                                  'working directory instead.'.format(self.post_dir))
+
+            self.filename = '{}{}'.format(ELEANORURL, filename)
+            self.local_path = '{}/{}'.format(self.post_dir, filename)
+
+            if os.path.isfile(self.local_path) == False:
+                print("Downloading {}".format(self.filename))
+                os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.filename))
+
+            self.hdu = fits.open(self.local_path)
 
     def __repr__(self):
         return "eleanor postcard ({})".format(self.filename)
@@ -176,3 +183,15 @@ class Postcard(object):
     @property
     def bkg(self):
         return self.hdu[1].data['BKG']
+    
+    @property 
+    def barycorr(self):
+        return self.hdu[1].data['BARYCORR']
+
+    @property
+    def ffiindex(self):
+        return self.hdu[1].data['FIIINDEX']
+
+    @property
+    def bkg_2d(self):
+        return self.hdu[4].data

@@ -34,7 +34,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
     """
     objs = []
     if sectors == 'all':
-        sectors = list(np.arange(1,14,1, dtype=int))
+        sectors = list(np.arange(1,3,1, dtype=int))
     if type(sectors) == list:
         for s in sectors:
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
@@ -49,12 +49,28 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
         raise TypeError("Sectors needs to be either 'all' or a type(list) to work.")
 
 
-def load_postcard_guide():
+def load_postcard_guide(sector):
     """Load and return the postcard coordinates guide."""
-    guide_link = urllib.request.urlopen('https://archipelago.uchicago.edu/tess_postcards/postcard.guide')
-    guide = guide_link.read().decode('utf-8')
-    guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
+    try:
+        user_agent = 'eleanor 0.1.6'
+        values = {'name': 'eleanor',
+                  'language': 'Python' }
+        headers = {'User-Agent': user_agent}
+        
+        data = urllib.parse.urlencode(values)
+        data = data.encode('ascii')
+        
+        guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/postcard.guide'.format(sector)
+        
+        req = urllib.request.Request(guide_link, data, headers)
+        with urllib.request.urlopen(req) as response:
+            guide = response.read().decode('utf-8')
+        
+        guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
+    except urllib.error.HTTPError:
+        return None
     return guide
+
 
 class Source(object):
     """A single source observed by TESS.
@@ -93,7 +109,7 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None):
+    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None):
         self.tic     = tic
         self.gaia    = gaia
         self.coords  = coords
@@ -101,11 +117,16 @@ class Source(object):
         self.premade = False
         self.usr_sec = sector
 
+        if fn_dir is None:
+            self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
+        else:
+            self.fn_dir  = fn_dir
+
         if self.fn is not None:
             try:
-                hdu = fits.open(self.fn)
+                hdu = fits.open(self.fn_dir + '/' + self.fn)
             except:
-                assert False, "{0} is not a valid filename.".format(fn)
+                assert False, "{0} is not a valid filename or not located in directory {1}".format(fn, fn_dir)
             hdr = hdu[0].header
             self.tic      = hdr['TIC_ID']
             self.tess_mag = hdr['TMAG']
@@ -128,20 +149,21 @@ class Source(object):
                     assert False, ("Source: invalid coords. Valid input types are: "
                                    "(RA [deg], Dec [deg]) tuple or astropy.coordinates.SkyCoord object.")
 
-                self.tic, self.tess_mag, sep = tic_from_coords(self.coords)
+                self.tic, self.tess_mag, sep, self.tic_version = tic_from_coords(self.coords)
                 self.gaia = gaia_from_coords(self.coords)
 
             elif self.gaia is not None:
                 self.coords = coords_from_gaia(self.gaia)
-                self.tic, self.tess_mag, _ = tic_from_coords(self.coords)
+                self.tic, self.tess_mag, sep, self.tic_version = tic_from_coords(self.coords)
 
             elif self.tic is not None:
-                self.coords, self.tess_mag = coords_from_tic(self.tic)
+                self.coords, self.tess_mag, self.tic_version = coords_from_tic(self.tic)
                 self.gaia = gaia_from_coords(self.coords)
 
             else:
                 assert False, ("Source: one of the following keywords must be given: "
                                "tic, gaia, coords, fn.")
+                
 
             self.tess_mag = self.tess_mag[0]
             self.locate_on_tess() # sets sector, camera, chip, postcard,
@@ -152,7 +174,7 @@ class Source(object):
                                                                                                                                  self.chip)
 
 
-    def locate_on_chip(self, guide):
+    def locate_on_chip(self):#, guide):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
@@ -168,46 +190,51 @@ class Source(object):
                     d = {}
                     for j,col in enumerate(random_postcard.colnames):
                         d[col] = random_postcard[j]
+
                     hdr = fits.Header(cards=d) # make WCS info from one postcard header
                     xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
                     x_zero, y_zero = hdr['POSTPIX1'], hdr['POSTPIX2']
-                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
-                    if (0 <= xy[0] < 2048) & (44 <= xy[1] < 2092):
+#                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
+                    if (44 <= xy[0] < 2092) & (0 <= xy[1] < 2048):
                         self.sector = sec
                         self.camera = cam
                         self.chip = chip
                         self.position_on_chip = np.ravel(xy)
+                        self.position_on_chip[0] += 44
 
-        guide = load_postcard_guide()
         self.sector=None
 
         if self.usr_sec is None:
-            for sec in np.unique(guide['SECTOR']):
-                cam_chip_loop(sec)
+            self.usr_sec = 'recent'
 
-            if self.sector is None:
-                raise SearchError("TESS has not (yet) observed your target.")
-
-        elif self.usr_sec is not None:
+        if self.usr_sec is not None:
             if type(self.usr_sec) == int:
-                cam_chip_loop(self.usr_sec)
+                guide = load_postcard_guide(self.usr_sec)
+                if guide is None:
+                    raise SearchError("Sorry, this sector isn't available yet. We're working on it!")
+                else:
+                    cam_chip_loop(self.usr_sec)
 
             # Searches for the most recent sector the object was observed in
             elif self.usr_sec.lower() == 'recent':
                 for s in np.arange(15,0,-1):
-                    cam_chip_loop(s)
-                    if self.sector is not None:
-                        break
+                    guide = load_postcard_guide(s)
+                    if guide is not None:
+                        cam_chip_loop(s)
+                        if self.sector is not None:
+                            break
+            if self.sector is None:
+                raise SearchError("TESS has not (yet) observed your target.")
 
-        return
+        return guide
 
 
     def locate_on_tess(self):
         """Finds the best TESS postcard(s) and the position of the source on postcard.
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
-        guide = load_postcard_guide()
-        self.locate_on_chip(guide)
+        self.locate_on_chip()
+        guide = load_postcard_guide(self.sector)
 
         if self.sector is None:
             return
@@ -252,9 +279,4 @@ class Source(object):
         i = in_file[best_ind]
         postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
                                 guide['CEN_Y'][i] - guide['POST_W'][i]/2.)
-        self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
-
-        i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
-                              guide['CEN_Y'][i] - guide['POST_W'][i]/2.) # (x,y) on FFI where postcard (x,y) = (0,0)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
