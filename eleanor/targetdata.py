@@ -155,12 +155,15 @@ class TargetData(object):
                 self.cal_cadences = cal_cadences
             
             self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
-            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard)
+            x_offset, y_offset = self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard)
 
             self.set_quality()
             self.get_cbvs()
             
-            self.create_apertures(height, width)
+            # should be the same as input height and width unless the star is 
+            # at the edge of the detector
+            h, w = self.tpf[0].shape[0], self.tpf[0].shape[1]
+            self.create_apertures(h, w, x_offset, y_offset)
             self.get_lightcurve(bkg_type=bkg_type)
 
             if do_pca == True:
@@ -240,15 +243,21 @@ class TargetData(object):
 
         post_y_upp, post_x_upp = self.post_obj.dimensions[0], self.post_obj.dimensions[1]
 
+        x_offset, y_offset = 0, 0
+
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
             y_low_lim = 0
+            y_offset = y_low_lim
         if x_low_lim <= 0:
             x_low_lim = 0
+            x_offset = x_low_lim
         if y_upp_lim  > post_y_upp:
             y_upp_lim = post_y_upp+1
+            y_offset = post_y_upp - y_upp_lim
         if x_upp_lim >  post_x_upp:
             x_upp_lim = post_x_upp+1
+            x_offset = post_x_upp - x_upp_lim
             
         if y_low_bkg <= 0:
             y_low_bkg = 0
@@ -287,10 +296,10 @@ class TargetData(object):
                 os.remove(self.post_obj.local_path)
             except OSError:
                 pass
-        return
+        return x_offset, y_offset
 
 
-    def create_apertures(self, height, width):
+    def create_apertures(self, height, width, x_offset, y_offset):
         """Creates a range of sizes and shapes of apertures to test."""
         import eleanor
         self.all_apertures = None
@@ -302,41 +311,87 @@ class TargetData(object):
         self.aperture_names = np.array(list(pickle_dict.keys()))
         all_apertures  = np.array(list(pickle_dict.values()))
         
-
         default = 9
 
         # Creates aperture based on the requested size of TPF
-        if (height, width) == (default, default):
+        if (height, width) == (default, default) and (x_offset == 0) and (y_offset == 0):
             self.all_apertures = all_apertures
 
         else:
             new_aps = []
 
-            h_diff = height-default; w_diff = width-default
-            half_h = int(np.ceil(np.abs(h_diff/2))) ; half_w = int(np.ceil(np.abs(w_diff/2)))
+            if (x_offset == 0) and (y_offset == 0):
+
+                h_diff = height-default; w_diff = width-default
+                half_h = int(np.ceil(np.abs(h_diff/2))) ; half_w = int(np.ceil(np.abs(w_diff/2)))
 
             # HEIGHT PADDING
-            if h_diff > 0:
-                h_pad = (half_h, half_h)
-            elif h_diff < 0:
-                warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
-                h_pad = (0,0)
-                all_apertures = all_apertures[:, half_h:int(len(all_apertures[0][:,0])-half_h), :]
-            else:
-                h_pad = (0,0)
+                if h_diff > 0:
+                    h_pad = (half_h, half_h)
+                elif h_diff < 0:
+                    warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
+                    h_pad = (0,0)
+                    all_apertures = all_apertures[:, half_h:int(len(all_apertures[0][:,0])-half_h), :]
+                else:
+                    h_pad = (0,0)
 
             # WIDTH PADDING
-            if w_diff > 0:
-                w_pad = (half_w, half_w)
-            elif w_diff < 0:
-                warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
-                w_pad = (0,0)
-                all_apertures = all_apertures[:, :, half_w:int(len(all_apertures[0][0])-half_w)]
-            else:
-                w_pad=(0,0)
+                if w_diff > 0:
+                    w_pad = (half_w, half_w)
+                elif w_diff < 0:
+                    warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
+                    w_pad = (0,0)
+                    all_apertures = all_apertures[:, :, half_w:int(len(all_apertures[0][0])-half_w)]
+                else:
+                    w_pad = (0,0)
 
-            for a in range(len(all_apertures)):
-                new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
+
+                for a in range(len(all_apertures)):
+                    new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
+#                self.all_apertures = np.array(new_aps)
+
+            # OFFSET APERTURES FOR STARS ON THE EDGES
+            else:
+                warnings.warn('WARNING: Your star is near the edge of the camera. Please use caution with the resulting apertures.')
+
+                if x_offset > 0:
+                    h_pad = (np.abs(x_offset), 0)
+                elif x_offset < 0:
+                    h_pad = (0, np.abs(x_offset))
+                else:
+                    h_pad = (0,0)
+                    h_remove = None
+
+                if y_offset > 0:
+                    w_pad = (np.abs(y_offset), 0)
+                elif y_offset < 0:
+                    w_pad = (0, np.abs(y_offset))
+                else:
+                    w_pad = (0,0)
+                    w_remove = None
+
+                for a in range(len(all_apertures)):
+                    new = np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0))
+                    # Adds offset in the Y direction
+                    if w_pad != (0,0) and y_offset > 0:
+                        w_remove = np.arange(new.shape[1]-np.abs(y_offset), new.shape[1]+1, 1)
+                    elif w_pad != (0,0) and y_offset < 0:
+                        w_remove = np.arange(0, np.abs(y_offset), 1)
+
+                    # Adds offset in the X direction
+                    if h_pad != (0,0) and x_offset > 0:
+                        h_remove = np.arange(new.shape[0]-np.abs(x_offset), new.shape[0]+1, 1)
+                    elif h_pad != (0,0) and x_offset < 0:
+                        h_remove = np.arange(0, np.abs(x_offset), 1)
+                        
+                    # Removes extra rows so aperture is same shape as tpf
+                    if w_remove is not None:
+                        new = np.delete(new, w_remove, axis=1)
+                    if h_remove is not None:
+                        new = np.delete(new, h_remove, axis=0)
+
+                    new_aps.append(new)
+
             self.all_apertures = np.array(new_aps)
 
 
