@@ -214,7 +214,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
         all_errs = np.empty((total_width, total_height, len(fns)), dtype=dtype,
                             order="F")
 
-    ffiindex = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cadences_s{0:04d}.txt'.format(int(sector[1::]) ))
+    ffiindex = np.loadtxt('metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(int(sector[1::])))
 
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
