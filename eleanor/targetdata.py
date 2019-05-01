@@ -245,32 +245,41 @@ class TargetData(object):
 
         x_offset, y_offset = 0, 0
 
+        if (x_low_lim<=0) or (y_low_lim<=0) or (x_upp_lim>=post_x_upp) or (y_upp_lim>=post_y_upp):
+            warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
+            warnings.warn("WARNING: Your postage stamp may not be centered.")
+
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
             y_low_lim = 0
             y_offset = y_low_lim
+            y_upp_lim = y_upp_lim + np.abs(y_offset) + 1
+
         if x_low_lim <= 0:
             x_low_lim = 0
             x_offset = x_low_lim
+            x_upp_lim = x_upp_lim + np.abs(x_offset) + 1
+
         if y_upp_lim  > post_y_upp:
             y_upp_lim = post_y_upp+1
             y_offset = post_y_upp - y_upp_lim
+            y_low_lim = y_low_lim - np.abs(y_offset) - 1
+
         if x_upp_lim >  post_x_upp:
             x_upp_lim = post_x_upp+1
             x_offset = post_x_upp - x_upp_lim
+            x_low_lim = x_low_lim - np.abs(x_offset) - 1
+            
             
         if y_low_bkg <= 0:
             y_low_bkg = 0
         if x_low_bkg <= 0:
             x_low_bkg = 0
+
         if y_upp_bkg  > post_y_upp:
             y_upp_bkg = post_y_upp+1
         if x_upp_bkg >  post_x_upp:
             x_upp_bkg = post_x_upp+1
-
-        if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
-            warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
-            warnings.warn("WARNING: Your postage stamp may not be centered.")
 
         self.tpf        = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
         self.bkg_tpf    = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
@@ -296,6 +305,7 @@ class TargetData(object):
                 os.remove(self.post_obj.local_path)
             except OSError:
                 pass
+
         return x_offset, y_offset
 
 
@@ -311,7 +321,7 @@ class TargetData(object):
         self.aperture_names = np.array(list(pickle_dict.keys()))
         all_apertures  = np.array(list(pickle_dict.values()))
         
-        default = 9
+        default = 13
 
         # Creates aperture based on the requested size of TPF
         if (height, width) == (default, default) and (x_offset == 0) and (y_offset == 0):
@@ -355,41 +365,41 @@ class TargetData(object):
                 warnings.warn('WARNING: Your star is near the edge of the camera. Please use caution with the resulting apertures.')
 
                 if x_offset > 0:
-                    h_pad = (np.abs(x_offset), 0)
-                elif x_offset < 0:
                     h_pad = (0, np.abs(x_offset))
+                elif x_offset < 0:
+                    h_pad = (np.abs(x_offset), 0)
                 else:
                     h_pad = (0,0)
                     h_remove = None
 
                 if y_offset > 0:
-                    w_pad = (np.abs(y_offset), 0)
-                elif y_offset < 0:
                     w_pad = (0, np.abs(y_offset))
+                elif y_offset < 0:
+                    w_pad = (np.abs(y_offset), 0)
                 else:
                     w_pad = (0,0)
                     w_remove = None
 
                 for a in range(len(all_apertures)):
-                    new = np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0))
+                    new = np.pad(all_apertures[a], (w_pad, h_pad), 'constant', constant_values=(0))
+                    # Adds offset in the X direction
+                    if h_pad != (0,0) and x_offset < 0:
+                        h_remove = np.arange(new.shape[1]-np.abs(x_offset), new.shape[1]+1,1)
+                    if h_pad != (0,0) and x_offset > 0:
+                        h_remove = np.arange(0, np.abs(x_offset), 1)
+                        
                     # Adds offset in the Y direction
                     if w_pad != (0,0) and y_offset > 0:
                         w_remove = np.arange(new.shape[1]-np.abs(y_offset), new.shape[1]+1, 1)
                     elif w_pad != (0,0) and y_offset < 0:
                         w_remove = np.arange(0, np.abs(y_offset), 1)
 
-                    # Adds offset in the X direction
-                    if h_pad != (0,0) and x_offset > 0:
-                        h_remove = np.arange(new.shape[0]-np.abs(x_offset), new.shape[0]+1, 1)
-                    elif h_pad != (0,0) and x_offset < 0:
-                        h_remove = np.arange(0, np.abs(x_offset), 1)
                         
                     # Removes extra rows so aperture is same shape as tpf
                     if w_remove is not None:
-                        new = np.delete(new, w_remove, axis=1)
+                        new = np.delete(new, w_remove, axis=0)
                     if h_remove is not None:
-                        new = np.delete(new, h_remove, axis=0)
-
+                        new = np.delete(new, h_remove, axis=1)
                     new_aps.append(new)
 
             self.all_apertures = np.array(new_aps)
