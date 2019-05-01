@@ -12,7 +12,7 @@ c_list = np.array([1.25, 2.5, 3.5, 4])
 r_list = np.array([3, 3, 5, 4.1])
 theta = np.array([ np.pi/4., 0, np.pi/4., 0])
 
-size = 9
+size = 13
 center = ((size-1)/2, (size-1)/2)
 
 d1 = (center[0]-0.5, center[1], 2, 1)
@@ -78,7 +78,7 @@ pickle_out = open(fn, "wb")
 pickle.dump(dict, pickle_out)
 pickle_out.close()
 
-
+"""
 pickle_in = open(fn, "rb")
 test = pickle.load(pickle_in)
 aps = np.array(list(test.values()))
@@ -99,3 +99,4 @@ print( np.pad(new[0], ((0,0), (2,2)), 'constant', constant_values=(0)))
 #    str_new = ' '.join(str(e) for e in new)
 #    with open('default_apertures.txt', 'a') as tf:
 #        tf.write('{}\n'.format(types[i], str_new))
+"""
