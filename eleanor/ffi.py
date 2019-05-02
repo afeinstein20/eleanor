@@ -293,27 +293,27 @@ class ffi:
         return xhat
 
 
-    def pointing_model_per_cadence(self, out_dir=None):
+    def pointing_model_per_cadence(self, out_dir=None, n_sources=350):
         """Step through build_pointing_model for each cadence."""
 
         def find_isolated(x, y):
             """Finds the most isolated, least contaminated sources for pointing model."""
+            init_d   = 8.0
+            counter  = 0.0
             isolated = []
-
-            init_d  = 8.0
-            counter = 0.0
-
-            # While statement should ensure there are at least 300 sources
-            # to build the pointing model with
-            while (len(isolated) <= 300) and ((init_d-counter) > 0):
+                                                                                           
+            while ((init_d - counter) > 0) and (counter < 3.5):
                 for i in range(len(x)):
                     x_list  = np.delete(x, np.where(x==x[i]))
                     y_list  = np.delete(y, np.where(y==y[i]))
                     closest = np.sqrt( (x[i]-x_list)**2 + (y[i]-y_list)**2 ).argmin()
                     dist    = np.sqrt( (x[i]-x_list[closest])**2 + (y[i]-y_list[closest])**2 )
-                    if dist > init_d - counter:
+                    if (dist > (init_d - counter)) and (i not in isolated):
                         isolated.append(i)
-                    counter += 0.5
+                    if len(isolated) > n_sources:
+                        break
+                counter += 0.1
+
             return np.array(isolated)
 
 
@@ -369,17 +369,11 @@ class ffi:
         hdr = hdu[1].header
         pos = [hdr['CRVAL1'], hdr['CRVAL2']]
 
-        r = 6.0#*np.sqrt(1.2)
-        contam = [0.0, 5e-3]
+        r = 6.0*np.sqrt(1.2)
+        contam = [0.0, 0.5]
         tmag_lim = [7.5, 12.5]
 
-        t  = tic_by_contamination(pos, r, contam, tmag_lim)
-
-        # This will guarantee at least 1000 stars to identify the 
-        # most isolated ones to build the pointing model with
-        while len(t['ra']) < 1000:
-            contam[1] = contam[1] + 1e-3
-            t = tic_by_contamination(pos, r, contam, tmag_lim)
+        t  = tic_by_contamination(pos, r, contam, tmag_lim).group_by('contratio')
 
         for fn in self.local_paths:
             hdu = fits.open(fn)
