@@ -19,7 +19,7 @@ from photutils import MMMBackground
 from sklearn.decomposition import PCA
 from scipy import interpolate
 from scipy.interpolate import interp1d
-
+from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
 #from eleanor.version import __version__
@@ -32,10 +32,10 @@ def bkg(flux, sigma=2.5):
     return bkg.calc_background(flux)
 
 def do_pca(i, j, data, vv, q):
-    xvals = xhat(vv[:], data[i,j,:][q]) # does the regression
-    #cm = np.column_stack((pca.components_[0:modes,q].T, np.ones_like(pca.components_[0,q])))
-    fmod = fhat(xvals, vv) # builds a predicted flux at each cadence from the regression (centered around zero)
-    lc_pred = (fmod+1) # now centered around 1
+    xvals = xhat(vv[:], data[i,j,:][q]) # does the regression                                                                                                                              
+    #cm = np.column_stack((pca.components_[0:modes,q].T, np.ones_like(pca.components_[0,q])))                                                                                              
+    fmod = fhat(xvals, vv) # builds a predicted flux at each cadence from the regression (centered around zero)                                                                            
+    lc_pred = (fmod+1) # now centered around 1                                                                                                                                             
     return xvals
 
 def xhat(mat, lc):
@@ -52,9 +52,9 @@ def calc_2dbkg(flux, qual, time):
     q = qual == 0
     med = np.nanmedian(flux[:,:,:], axis=(2))
     g = np.ma.masked_where(med < np.percentile(med, 40.), med)
-    
+
     modes = 21
-    
+
     pca = PCA(n_components=modes)
     pca.fit(flux[g.mask])
     pv = pca.components_[0:modes].T[q]
@@ -75,9 +75,9 @@ def calc_2dbkg(flux, qual, time):
     GD = np.zeros_like(maskvals)
     for i in range(len(g)):
         for j in range(len(g[0])):
-            if g.mask[i][j] == True:     
+            if g.mask[i][j] == True:
                 maskvals[i,j] = do_pca(i,j, flux, vv, q)
-                
+
     noval = maskvals[:,:,:] == 0
     maskvals[noval] = np.nan
     
@@ -87,21 +87,21 @@ def calc_2dbkg(flux, qual, time):
 
     metric = outmeasure/len(maskvals[0,0])
     maskvals[metric > 1.00,:] = np.nan
-        
+
 
     x = np.arange(0, maskvals.shape[1])
-    y = np.arange(0, maskvals.shape[0])    
+    y = np.arange(0, maskvals.shape[0])
 
     xx, yy = np.meshgrid(x, y)
 
 
     for i in range(np.shape(vv)[1]):
         array = np.ma.masked_invalid(maskvals[:,:,i])
-        #get only the valid values
+        #get only the valid values                                                                                                                                                         
         x1 = xx[~array.mask]
         y1 = yy[~array.mask]
         newarr = array[~array.mask]
-        
+
 
         GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
                                   (xx, yy),
@@ -109,7 +109,7 @@ def calc_2dbkg(flux, qual, time):
 
         array = np.ma.masked_invalid(GD[:,:,i])
         xx, yy = np.meshgrid(x, y)
-        #get only the valid values
+        #get only the valid values                                                                                                                                                         
         x1 = xx[~array.mask]
         y1 = yy[~array.mask]
         newarr = array[~array.mask]
@@ -117,9 +117,6 @@ def calc_2dbkg(flux, qual, time):
         GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
                                   (xx, yy),
                                      method='nearest')
-        
-
-
     bkg_arr = np.zeros_like(flux)
 
     for i in range(104):
@@ -130,6 +127,7 @@ def calc_2dbkg(flux, qual, time):
     fout = f(time)
 
     return fout
+
 
 
 def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=None):
@@ -255,6 +253,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
     quality = np.empty(len(fns))
 
     # Loop over postcards
+    post_names = []
     with tqdm.tqdm(total=total_num_postcards) as bar:
         for i, h in enumerate(hs):
             for j, w in enumerate(ws):
@@ -319,6 +318,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                 ycen = w + 0.5*dw
 
                 outfn = outfn_fmt(int(xcen), int(ycen))
+                post_names.append(outfn)
 
                 rd = primary_wcs.all_pix2world(xcen, ycen, 1)
                 hdr.add_record(
@@ -363,7 +363,6 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                                                            pm=pm)
                     primary_data[k][len(primary_cols)-2] = quality_array[k]
 
-                grid_bkg = calc_2dbkg(pixel_data, quality_array, primary_data['TSTART'])
 
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
@@ -371,13 +370,11 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                 # Save the image data
                 fitsio.write(outfn, pixel_data)
 
-                # Save the background data
-                fitsio.write(outfn, grid_bkg)
-
                 if not is_raw:
                     fitsio.write(outfn, all_errs[w:w+dw, h:h+dh, :])
 
                 bar.update()
+    return np.array(post_names)
 
 
 if __name__ == "__main__":
@@ -404,6 +401,16 @@ if __name__ == "__main__":
     fns = sorted(glob.glob(args.file_pattern))
     outdir = args.output_dir
     sc_fn  = args.sc_fn
-    make_postcards(fns, outdir, sc_fn,
-                   width=args.width, height=args.height,
-                   wstep=args.wstep, hstep=args.hstep)
+    postcard_fns = make_postcards(fns, outdir, sc_fn,
+                                  width=args.width, height=args.height,
+                                  wstep=args.wstep, hstep=args.hstep)
+    
+    # Writes in the background after making the postcards
+    with tqdm.tqdm(total=total_num_postcards) as bar:
+        for fn in postcard_fns:
+            hdu = fits.open(fn)
+            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
+            fits.append(fn, bkg)
+            hdu.close()
+            bar.update()
+        
