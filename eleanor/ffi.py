@@ -175,27 +175,40 @@ class ffi:
             Defaults to "~/.eleanor/sector_{}/ffis" if `None` is passed.
         """
 
-        def findAllFFIs(ca, ch):
-            nonlocal year, days, url
+        def findAllFFIs():
+            nonlocal url
+            sub_paths = []
+            subsub_paths = []
             calFiles, urlPaths = [], []
-            for d in days:
-                path = '/'.join(str(e) for e in [url, year, d, ca])+'-'+str(ch)+'/'
-                for fn in BeautifulSoup(requests.get(path).text, "lxml").find_all('a'):
-                    if fn.get('href')[-7::] == 'ic.fits':
-                        calFiles.append(fn.get('href'))
-                        urlPaths.append(path)
-            return calFiles, urlPaths
 
-        if self.sector in np.arange(1,14,1):
-            year=2019
-        else:
-            year=2020
-        # Current days available for ETE-6
-        days = np.arange(129,158,1)
+            paths = BeautifulSoup(requests.get(url).text, "lxml").find_all('a')
+
+            for direct in paths:
+                subdirect = direct.get('href')
+                if ('2018' in subdirect) or ('2019' in subdirect):
+                    sub_paths.append(os.path.join(url, subdirect))
+
+            for sp in sub_paths:
+                for fn in BeautifulSoup(requests.get(sp).text, "lxml").find_all('a'):
+                    subsub = fn.get('href')
+                    if (subsub[0] != '?') and (subsub[0] != '/'):
+                        subsub_paths.append(os.path.join(sp, subsub))
+            
+            subsub_paths = [os.path.join(i, '{}-{}/'.format(self.camera, self.chip)) for i in subsub_paths]
+
+            for sbp in subsub_paths:
+                for fn in BeautifulSoup(requests.get(sbp).text, "lxml").find_all('a'):
+                    if 'ffic.fits' in fn.get('href'):
+                        calFiles.append(fn.get('href'))
+                        urlPaths.append(sbp)
+
+            return np.array(calFiles), np.array(urlPaths)
 
         # This URL applies to ETE-6 simulated data ONLY
-        url = 'https://archive.stsci.edu/missions/tess/ete-6/ffi/'
-        files, urlPaths = findAllFFIs(self.camera, self.chip)
+        url = 'https://archive.stsci.edu/missions/tess/ffi/'
+
+        url = os.path.join(url, "s{0:04d}".format(self.sector))
+        files, urlPaths = findAllFFIs()
 
         if download_dir is None:
             # Creates hidden .eleanor FFI directory
