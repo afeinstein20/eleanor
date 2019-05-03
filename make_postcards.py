@@ -22,7 +22,7 @@ from scipy.interpolate import interp1d
 from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
-#from eleanor.version import __version__
+from eleanor.version import __version__ 
 
 
 def bkg(flux, sigma=2.5):
@@ -149,7 +149,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
     primary_header.add_record(
         dict(name='AUTHOR', value='Adina D. Feinstein'))
     primary_header.add_record(
-        dict(name='VERSION', value='0.0.4'))
+        dict(name='VERSION', value=__version__))
     primary_header.add_record(
         dict(name='GITHUB',
              value='https://github.com/afeinstein20/eleanor'))
