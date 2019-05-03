@@ -175,27 +175,40 @@ class ffi:
             Defaults to "~/.eleanor/sector_{}/ffis" if `None` is passed.
         """
 
-        def findAllFFIs(ca, ch):
-            nonlocal year, days, url
+        def findAllFFIs():
+            nonlocal url
+            sub_paths = []
+            subsub_paths = []
             calFiles, urlPaths = [], []
-            for d in days:
-                path = '/'.join(str(e) for e in [url, year, d, ca])+'-'+str(ch)+'/'
-                for fn in BeautifulSoup(requests.get(path).text, "lxml").find_all('a'):
-                    if fn.get('href')[-7::] == 'ic.fits':
-                        calFiles.append(fn.get('href'))
-                        urlPaths.append(path)
-            return calFiles, urlPaths
 
-        if self.sector in np.arange(1,14,1):
-            year=2019
-        else:
-            year=2020
-        # Current days available for ETE-6
-        days = np.arange(129,158,1)
+            paths = BeautifulSoup(requests.get(url).text, "lxml").find_all('a')
+
+            for direct in paths:
+                subdirect = direct.get('href')
+                if ('2018' in subdirect) or ('2019' in subdirect):
+                    sub_paths.append(os.path.join(url, subdirect))
+
+            for sp in sub_paths:
+                for fn in BeautifulSoup(requests.get(sp).text, "lxml").find_all('a'):
+                    subsub = fn.get('href')
+                    if (subsub[0] != '?') and (subsub[0] != '/'):
+                        subsub_paths.append(os.path.join(sp, subsub))
+            
+            subsub_paths = [os.path.join(i, '{}-{}/'.format(self.camera, self.chip)) for i in subsub_paths]
+
+            for sbp in subsub_paths:
+                for fn in BeautifulSoup(requests.get(sbp).text, "lxml").find_all('a'):
+                    if 'ffic.fits' in fn.get('href'):
+                        calFiles.append(fn.get('href'))
+                        urlPaths.append(sbp)
+
+            return np.array(calFiles), np.array(urlPaths)
 
         # This URL applies to ETE-6 simulated data ONLY
-        url = 'https://archive.stsci.edu/missions/tess/ete-6/ffi/'
-        files, urlPaths = findAllFFIs(self.camera, self.chip)
+        url = 'https://archive.stsci.edu/missions/tess/ffi/'
+
+        url = os.path.join(url, "s{0:04d}".format(self.sector))
+        files, urlPaths = findAllFFIs()
 
         if download_dir is None:
             # Creates hidden .eleanor FFI directory
@@ -384,21 +397,24 @@ class ffi:
             onFrame = np.where( (xy[0]>10) & (xy[0]<2092-10) & (xy[1]>10) & (xy[1]<2048-10) )[0]
             xy  = np.array([xy[0][onFrame], xy[1][onFrame]])
             iso = find_isolated(xy[0], xy[1])
-            xy  = np.array([xy[0][iso], xy[1][iso]])
-            cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
+            if len(iso) > 0:
+                xy  = np.array([xy[0][iso], xy[1][iso]])
+                cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
 
-            # Triple checks there are no nans; Nans make people sad
-            no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
-            pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
-            xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
+                # Triple checks there are no nans; Nans make people sad
+                no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
+                pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
+                xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
 
-            solution = self.build_pointing_model(xy.T, pos_inferred.T)
+                solution = self.build_pointing_model(xy.T, pos_inferred.T)
+                
+                xy = apply_pointing_model(xy.T, solution)
+                matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
 
-            xy = apply_pointing_model(xy.T, solution)
-            matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
-
-            sol    = np.dot(matrix, solution)
-            sol    = sol.flatten()
+                sol    = np.dot(matrix, solution)
+                sol    = sol.flatten()
+            else:
+                sol = np.full((9,), 1e5)
 
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
