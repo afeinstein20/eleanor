@@ -19,7 +19,7 @@ from photutils import MMMBackground
 from sklearn.decomposition import PCA
 from scipy import interpolate
 from scipy.interpolate import interp1d
-
+from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
 #from eleanor.version import __version__
@@ -117,8 +117,6 @@ def calc_2dbkg(flux, qual, time):
         GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
                                   (xx, yy),
                                      method='nearest')
-
-
 
     bkg_arr = np.zeros_like(flux)
 
@@ -262,6 +260,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     quality = np.empty(len(fns))
 
     # Loop over postcards
+    post_names = []
     with tqdm.tqdm(total=total_num_postcards) as bar:
         for i, h in enumerate(hs):
             for j, w in enumerate(ws):
@@ -326,6 +325,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 ycen = w + 0.5*dw
 
                 outfn = outfn_fmt(int(xcen), int(ycen))
+                post_names.append(outfn)
 
                 rd = primary_wcs.all_pix2world(xcen, ycen, 1)
                 hdr.add_record(
@@ -370,7 +370,6 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                                                            pm=pm)
                     primary_data[k][len(primary_cols)-2] = quality_array[k]
 
-                grid_bkg = calc_2dbkg(pixel_data, quality_array, primary_data['TSTART'])
 
                 # Saves the primary hdu
                 fitsio.write(outfn, primary_data, header=hdr, clobber=True)
@@ -378,13 +377,11 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 # Save the image data
                 fitsio.write(outfn, pixel_data)
 
-                # Save the background data
-                fitsio.write(outfn, grid_bkg)
-
                 if not is_raw:
                     fitsio.write(outfn, all_errs[w:w+dw, h:h+dh, :])
 
                 bar.update()
+    return np.array(post_names)
 
 
 if __name__ == "__main__":
@@ -427,6 +424,16 @@ if __name__ == "__main__":
     open(os.path.join(os.path.dirname(outdir), "index.auto"), "w").close()
 
     fns = list(sorted(glob.glob(pattern)))
-    make_postcards(fns, outdir,
-                   width=args.width, height=args.height,
-                   wstep=args.wstep, hstep=args.hstep)
+    postcard_fns = make_postcards(fns, outdir,
+                                  width=args.width, height=args.height,
+                                  wstep=args.wstep, hstep=args.hstep)
+
+    # Writes in the background after making the postcards
+    with tqdm.tqdm(total=total_num_postcards) as bar:
+        for fn in postcard_fns:
+            hdu = fits.open(fn)
+            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
+            fits.append(fn, bkg)
+            hdu.close()
+            bar.update()
+
