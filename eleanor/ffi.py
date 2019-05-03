@@ -397,21 +397,24 @@ class ffi:
             onFrame = np.where( (xy[0]>10) & (xy[0]<2092-10) & (xy[1]>10) & (xy[1]<2048-10) )[0]
             xy  = np.array([xy[0][onFrame], xy[1][onFrame]])
             iso = find_isolated(xy[0], xy[1])
-            xy  = np.array([xy[0][iso], xy[1][iso]])
-            cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
+            if len(iso) > 0:
+                xy  = np.array([xy[0][iso], xy[1][iso]])
+                cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
 
-            # Triple checks there are no nans; Nans make people sad
-            no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
-            pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
-            xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
+                # Triple checks there are no nans; Nans make people sad
+                no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
+                pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
+                xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
 
-            solution = self.build_pointing_model(xy.T, pos_inferred.T)
+                solution = self.build_pointing_model(xy.T, pos_inferred.T)
+                
+                xy = apply_pointing_model(xy.T, solution)
+                matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
 
-            xy = apply_pointing_model(xy.T, solution)
-            matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
-
-            sol    = np.dot(matrix, solution)
-            sol    = sol.flatten()
+                sol    = np.dot(matrix, solution)
+                sol    = sol.flatten()
+            else:
+                sol = np.full((9,), 1e5)
 
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
