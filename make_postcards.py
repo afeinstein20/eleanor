@@ -22,7 +22,8 @@ from scipy.interpolate import interp1d
 from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
-from eleanor.version import __version__
+from eleanor.import __version__ 
+
 
 
 def bkg(flux, sigma=2.5):
