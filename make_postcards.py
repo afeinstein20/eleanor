@@ -215,8 +215,13 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
         all_errs = np.empty((total_width, total_height, len(fns)), dtype=dtype,
                             order="F")
 
-    ffiindex = np.loadtxt('metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(int(sector[1::])))
-    sc_fn = np.loadtxt('metadata/s{0:04d}/target_s{0:04d}.fits'.format(int(sector[1::])))
+    s = int(sector[1::])
+    metadata_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'metadata', 's{0:04d}'.format(s))
+    ffiindex = np.loadtxt(os.path.join(metadata_dir,
+                                       'cadences_s{0:04d}.txt'.format(s)))
+    sc_fn = os.path.join(metadata_dir, 'target_s{0:04d}.fits'.format(s))
+    print(sc_fn)
 
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
@@ -293,10 +298,10 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
 
                 # Same thing as done for TSTART and TSTOP for DATE-OBS and DATE-END
                 hdr.add_record(
-                    dict(name='DATE-OBS', value=primary_data['DATE-OBS'][0],
+                    dict(name='DATE-OBS', value=primary_data['DATE-OBS'][0].decode("ascii"),
                          comment='TSTART as UTC calendar date'))
                 hdr.add_record(
-                    dict(name='DATE-END', value=primary_data['DATE-END'][len(primary_data['DATE-END'])-1],
+                    dict(name='DATE-END', value=primary_data['DATE-END'][len(primary_data['DATE-END'])-1].decode("ascii"),
                          comment='TSTOP as UTC calendar date'))
 
                 # Adding MJD time for start and stop end time
@@ -419,8 +424,9 @@ if __name__ == "__main__":
                           "{0:d}-{1:d}".format(args.camera, args.chip))
     os.makedirs(outdir, exist_ok=True)
     open(os.path.join(outdir, "index.auto"), "w").close()
+    open(os.path.join(os.path.dirname(outdir), "index.auto"), "w").close()
 
-    fns = sorted(glob.glob(pattern))
+    fns = list(sorted(glob.glob(pattern)))
     make_postcards(fns, outdir,
                    width=args.width, height=args.height,
                    wstep=args.wstep, hstep=args.hstep)
