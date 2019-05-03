@@ -35,7 +35,7 @@ def get_headers(cards):
                 dtype = ['S60' for _ in range(len(names))]
                 t = Table(names=names, dtype=dtype)
 
-            row = np.array([hdr[k] for k in hdrKeys])
+            row = np.array([hdr.get(k, np.nan) for k in hdrKeys])
             row = row[counts]
             row = np.append(row, os.path.split(cards[i])[-1])
             row = np.append(row, hdr[key])
