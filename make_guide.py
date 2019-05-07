@@ -6,6 +6,7 @@ import fitsio
 import os, glob, tqdm, requests
 from bs4 import BeautifulSoup
 
+#FFIURL = 'https://archipelago.uchicago.edu/tess_postcards/eleanor_files/ffis/'
 
 def find_ffis(directory):
     ffis = []
@@ -19,7 +20,7 @@ def get_headers(cards, exists=False, t=None):
         try:
             hdr = fits.open(cards[i])[1].header
             key = 'TMOFST{0}{1}'.format(hdr['CAMERA'], hdr['CCD'])
-
+            
             sector = os.path.split(cards[i])[-1].split("-")[1]
 
             # Initiate table using first postcard                                                           
@@ -42,9 +43,9 @@ def get_headers(cards, exists=False, t=None):
                 
             elif i == 0 and exists == True:
                 names = t.colnames
-                dtype = t.dtype
+                dtype = ['S60' for _ in range(len(names))]
                 counts = np.arange(0,182,1)
-                hdrKeys = [k for k in hdr.keys() if not k.startswith('TMOST')]
+                hdrKeys = [k for k in hdr.keys() if not k.startswith('TMOFST')]
 
             row = np.array([hdr.get(k, 0) for k in hdrKeys])
             row = row[counts]
@@ -53,15 +54,18 @@ def get_headers(cards, exists=False, t=None):
             row = np.append(row, hdr[key])
 
             if exists == True:
-                check = [t['SECTOR'][i], t['CAMERA'][i], t['CCD'][i]]
                 sec_ind = [i for i in np.arange(0,len(names),1) if 'SECTOR' in names[i]][0]
                 cam_ind = [i for i in np.arange(0,len(names),1) if 'CAMERA' in names[i]][0]
                 ccd_ind = [i for i in np.arange(0,len(names),1) if 'CCD'    in names[i]][0]
-                if check == [row[sec_ind], int(row[cam_ind]), int(row[ccd_ind])]:
-                    continue
-                else:
-                    t.add_row(row)
-            else:
+                file_check = [row[sec_ind], int(row[cam_ind]), int(row[ccd_ind])]
+                
+                checker = 0
+                for j in range(len(t)):
+                    check = [t['SECTOR'][j], t['CAMERA'][j], t['CCD'][j]]
+                    if check==file_check:
+                        checker += 1
+
+            elif exists == False and checker == 0:
                 t.add_row(row)
 
         except:
