@@ -290,13 +290,4 @@ class Source(object):
         self.all_postcards = postcards[in_file]
         self.postcard = postcards[in_file[best_ind]]
 
-#        i = in_file[best_ind]
 
-#        online_postcard = os.path.join(URL, self.postcard)
-#        hdu = fits.open(online_postcard)
-#        hdr = hdu[1].header
-
-#        postcard_pos_on_ffi = (hdr['CEN_X'] - hdr['POST_H']/2.,
-#                               hdr['CEN_Y'] - hdr['POST_W']/2.)
-#        self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
-#        print(self.position_on_postcard)
