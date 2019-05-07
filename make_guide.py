@@ -3,22 +3,30 @@ import numpy as np
 from astropy.io import fits, ascii
 from astropy.table import Table
 import fitsio
-import os
-import glob
-import tqdm
+import os, glob, tqdm, requests
+from bs4 import BeautifulSoup
 
+FFIURL = 'https://archipelago.uchicago.edu/tess_postcards/eleanor_files/ffis/'
 
-def postcard_names(loc):
-    return list(sorted(glob.glob(os.path.join(loc, "*/*.fits"))))
+def find_ffis():
+    ffis = []
+    paths = BeautifulSoup(requests.get(FFIURL).text, "lxml").find_all('a')
+    for p in paths:
+        fn = p.get('href')
+        if 'tess' and '.fits' in fn:
+            ffis.append(os.path.join(FFIURL, fn))
+    return np.array(ffis)
 
 
 def get_headers(cards):
     for i in tqdm.tqdm(range(len(cards)), total=len(cards)):
         try:
-            hdr = fitsio.read_header(cards[i], 1)
+            hdr = fits.open(cards[i])[1].header
             key = 'TMOFST{0}{1}'.format(hdr['CAMERA'], hdr['CCD'])
 
-            # Initiate table using first postcard
+            sector = os.path.split(cards[i])[-1].split("-")[1]
+
+            # Initiate table using first postcard                                                           
             if i == 0:
                 names, counts = [], []
                 hdrKeys = [k for k in hdr.keys() if not k.startswith('TMOFST')]
@@ -27,7 +35,8 @@ def get_headers(cards):
                     if hdrKeys[k] not in names:
                         names.append(hdrKeys[k])
                         counts.append(k)
-                names.append('POSTNAME')
+                names.append('FFINAME')
+                names.append('SECTOR')
                 names.append('TMOFST')
 
                 counts = np.array(counts)
@@ -37,7 +46,8 @@ def get_headers(cards):
 
             row = np.array([hdr.get(k, np.nan) for k in hdrKeys])
             row = row[counts]
-            row = np.append(row, os.path.split(cards[i])[-1])
+            row = np.append(row, cards[i])
+            row = np.append(row, sector)
             row = np.append(row, hdr[key])
             t.add_row(row)
         except:
@@ -51,7 +61,7 @@ if len(sys.argv) > 1:
 else:
     dirname = "."
 
-postcards = postcard_names(dirname)
-table = get_headers(postcards)
+ffis = find_ffis()
+table = get_headers(ffis)
 
-ascii.write(table, os.path.join(dirname, 'postcard.guide'), overwrite=True)
+ascii.write(table, os.path.join(dirname, 'ffi.guide'), overwrite=True)
