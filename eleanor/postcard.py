@@ -157,6 +157,14 @@ class Postcard(object):
         return (self.header['POSTPIX1'], self.header['POSTPIX2'])
 
     @property
+    def height(self):
+        return self.header['POST_H']
+
+    @property
+    def width(self):
+        return self.header['POST_W']
+
+    @property
     def flux(self):
         return self.hdu[2].data
 
