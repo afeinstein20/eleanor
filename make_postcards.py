@@ -38,7 +38,7 @@ def lowpass(vec):
     new_signal = np.convolve(vec, sinc_func)
 
     lns = len(new_signal)
-    diff = int(np.abs(lns - len(bkg))/2)
+    diff = int(np.abs(lns - len(vec))/2)
 
     return new_signal[diff:-diff]
 
