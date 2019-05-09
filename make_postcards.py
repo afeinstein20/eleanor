@@ -429,11 +429,8 @@ if __name__ == "__main__":
                                   wstep=args.wstep, hstep=args.hstep)
 
     # Writes in the background after making the postcards
-    with tqdm.tqdm(total=total_num_postcards) as bar:
-        for fn in postcard_fns:
-            hdu = fits.open(fn)
-            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
-            fits.append(fn, bkg)
-            hdu.close()
-            bar.update()
-
+    for fn in tqdm.tqdm(postcard_fns, total=len(postcard_fns)):
+        hdu = fits.open(fn)
+        bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
+        fits.append(fn, bkg)
+        hdu.close()
