@@ -22,7 +22,7 @@ from scipy.interpolate import interp1d
 from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
-from eleanor.import __version__ 
+from eleanor.version import __version__
 
 def lowpass(vec):
     fc = 0.12
