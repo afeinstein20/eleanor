@@ -22,7 +22,25 @@ from scipy.interpolate import interp1d
 from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
-from eleanor.version import __version__
+from eleanor.import __version__ 
+
+def lowpass(vec):
+    fc = 0.12
+    b = 0.08
+    N = int(np.ceil((4 / b)))
+    if not N % 2: N += 1
+    n = np.arange(N)
+
+    sinc_func = np.sinc(2 * fc * (n - (N - 1) / 2.))
+    window = 0.42 - 0.5 * np.cos(2 * np.pi * n / (N - 1)) + 0.08 * np.cos(4 * np.pi * n / (N - 1))
+    sinc_func = sinc_func * window
+    sinc_func = sinc_func / np.sum(sinc_func)
+    new_signal = np.convolve(vec, sinc_func)
+
+    lns = len(new_signal)
+    diff = int(np.abs(lns - len(vec))/2)
+
+    return new_signal[diff:-diff]
 
 
 def bkg(flux, sigma=2.5):
@@ -123,6 +141,7 @@ def calc_2dbkg(flux, qual, time):
     for i in range(104):
         for j in range(148):
             bkg_arr[i,j,q] = np.dot(GD[i,j,:], vv.T)
+            bkg_arr[i,j,q] = lowpass(bkg_arr[i,j,q])
 
     f = interp1d(time[q], bkg_arr[:,:,q], kind='linear', axis=2, bounds_error=False, fill_value='extrapolate')
     fout = f(time)

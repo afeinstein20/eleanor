@@ -129,7 +129,9 @@ class TargetData(object):
 
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None,
                  bkg_type=None):
+
         self.source_info = source 
+        self.header = None
 
         if self.source_info.premade is True:
             self.load(directory=self.source_info.fn_dir)
@@ -202,8 +204,8 @@ class TargetData(object):
         self.centroid_xs = None
         self.centroid_ys = None
 
-        xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
-        
+        xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1, quiet=True)
+
         # Apply the pointing model to each cadence to find the centroids
         centroid_xs, centroid_ys = [], []
         for i in range(len(self.pointing_model)):
@@ -237,14 +239,13 @@ class TargetData(object):
         x_low_bkg = med_x-x_bkg_len
         x_upp_bkg = med_x+x_bkg_len + 1
     
-
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
 
         post_y_upp, post_x_upp = self.post_obj.dimensions[0], self.post_obj.dimensions[1]
 
         x_offset, y_offset = 0, 0
-
+        
         if (x_low_lim<=0) or (y_low_lim<=0) or (x_upp_lim>=post_x_upp) or (y_upp_lim>=post_y_upp):
             warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
             warnings.warn("WARNING: Your postage stamp may not be centered.")
@@ -816,6 +817,8 @@ class TargetData(object):
         skip: int
             The number of cadences at the start of each orbit to skip in determining optimal model weights.
         """
+        self.modes = modes
+
         if flux is None:
             flux = self.raw_flux
 
@@ -928,9 +931,15 @@ class TargetData(object):
                                      comment='central y pixel of TPF in FFI'))
         self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
                                      comment=''))
-        self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
+
+        post_cen = self.post_obj.center_xy
+        position_on_post = (post_cen[0]-self.post_obj.height/2.,
+                            post_cen[1]-self.post_obj.width/2.)
+        position_on_post = self.source_info.position_on_chip - postition_on_post
+
+        self.header.append(fits.Card(keyword='POSTPOS1', value= position_on_post[0],
                                      comment='predicted x pixel of source on postcard'))
-        self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
+        self.header.append(fits.Card(keyword='POSTPOS2', value= position_on_post[1],
                                      comment='predicted y pixel of source on postcard'))
         self.header.append(fits.Card(keyword='CEN_RA', value = self.source_info.coords[0],
                                      comment='RA of TPF source'))
@@ -962,8 +971,8 @@ class TargetData(object):
         directory : str, optional
             Directory to save file into.
         """
-        
-        self.set_header()
+        if self.header is None:
+            self.set_header()
 
         # if the user did not specify a directory, set it to default
         if directory is None:
@@ -990,10 +999,13 @@ class TargetData(object):
         ext1['FLUX_BKG']   = self.flux_bkg
         ext1['2D_BKG']     = self.bkg_2d_tpf
 
-        if self.bkg_type == "PC_LEVEL":
+        if self.source_info.premade == True:
             ext1['FLUX_BKG'] = self.flux_bkg
         else:
-            ext1['FLUX_BKG'] = self.flux_bkg + self.tpf_flux_bkg 
+            if self.bkg_type == "PC_LEVEL":
+                ext1['FLUX_BKG'] = self.flux_bkg
+            else:
+                ext1['FLUX_BKG'] = self.flux_bkg + self.tpf_flux_bkg 
         
 
         if self.pca_flux is not None:
@@ -1049,11 +1061,15 @@ class TargetData(object):
         hdu = fits.open(os.path.join(directory, self.source_info.fn))
         hdr = hdu[0].header
         self.header = hdr
+        
+        self.bkg_type = hdr['BKG_LVL']
+
         # Loads in everything from the first extension
         cols  = hdu[1].columns.names
         table = hdu[1].data
         self.time        = table['TIME']
         self.tpf         = table['TPF']
+        self.barycorr    = table['BARYCORR']
         self.tpf_err     = table['TPF_ERR']
         self.raw_flux    = table['RAW_FLUX']
         self.corr_flux   = table['CORR_FLUX']
@@ -1068,8 +1084,13 @@ class TargetData(object):
 
         if 'PSF_FLUX' in cols:
             self.psf_flux = table['PSF_FLUX']
+        else:
+            self.psf_flux = None
+
         if 'PCA_FLUX' in cols:
             self.pca_flux = table['PCA_FLUX']
+        else:
+            self.pca_flux = None
 
         # Loads in apertures from second extension
         self.all_apertures = []
@@ -1082,6 +1103,11 @@ class TargetData(object):
                 self.aperture = table[i]
             else:
                 self.all_apertures.append(table[i])
+
+        self.aperture_names = cols
+        for i in range(len(cols)):
+            if cols[i] == hdr['APERTURE']:
+                self.best_ind = i
 
         # Loads in remaining light curves from third extension
         cols  = hdu[3].columns.names
