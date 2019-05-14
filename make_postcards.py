@@ -454,10 +454,12 @@ if __name__ == "__main__":
     with tqdm.tqdm(total=total_num_postcards) as bar:
         for fn in postcard_fns:
             hdu = fits.open(fn)
+            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
             # Checks to make sure there isn't a background extension already
             if len(hdu) < 5:
-                bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
                 fits.append(fn, bkg)
+            else:
+                fits.update(fn, bkg, 4)
             hdu.close()
             bar.update()
 
