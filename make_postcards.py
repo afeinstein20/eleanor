@@ -447,9 +447,18 @@ if __name__ == "__main__":
                                   width=args.width, height=args.height,
                                   wstep=args.wstep, hstep=args.hstep)
 
+    # Ensures no postcards have been repeated
+    postcard_fns = np.unique(postcard_fns)
+
     # Writes in the background after making the postcards
-    for fn in tqdm.tqdm(postcard_fns, total=len(postcard_fns)):
-        hdu = fits.open(fn)
-        bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
-        fits.append(fn, bkg)
-        hdu.close()
+    with tqdm.tqdm(total=total_num_postcards) as bar:
+        for fn in postcard_fns:
+            hdu = fits.open(fn)
+            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
+            # Checks to make sure there isn't a background extension already
+            if len(hdu) < 5:
+                fits.append(fn, bkg)
+            else:
+                fits.update(fn, bkg, 4)
+            hdu.close()
+            bar.update()
