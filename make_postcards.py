@@ -22,7 +22,7 @@ from scipy.interpolate import interp1d
 from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
-from eleanor.import __version__ 
+from eleanor.version import __version__
 
 def lowpass(vec):
     fc = 0.12
@@ -449,6 +449,7 @@ if __name__ == "__main__":
 
     # Ensures no postcards have been repeated
     postcard_fns = np.unique(postcard_fns)
+    total_num_postcards = len(postcard_fns)
 
     # Writes in the background after making the postcards
     with tqdm.tqdm(total=total_num_postcards) as bar:
@@ -462,4 +463,3 @@ if __name__ == "__main__":
                 fits.update(fn, bkg, 4)
             hdu.close()
             bar.update()
-
