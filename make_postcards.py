@@ -449,6 +449,7 @@ if __name__ == "__main__":
 
     # Ensures no postcards have been repeated
     postcard_fns = np.unique(postcard_fns)
+    total_num_postcards = len(postcard_fns)
 
     # Writes in the background after making the postcards
     with tqdm.tqdm(total=total_num_postcards) as bar:
