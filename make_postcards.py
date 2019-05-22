@@ -22,7 +22,8 @@ from scipy.interpolate import interp1d
 from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
-from eleanor.version import __version__
+from eleanor.version import __version__ 
+
 
 def lowpass(vec):
     fc = 0.12
@@ -50,10 +51,9 @@ def bkg(flux, sigma=2.5):
     return bkg.calc_background(flux)
 
 def do_pca(i, j, data, vv, q):
-    xvals = xhat(vv[:], data[i,j,:][q]) # does the regression
-    #cm = np.column_stack((pca.components_[0:modes,q].T, np.ones_like(pca.components_[0,q])))
-    fmod = fhat(xvals, vv) # builds a predicted flux at each cadence from the regression (centered around zero)
-    lc_pred = (fmod+1) # now centered around 1
+    xvals = xhat(vv[:], data[i,j,:][q])
+    fmod = fhat(xvals, vv)
+    lc_pred = (fmod+1) 
     return xvals
 
 def xhat(mat, lc):
@@ -89,33 +89,34 @@ def calc_2dbkg(flux, qual, time):
 
     vv = np.column_stack((vv, np.ones_like(vv[:,0])))
 
-    maskvals = np.zeros((104, 148, np.shape(vv)[1]))
+    maskvals = np.ma.masked_array(data=np.zeros((104,148,np.shape(vv)[1])), 
+                                  mask=np.zeros((104,148,np.shape(vv)[1])))
+
     GD = np.zeros_like(maskvals)
     for i in range(len(g)):
         for j in range(len(g[0])):
             if g.mask[i][j] == True:
-                maskvals[i,j] = do_pca(i,j, flux, vv, q)
+                maskvals.data[i,j] = do_pca(i,j, flux, vv, q)
 
-    noval = maskvals[:,:,:] == 0
-    maskvals[noval] = np.nan
-
+    noval = maskvals.data[:,:,:] == 0
+    maskvals.mask[noval] = True
+    
     outmeasure = np.zeros_like(maskvals[:,:,0])
     for i in range(len(maskvals[0,0])):
-        outmeasure += (np.abs(maskvals[:,:,i]-np.nanmean(maskvals[:,:,i])))/np.nanstd(maskvals[:,:,i])
+        outmeasure += (np.abs(maskvals.data[:,:,i]-np.nanmean(maskvals.data[:,:,i])))/np.nanstd(maskvals.data[:,:,i])
 
-    metric = outmeasure/len(maskvals[0,0])
-    maskvals[metric > 1.00,:] = np.nan
+    metric = outmeasure/len(maskvals.data[0,0])
+    maskvals.mask[metric > 1.00,:] = True
 
-
-    x = np.arange(0, maskvals.shape[1])
-    y = np.arange(0, maskvals.shape[0])
+    x = np.arange(0, maskvals.data.shape[1])
+    y = np.arange(0, maskvals.data.shape[0])
 
     xx, yy = np.meshgrid(x, y)
 
 
     for i in range(np.shape(vv)[1]):
         array = np.ma.masked_invalid(maskvals[:,:,i])
-        #get only the valid values
+
         x1 = xx[~array.mask]
         y1 = yy[~array.mask]
         newarr = array[~array.mask]
@@ -127,7 +128,7 @@ def calc_2dbkg(flux, qual, time):
 
         array = np.ma.masked_invalid(GD[:,:,i])
         xx, yy = np.meshgrid(x, y)
-        #get only the valid values
+
         x1 = xx[~array.mask]
         y1 = yy[~array.mask]
         newarr = array[~array.mask]
@@ -135,7 +136,6 @@ def calc_2dbkg(flux, qual, time):
         GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
                                   (xx, yy),
                                      method='nearest')
-
     bkg_arr = np.zeros_like(flux)
 
     for i in range(104):
@@ -149,14 +149,14 @@ def calc_2dbkg(flux, qual, time):
     return fout
 
 
-def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
+
+def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=None):
     # Make sure that the output directory exists
     os.makedirs(outdir, exist_ok=True)
 
     # We'll assume that the filenames can be sorted like this (it is true for
     # the ETE-6 test data
     fns = list(sorted(fns))
-
     total_ffis = len(fns)
     # Save the middle header as the primary header
     middle_fn = fns[total_ffis//2]
@@ -238,7 +238,6 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     ffiindex = np.loadtxt(os.path.join(metadata_dir,
                                        'cadences_s{0:04d}.txt'.format(s)))
     sc_fn = os.path.join(metadata_dir, 'target_s{0:04d}.fits'.format(s))
-    print(sc_fn)
 
     # We'll have the same primary HDU for each postcard - this will store the
     # time dependent header info
@@ -313,13 +312,13 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                 hdr.add_record(
                     dict(name='TSTOP', value=tstop,
                          comment='observation stop time in BTJD'))
-
+                
                 # Same thing as done for TSTART and TSTOP for DATE-OBS and DATE-END
                 hdr.add_record(
                     dict(name='DATE-OBS', value=primary_data['DATE-OBS'][0].decode("ascii"),
                          comment='TSTART as UTC calendar date'))
                 hdr.add_record(
-                    dict(name='DATE-END', value=primary_data['DATE-END'][len(primary_data['DATE-END'])-1].decode("ascii"),
+                    dict(name='DATE-END', value=primary_data['DATE-END'][-1].decode("ascii"),
                          comment='TSTOP as UTC calendar date'))
 
                 # Adding MJD time for start and stop end time
@@ -370,7 +369,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                          comment="TESS sector"))
 
                 pixel_data = all_ffis[w:w+dw, h:h+dh, :] + 0.0
-
+                
                 bkg_array = []
 
                 # Adds in quality column for each cadence in primary_data
@@ -408,8 +407,6 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description="Make postcards from a list of FFIs")
-    # parser.add_argument('file_pattern',
-    #                     help='the pattern for the input FFI filenames')
     parser.add_argument('sector', type=int,
                         help='the sector number')
     parser.add_argument('camera', type=int,
@@ -418,8 +415,12 @@ if __name__ == "__main__":
                         help='the chip number')
     parser.add_argument('base_dir',
                         help='the base data directory')
+    parser.add_argument('file_pattern',
+                        help='the pattern for the input FFI filenames')
     parser.add_argument('output_dir',
                         help='the output directory')
+    parser.add_argument('sc_fn',
+                        help='the short cadence filename for this sector, camera, chip')
     parser.add_argument('--width', type=int, default=104,
                         help='the width of the postcards')
     parser.add_argument('--height', type=int, default=148,
@@ -442,11 +443,14 @@ if __name__ == "__main__":
     open(os.path.join(outdir, "index.auto"), "w").close()
     open(os.path.join(os.path.dirname(outdir), "index.auto"), "w").close()
 
-    fns = list(sorted(glob.glob(pattern)))
-    postcard_fns = make_postcards(fns, outdir,
+
+    fns = sorted(glob.glob(args.file_pattern))
+    outdir = args.output_dir
+    sc_fn  = args.sc_fn
+    postcard_fns = make_postcards(fns, outdir, sc_fn,
                                   width=args.width, height=args.height,
                                   wstep=args.wstep, hstep=args.hstep)
-
+    
     # Ensures no postcards have been repeated
     postcard_fns = np.unique(postcard_fns)
     total_num_postcards = len(postcard_fns)
@@ -463,3 +467,4 @@ if __name__ == "__main__":
                 fits.update(fn, bkg, 4)
             hdu.close()
             bar.update()
+        
