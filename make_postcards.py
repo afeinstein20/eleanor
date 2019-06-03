@@ -402,6 +402,38 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     return np.array(post_names)
 
 
+def run_sector_camera_chip(base_dir, output_dir, sector, camera, chip):
+    pattern = os.path.join(base_dir, "tess", "ffi",
+                           "s{0:04d}".format(sector),
+                           "*", "*",
+                           "{0:d}-{1:d}".format(camera, chip),
+                           "*.fits")
+
+    outdir = os.path.join(output_dir, "s{0:04d}".format(sector),
+                          "{0:d}-{1:d}".format(camera, chip))
+    os.makedirs(outdir, exist_ok=True)
+    open(os.path.join(outdir, "index.auto"), "w").close()
+    open(os.path.join(os.path.dirname(outdir), "index.auto"), "w").close()
+
+    fns = list(sorted(glob.glob(pattern)))
+    postcard_fns = make_postcards(fns, outdir)
+
+    # Ensures no postcards have been repeated
+    postcard_fns = np.unique(postcard_fns)
+
+    # Writes in the background after making the postcards
+    print("Computing backgrounds...")
+    for fn in tqdm.tqdm(postcard_fns, total=len(postcard_fns)):
+        with fits.open(fn) as hdu:
+            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'],
+                             hdu[1].data['TSTART'])
+            # Checks to make sure there isn't a background extension already
+            if len(hdu) < 5:
+                fits.append(fn, bkg)
+            else:
+                fits.update(fn, bkg, 4)
+
+
 if __name__ == "__main__":
     import argparse
 
@@ -409,52 +441,30 @@ if __name__ == "__main__":
         description="Make postcards from a list of FFIs")
     parser.add_argument('sector', type=int,
                         help='the sector number')
-    parser.add_argument('camera', type=int,
+    parser.add_argument('--camera', type=int, default=None,
                         help='the camera number')
-    parser.add_argument('chip', type=int,
+    parser.add_argument('--chip', type=int, default=None,
                         help='the chip number')
     parser.add_argument('base_dir',
                         help='the base data directory')
     parser.add_argument('output_dir',
                         help='the output directory')
-    parser.add_argument('--width', type=int, default=104,
-                        help='the width of the postcards')
-    parser.add_argument('--height', type=int, default=148,
-                        help='the height of the postcards')
-    parser.add_argument('--wstep', type=int, default=None,
-                        help='the step size in the width direction')
-    parser.add_argument('--hstep', type=int, default=None,
-                        help='the step size in the height direction')
     args = parser.parse_args()
 
-    pattern = os.path.join(args.base_dir, "tess", "ffi",
-                           "s{0:04d}".format(args.sector),
-                           "*", "*",
-                           "{0:d}-{1:d}".format(args.camera, args.chip),
-                           "*.fits")
+    if args.camera is None:
+        cameras = [1, 2, 3, 4]
+    else:
+        assert int(args.camera) in [1, 2, 3, 4]
+        cameras = [int(args.camera)]
 
-    outdir = os.path.join(args.output_dir, "s{0:04d}".format(args.sector),
-                          "{0:d}-{1:d}".format(args.camera, args.chip))
-    os.makedirs(outdir, exist_ok=True)
-    open(os.path.join(outdir, "index.auto"), "w").close()
-    open(os.path.join(os.path.dirname(outdir), "index.auto"), "w").close()
+    if args.chip is None:
+        chips = [1, 2, 3, 4]
+    else:
+        assert int(args.chip) in [1, 2, 3, 4]
+        chips = [int(args.chip)]
 
-    fns = list(sorted(glob.glob(pattern)))
-    postcard_fns = make_postcards(fns, outdir,
-                                  width=args.width, height=args.height,
-                                  wstep=args.wstep, hstep=args.hstep)
-
-    # Ensures no postcards have been repeated
-    postcard_fns = np.unique(postcard_fns)
-    total_num_postcards = len(postcard_fns)
-
-    # Writes in the background after making the postcards
-    for fn in tqdm.tqdm(postcard_fns, total=len(postcard_fns)):
-        hdu = fits.open(fn)
-        bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
-        # Checks to make sure there isn't a background extension already
-        if len(hdu) < 5:
-            fits.append(fn, bkg)
-        else:
-            fits.update(fn, bkg, 4)
-        hdu.close()
+    for camera in cameras:
+        for chip in chips:
+            print("Running {0:04d}-{1}-{2}".format(args.sector, camera, chip))
+            run_sector_camera_chip(args.base_dir, args.output_dir,
+                                   args.sector, camera, chip)
