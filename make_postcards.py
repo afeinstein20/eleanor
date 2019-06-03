@@ -22,7 +22,7 @@ from scipy.interpolate import interp1d
 from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
-from eleanor.version import __version__ 
+from eleanor.version import __version__
 
 
 def lowpass(vec):
@@ -53,7 +53,7 @@ def bkg(flux, sigma=2.5):
 def do_pca(i, j, data, vv, q):
     xvals = xhat(vv[:], data[i,j,:][q])
     fmod = fhat(xvals, vv)
-    lc_pred = (fmod+1) 
+    lc_pred = (fmod+1)
     return xvals
 
 def xhat(mat, lc):
@@ -89,7 +89,7 @@ def calc_2dbkg(flux, qual, time):
 
     vv = np.column_stack((vv, np.ones_like(vv[:,0])))
 
-    maskvals = np.ma.masked_array(data=np.zeros((104,148,np.shape(vv)[1])), 
+    maskvals = np.ma.masked_array(data=np.zeros((104,148,np.shape(vv)[1])),
                                   mask=np.zeros((104,148,np.shape(vv)[1])))
 
     GD = np.zeros_like(maskvals)
@@ -100,7 +100,7 @@ def calc_2dbkg(flux, qual, time):
 
     noval = maskvals.data[:,:,:] == 0
     maskvals.mask[noval] = True
-    
+
     outmeasure = np.zeros_like(maskvals[:,:,0])
     for i in range(len(maskvals[0,0])):
         outmeasure += (np.abs(maskvals.data[:,:,i]-np.nanmean(maskvals.data[:,:,i])))/np.nanstd(maskvals.data[:,:,i])
@@ -150,7 +150,7 @@ def calc_2dbkg(flux, qual, time):
 
 
 
-def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=None):
+def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     # Make sure that the output directory exists
     os.makedirs(outdir, exist_ok=True)
 
@@ -312,7 +312,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                 hdr.add_record(
                     dict(name='TSTOP', value=tstop,
                          comment='observation stop time in BTJD'))
-                
+
                 # Same thing as done for TSTART and TSTOP for DATE-OBS and DATE-END
                 hdr.add_record(
                     dict(name='DATE-OBS', value=primary_data['DATE-OBS'][0].decode("ascii"),
@@ -369,7 +369,7 @@ def make_postcards(fns, outdir, sc_fn, width=104, height=148, wstep=None, hstep=
                          comment="TESS sector"))
 
                 pixel_data = all_ffis[w:w+dw, h:h+dh, :] + 0.0
-                
+
                 bkg_array = []
 
                 # Adds in quality column for each cadence in primary_data
@@ -415,12 +415,8 @@ if __name__ == "__main__":
                         help='the chip number')
     parser.add_argument('base_dir',
                         help='the base data directory')
-    parser.add_argument('file_pattern',
-                        help='the pattern for the input FFI filenames')
     parser.add_argument('output_dir',
                         help='the output directory')
-    parser.add_argument('sc_fn',
-                        help='the short cadence filename for this sector, camera, chip')
     parser.add_argument('--width', type=int, default=104,
                         help='the width of the postcards')
     parser.add_argument('--height', type=int, default=148,
@@ -443,28 +439,22 @@ if __name__ == "__main__":
     open(os.path.join(outdir, "index.auto"), "w").close()
     open(os.path.join(os.path.dirname(outdir), "index.auto"), "w").close()
 
-
-    fns = sorted(glob.glob(args.file_pattern))
-    outdir = args.output_dir
-    sc_fn  = args.sc_fn
-    postcard_fns = make_postcards(fns, outdir, sc_fn,
+    fns = list(sorted(glob.glob(pattern)))
+    postcard_fns = make_postcards(fns, outdir,
                                   width=args.width, height=args.height,
                                   wstep=args.wstep, hstep=args.hstep)
-    
+
     # Ensures no postcards have been repeated
     postcard_fns = np.unique(postcard_fns)
     total_num_postcards = len(postcard_fns)
 
     # Writes in the background after making the postcards
-    with tqdm.tqdm(total=total_num_postcards) as bar:
-        for fn in postcard_fns:
-            hdu = fits.open(fn)
-            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
-            # Checks to make sure there isn't a background extension already
-            if len(hdu) < 5:
-                fits.append(fn, bkg)
-            else:
-                fits.update(fn, bkg, 4)
-            hdu.close()
-            bar.update()
-        
+    for fn in tqdm.tqdm(postcard_fns, total=len(postcard_fns)):
+        hdu = fits.open(fn)
+        bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'], hdu[1].data['TSTART'])
+        # Checks to make sure there isn't a background extension already
+        if len(hdu) < 5:
+            fits.append(fn, bkg)
+        else:
+            fits.update(fn, bkg, 4)
+        hdu.close()
