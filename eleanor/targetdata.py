@@ -204,7 +204,7 @@ class TargetData(object):
         self.centroid_xs = None
         self.centroid_ys = None
 
-        xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1, quiet=True)
+        xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
 
         # Apply the pointing model to each cadence to find the centroids
         centroid_xs, centroid_ys = [], []
