@@ -127,8 +127,8 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None,
-                 bkg_type=None):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, 
+                 cal_cadences=None, bkg_type=None):
 
         self.source_info = source 
         self.header = None
@@ -204,7 +204,7 @@ class TargetData(object):
         self.centroid_xs = None
         self.centroid_ys = None
 
-        xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1, quiet=True)
+        xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
 
         # Apply the pointing model to each cadence to find the centroids
         centroid_xs, centroid_ys = [], []
@@ -456,7 +456,13 @@ class TargetData(object):
                 lc[cad]     = np.sum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc) 
-            self.corr_flux  = self.corrected_flux(flux=lc, skip=50)
+            
+            if self.source_info.sector == 4:
+                skip = 112
+            else:
+                skip = 50
+
+            self.corr_flux  = self.corrected_flux(flux=lc, skip=skip)
             self.flux_err   = np.array(lc_err)
             return
 

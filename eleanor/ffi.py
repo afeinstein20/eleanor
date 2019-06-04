@@ -96,6 +96,7 @@ def pm_quality(time, sector, camera, chip, pm=None):
         # Initiates masks
         mask1 = np.zeros(len(x1)); mask2 = np.zeros(len(x2))
 
+
         # Loops through and searches for points > 2 sigma away from distribution
         for i in np.arange(0,10,1):
             poly1  = np.polyfit(x1[mask1==0], y1[mask1==0], 1)
@@ -140,6 +141,8 @@ def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip,
 
     flags    = np.bitwise_and(convolve_ffi, ffi_apply)
     pm_flags = pm_quality(ffi_stop, sector, camera, chip, pm=pm) * 4096
+
+    pm_flags[ ((ffi_stop>1420.) & (ffi_stop < 1424.)) ] = 4096
 
     return flags+pm_flags
 

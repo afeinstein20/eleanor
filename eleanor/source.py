@@ -1,5 +1,6 @@
 import numpy as np
 from astropy.wcs import WCS
+from astropy.wcs import NoConvergence
 from astropy.table import Table
 from astropy import units as u
 from astropy.coordinates import SkyCoord
@@ -202,8 +203,10 @@ class Source(object):
                     d[names[j]] = guide[i][j]
                     
                 hdr = fits.Header(cards=d) 
-                xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True)
-
+                try:
+                    xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1)
+                except NoConvergence:
+                    xy = (-100, -100)
                 x_zero, y_zero = hdr['CRPIX1'], hdr['CRPIX2']
 
                 if (44 <= xy[0] < 2092) & (0 <= xy[1] < 2048):
