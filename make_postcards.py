@@ -18,6 +18,7 @@ from astropy.stats import SigmaClip
 from photutils import MMMBackground
 from sklearn.decomposition import PCA
 from scipy import interpolate
+from scipy.signal import medfilt2d as mf
 from scipy.interpolate import interp1d
 from astropy.io import fits
 
@@ -68,8 +69,10 @@ def fhat(xhat, data):
 
 def calc_2dbkg(flux, qual, time):
     q = qual == 0
-    med = np.nanmedian(flux[:,:,:], axis=(2))
-    g = np.ma.masked_where(med < np.percentile(med, 40.), med)
+    med = np.percentile(flux[:,:,:], 1, axis=(2))
+    
+    med = med-mf(med, 25)
+    g = np.ma.masked_where(med < np.percentile(med, 70.), med)
 
     modes = 21
 
