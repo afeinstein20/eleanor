@@ -41,7 +41,7 @@ setup(
     install_requires=[
         'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
         'astroquery', 'bokeh', 'muchbettermoments', 'fitsio',
-        'tensorflow', 'vaneska', 'bs4>=4.6.0'],
+        'tensorflow', 'vaneska', 'beautifulsoup4>=4.6.0'],
 
     classifiers=[
         'Development Status :: 3 - Alpha',
