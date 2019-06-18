@@ -93,6 +93,61 @@ def convolve_cbvs(sectors=np.arange(1,14,1)):
                 np.savetxt(new_fn, cbvs_short)
     return
 
+def set_quality_flags(sector=np.arange(1,14,1)):
+    """ Uses the quality flags in a 2-minute target to create quality flags
+        in the postcards.
+    We create our own quality flag as well, using our pointing model.
+    """
+    
+    coord = SkyCoord('04:35:50.330 -64:01:37.33', unit=(u.hourangle, u.deg))
+    
+    sector_table = Tesscut.get_sectors(coord)
+
+
+    manifest = Tesscut.download_cutouts(coord, 31, sector = sector)
+    
+    cutout = fits.open(manifest['Local Path'][0])
+    ffi_time = cutout[1].data['TIME'] - cutout[1].data['TIMECORR']
+    
+    
+    shortCad_fn = 'metadata/s{0:04d}/target_s{0:04d}.fits'.format(sector)
+    
+    # Binary string for values which apply to the FFIs
+    ffi_apply = int('100010101111', 2)
+    
+    # Obtains information for 2-minute target
+    twoMin     = fits.open(shortCad_fn)
+    twoMinTime = twoMin[1].data['TIME']-twoMin[1].data['TIMECORR']
+    finite     = np.isfinite(twoMinTime)
+    twoMinQual = twoMin[1].data['QUALITY']
+
+    twoMinTime = twoMinTime[finite]
+    twoMinQual = twoMinQual[finite]
+
+    convolve_ffi = []
+    nodata = np.zeros_like(ffi_time)
+    for i in range(len(ffi_time)):
+        where = np.where(np.abs(ffi_time[i] - twoMinTime) == np.min(np.abs(ffi_time[i] - twoMinTime)))[0][0]
+        
+        sflux = np.sum(cutout[1].data['FLUX'][i])
+        if sflux == 0:
+            nodata[i] = 4096
+            
+        if (ffi_time[i] > 1420) and (ffi_time[i] < 1424):
+            nodata[i] = 4096
+        
+        v = np.bitwise_or.reduce(twoMinQual[where-7:where+8])
+        convolve_ffi.append(v)
+
+        
+    convolve_ffi = np.array(convolve_ffi)
+
+    flags    = np.bitwise_and(convolve_ffi, ffi_apply)
+    
+    np.savetxt('metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector), flags+nodata, fmt='%i')
+
+    return flags
+
 
 def create_ffiindex(sectors=np.arange(1,14,1)):
     """
