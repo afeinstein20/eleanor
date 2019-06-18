@@ -61,7 +61,7 @@ def load_guide():
         data = urllib.parse.urlencode(values)
         data = data.encode('ascii')
         
-        guide_link = 'https://archipelago.uchicago.edu/tess_postcards/eleanor_files/ffi.guide'
+        guide_link = 'https://archipelago.uchicago.edu/tess_postcards/metadata/ffi.guide'
         
         req = urllib.request.Request(guide_link, data, headers)
         with urllib.request.urlopen(req) as response:
