@@ -8,6 +8,8 @@ import warnings
 import pandas as pd
 import copy
 from .mast import crossmatch_by_position
+from urllib.request import urlopen
+
 
 __all__ = ['Postcard']
 
@@ -188,6 +190,11 @@ class Postcard(object):
     def barycorr(self):
         return self.hdu[1].data['BARYCORR']
     
+    
+    @property
+    def ffiindex(self):
+        return self.hdu[1].data['FFIINDEX']
+    
 class Postcard_tesscut(object):
     """TESS FFI data for one postcard across one sector.
     
@@ -341,3 +348,10 @@ class Postcard_tesscut(object):
     @property 
     def barycorr(self):
         return self.hdu[1].data['TIMECORR']
+    
+    @property
+    def ffiindex(self):
+        sector = self.header['SECTOR']
+        array_obj = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
+        A = [int(x) for x in array_obj.read().decode('utf-8').split()]
+        return A

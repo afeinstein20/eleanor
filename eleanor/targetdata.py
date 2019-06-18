@@ -143,13 +143,15 @@ class TargetData(object):
                     self.post_obj = Postcard(source.postcard, source.ELEANORURL)
             else:
                 self.post_obj = Postcard_tesscut(source.cutout)
+                
+            self.ffiindex = self.post_obj.ffiindex
                     
 
             self.flux_bkg = self.post_obj.bkg 
             
             
             self.get_time(source.coords)
-     
+
             
             if bkg_size is None:
                 bkg_size = width
@@ -170,7 +172,7 @@ class TargetData(object):
             
             self.get_lightcurve()
             if do_pca == True:
-                self.pca()  
+                self.corrected_flux(pca=True)
             else:
                 self.modes = None
                 self.pca_flux = None
@@ -179,6 +181,8 @@ class TargetData(object):
             else:
                 self.psf_flux = None
             self.center_of_mass()
+            
+
 
 
     def get_time(self, coords):
@@ -543,7 +547,11 @@ class TargetData(object):
         Parameters
         ----------
         """
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
+        print('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
+                                                                                                                                                     self.source_info.camera,
+                                                                                                                                                     self.source_info.chip))
+
+        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
                                                                                                                                                      self.source_info.camera,
                                                                                                                                                      self.source_info.chip))
         A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
@@ -1004,6 +1012,7 @@ class TargetData(object):
         ext1['X_COM']      = self.x_com
         ext1['Y_COM']      = self.y_com
         ext1['FLUX_BKG']   = self.flux_bkg
+        ext1['FFIINDEX']   = self.ffiindex
 
         if self.bkg_type == "PC_LEVEL":
             ext1['FLUX_BKG'] = self.flux_bkg
@@ -1079,6 +1088,7 @@ class TargetData(object):
         self.x_com       = table['X_COM']
         self.y_com       = table['Y_COM']
         self.flux_bkg    = table['FLUX_BKG']
+        self.ffiindex    = table['FFIINDEX']
 
         if 'PSF_FLUX' in cols:
             self.psf_flux = table['PSF_FLUX']
