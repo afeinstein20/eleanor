@@ -597,7 +597,7 @@ class TargetData(object):
     def set_quality(self):
         """ Reads in quality flags set in the postcard
         """
-        self.quality = self.post_obj.quality
+        self.quality = np.array(self.post_obj.quality)
         return
 
 
@@ -809,6 +809,8 @@ class TargetData(object):
             flux = self.raw_flux
 
         flux = np.array(flux)
+        
+        med = np.nanmedian(flux)
 
         quality = self.quality
 
@@ -840,6 +842,7 @@ class TargetData(object):
 
         def calc_corr(mask, cx, cy, skip=50):
             nonlocal quality, flux
+
 
             qm = quality[mask] == 0
 
@@ -879,17 +882,17 @@ class TargetData(object):
             x = xhat(cm, norm_l[skip:])
             fmod = fhat(x, cm_full)
             lc_pred = (fmod+1)
-            return lc_pred
+            return lc_pred*medval
 
 
         brk = self.find_break()
         f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
 
         lc_pred = calc_corr(f, cx, cy, skip)
-        corr_f = flux[f]/lc_pred
+        corr_f = flux[f]/lc_pred * med
 
         lc_pred = calc_corr(s, cx, cy, skip)
-        corr_s = flux[s]/lc_pred
+        corr_s = flux[s]/lc_pred * med
 
         if pca==True:
             self.pca_flux = np.append(corr_f, corr_s)

@@ -339,7 +339,10 @@ class Postcard_tesscut(object):
 
     @property
     def quality(self):
-        return self.hdu[1].data['QUALITY']
+        sector = self.header['SECTOR']
+        array_obj = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
+        A = [int(x) for x in array_obj.read().decode('utf-8').split()]
+        return A
 
     @property
     def bkg(self):
