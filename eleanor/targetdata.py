@@ -498,7 +498,7 @@ class TargetData(object):
         Parameters
         ----------
         """
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/eleanor_files/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
+        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
                                                                                                                                                      self.source_info.camera,
                                                                                                                                                      self.source_info.chip))
         A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
