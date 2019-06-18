@@ -13,10 +13,8 @@ import numpy as np
 from time import strftime
 from astropy.wcs import WCS
 from astropy.time import Time
-from astropy.table import Table
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
-from sklearn.decomposition import PCA
 from scipy import interpolate
 from scipy.signal import medfilt2d as mf
 from scipy.interpolate import interp1d
@@ -26,131 +24,12 @@ from eleanor.ffi import ffi, set_quality_flags
 from eleanor.version import __version__
 
 
-def lowpass(vec):
-    fc = 0.12
-    b = 0.08
-    N = int(np.ceil((4 / b)))
-    if not N % 2: N += 1
-    n = np.arange(N)
-
-    sinc_func = np.sinc(2 * fc * (n - (N - 1) / 2.))
-    window = 0.42 - 0.5 * np.cos(2 * np.pi * n / (N - 1)) + 0.08 * np.cos(4 * np.pi * n / (N - 1))
-    sinc_func = sinc_func * window
-    sinc_func = sinc_func / np.sum(sinc_func)
-    new_signal = np.convolve(vec, sinc_func)
-
-    lns = len(new_signal)
-    diff = int(np.abs(lns - len(vec))/2)
-
-    return new_signal[diff:-diff]
-
 
 def bkg(flux, sigma=2.5):
     # Returns background for a single cadence. Default sigma=2.5
     sigma_clip = SigmaClip(sigma=sigma)
     bkg = MMMBackground(sigma_clip=sigma_clip)
     return bkg.calc_background(flux)
-
-def do_pca(i, j, data, vv, q):
-    xvals = xhat(vv[:], data[i,j,:][q])
-    fmod = fhat(xvals, vv)
-    lc_pred = (fmod+1)
-    return xvals
-
-def xhat(mat, lc):
-    ATA = np.dot(mat.T, mat)
-    ATAinv = np.linalg.inv(ATA)
-    ATf = np.dot(mat.T, lc)
-    xhat = np.dot(ATAinv, ATf)
-    return xhat
-
-def fhat(xhat, data):
-    return np.dot(data, xhat)
-
-def calc_2dbkg(flux, qual, time):
-    q = qual == 0
-    med = np.percentile(flux[:,:,:], 1, axis=(2))
-    
-    med = med-mf(med, 25)
-    g = np.ma.masked_where(med < np.percentile(med, 70.), med)
-
-    modes = 21
-
-    pca = PCA(n_components=modes)
-    pca.fit(flux[g.mask])
-    pv = pca.components_[0:modes].T[q]
-
-    vv = np.column_stack((pv.T))
-
-    for i in range(-15, 15, 6):
-        if i != 0:
-            if i > 0:
-                rolled = np.pad(pv.T, ((0,0),(i,0)), mode='constant')[:, :-i].T
-            else:
-                rolled = np.pad(pv.T, ((0,0),(0,-i)), mode='constant')[:, -i:].T
-            vv = np.column_stack((vv, rolled))
-
-    vv = np.column_stack((vv, np.ones_like(vv[:,0])))
-
-    maskvals = np.ma.masked_array(data=np.zeros((104,148,np.shape(vv)[1])),
-                                  mask=np.zeros((104,148,np.shape(vv)[1])))
-
-    GD = np.zeros_like(maskvals)
-    for i in range(len(g)):
-        for j in range(len(g[0])):
-            if g.mask[i][j] == True:
-                maskvals.data[i,j] = do_pca(i,j, flux, vv, q)
-
-    noval = maskvals.data[:,:,:] == 0
-    maskvals.mask[noval] = True
-
-    outmeasure = np.zeros_like(maskvals[:,:,0])
-    for i in range(len(maskvals[0,0])):
-        outmeasure += (np.abs(maskvals.data[:,:,i]-np.nanmean(maskvals.data[:,:,i])))/np.nanstd(maskvals.data[:,:,i])
-
-    metric = outmeasure/len(maskvals.data[0,0])
-    maskvals.mask[metric > 1.00,:] = True
-
-    x = np.arange(0, maskvals.data.shape[1])
-    y = np.arange(0, maskvals.data.shape[0])
-
-    xx, yy = np.meshgrid(x, y)
-
-
-    for i in range(np.shape(vv)[1]):
-        array = np.ma.masked_invalid(maskvals[:,:,i])
-
-        x1 = xx[~array.mask]
-        y1 = yy[~array.mask]
-        newarr = array[~array.mask]
-
-
-        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
-                                  (xx, yy),
-                                     method='linear')
-
-        array = np.ma.masked_invalid(GD[:,:,i])
-        xx, yy = np.meshgrid(x, y)
-
-        x1 = xx[~array.mask]
-        y1 = yy[~array.mask]
-        newarr = array[~array.mask]
-
-        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
-                                  (xx, yy),
-                                     method='nearest')
-    bkg_arr = np.zeros_like(flux)
-
-    for i in range(104):
-        for j in range(148):
-            bkg_arr[i,j,q] = np.dot(GD[i,j,:], vv.T)
-            bkg_arr[i,j,q] = lowpass(bkg_arr[i,j,q])
-
-    f = interp1d(time[q], bkg_arr[:,:,q], kind='linear', axis=2, bounds_error=False, fill_value='extrapolate')
-    fout = f(time)
-
-    return fout
-
 
 
 def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
@@ -285,8 +164,8 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     with tqdm.tqdm(total=total_num_postcards) as bar:
         for i, h in enumerate(hs):
             for j, w in enumerate(ws):
-                dw = width#min(width, total_width - w)
-                dh = height#min(height, total_height - h)
+                dw = width  #min(width, total_width - w)
+                dh = height #min(height, total_height - h)
 
                 hdr = fitsio.FITSHDR(primary_header)
 
@@ -402,7 +281,7 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
                     fitsio.write(outfn, all_errs[w:w+dw, h:h+dh, :])
 
                 bar.update()
-    return np.array(post_names)
+    return
 
 
 def run_sector_camera_chip(base_dir, output_dir, sector, camera, chip):
@@ -419,22 +298,8 @@ def run_sector_camera_chip(base_dir, output_dir, sector, camera, chip):
     open(os.path.join(os.path.dirname(outdir), "index.auto"), "w").close()
 
     fns = list(sorted(glob.glob(pattern)))
-    postcard_fns = make_postcards(fns, outdir)
+    make_postcards(fns, outdir)
 
-    # Ensures no postcards have been repeated
-    postcard_fns = np.unique(postcard_fns)
-
-    # Writes in the background after making the postcards
-    print("Computing backgrounds...")
-    for fn in tqdm.tqdm(postcard_fns, total=len(postcard_fns)):
-        with fits.open(fn) as hdu:
-            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'],
-                             hdu[1].data['TSTART'])
-            # Checks to make sure there isn't a background extension already
-            if len(hdu) < 5:
-                fits.append(fn, bkg)
-            else:
-                fits.update(fn, bkg, 4)
 
 
 if __name__ == "__main__":
