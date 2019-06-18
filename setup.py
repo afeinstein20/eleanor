@@ -10,9 +10,6 @@ from setuptools import setup
 sys.path.insert(0, "eleanor")
 from version import __version__
 
-#this_directory = os.path.abspath(os.path.dirname(__file__))
-#with open(os.path.join(this_directory, "README.md")) as f:
-#    long_description = f.read()
 
 long_description = \
     """
@@ -44,7 +41,7 @@ setup(
     install_requires=[
         'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
         'astroquery', 'bokeh', 'muchbettermoments', 'fitsio',
-        'tensorflow', 'vaneska'],
+        'tensorflow', 'vaneska', 'bs4>=4.6.0'],
 
     classifiers=[
         'Development Status :: 3 - Alpha',
