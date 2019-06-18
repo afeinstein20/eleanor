@@ -144,23 +144,31 @@ def create_ffiindex(sectors=np.arange(1,14,1)):
         return jd 
 
 
-    index_sector = open('metadata/s0007/tesscurl_sector_7_ffic.sh')
-    download_file = []
-    for line in index_sector:
-        if len(line) > 30:
-            download_file.append(line)
-            break
-        
-    download_file = download_file[-1]
-    os.system(download_file)
-    fn = download_file.split(' ')[5]
-    a  = fits.open(fn)
+    curlfile = 'tesscurl_sector_{0}_ffic.sh'
+
+    later_sector_curl = curlfile.format(7)
+    curr_sector_curl  = curlfile.format(sector)
     
+    os.system('curl -O -L https://archive.stsci.edu/missions/tess/download_scripts/sector/{0}'.format(later_sector_curl))
 
     for sector in sectors:
-        outarr =np.array([])
-        indexlist = open('metadata/s{0:04d}/tesscurl_sector_{0}_ffic.sh'.format(sector))
+        os.system('curl -O -L https://archive.stsci.edu/missions/tess/download_scripts/sector/{0}'.format(curr_sector_curl))
     
+        index_sector = open('/Users/AdinaFeinstein/Documents/ELLIE/metadata/s0007/{0}'.format(later_sector_curl))
+        download_file = []
+        for line in index_sector:
+            if len(line) > 30:
+                download_file.append(line)
+                break
+        
+        download_file = download_file[-1]
+        os.system(download_file)
+        fn = download_file.split(' ')[5]
+        a  = fits.open(fn)
+        
+        outarr =np.array([])
+        indexlist = open('/Users/AdinaFeinstein/Documents/ELLIE/metadata/s{0:04d}/{1}'.format(sector, curr_sector_curl))
+
         for line in indexlist:
             if len(line) > 30:
                 outarr = np.append(outarr, (line.split('tess')[1][0:13]))
@@ -176,4 +184,8 @@ def create_ffiindex(sectors=np.arange(1,14,1)):
             outarr[i] = (int(np.round(cad))+a[0].header['ffiindex'])
         
         np.savetxt('cadences_s{0:04d}.txt'.format(sector), outarr, fmt='%i')
-    return 
+        os.remove(fn)
+        os.remove(curr_sector_curl)
+
+    os.remove(later_sector_curl)
+
