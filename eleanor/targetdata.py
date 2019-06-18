@@ -21,7 +21,7 @@ import pickle
 import eleanor
 
 from .ffi import use_pointing_model, load_pointing_model
-from .postcard import Postcard
+from .postcard import Postcard, Postcard_tesscut
 
 __all__  = ['TargetData']
 
@@ -135,11 +135,19 @@ class TargetData(object):
 
         else:            
             self.aperture = None
-            if save_postcard == True:
-                self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+            
+            if source.tc == False:
+                if save_postcard == True:
+                    self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+                else:
+                    self.post_obj = Postcard(source.postcard, source.ELEANORURL)
             else:
-                self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+                self.post_obj = Postcard_tesscut(source.cutout)
+                    
+
             self.flux_bkg = self.post_obj.bkg 
+            
+            
             self.get_time(source.coords)
      
             
@@ -154,7 +162,7 @@ class TargetData(object):
                 self.cal_cadences = cal_cadences
             
             self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
-            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard)
+            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
             self.set_quality()
             self.create_apertures(height, width)
             
@@ -186,7 +194,7 @@ class TargetData(object):
         self.time = t0 + ltt_bary
         self.barycorr = ltt_bary
 
-    def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard):
+    def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard, source):
         """Gets TPF from postcard."""
 
         self.tpf         = None
@@ -208,9 +216,15 @@ class TargetData(object):
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
 
         med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
+        
+        if source.tc == False:
 
-        post_flux = np.transpose(self.post_obj.flux, (2,0,1))
-        post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
+            post_flux = np.transpose(self.post_obj.flux, (2,0,1))
+            post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
+        else:
+            post_flux = self.post_obj.flux + 0.0
+            post_err = self.post_obj.flux_err + 0.0
+
 
         self.cen_x, self.cen_y = med_x, med_y
         
@@ -252,14 +266,24 @@ class TargetData(object):
         if x_upp_bkg >  post_x_upp:
             x_upp_bkg = post_x_upp+1
 
-        if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
-            warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
-            warnings.warn("WARNING: Your postage stamp may not be centered.")
+            
+        if source.tc == False:
+            
+            if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
+                warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
+                warnings.warn("WARNING: Your postage stamp may not be centered.")
 
-        self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-        self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
-        self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
+            self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            
+        else:
+            self.tpf     = post_flux[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
+            self.bkg_tpf = post_flux
+            self.tpf_err = post_err[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]           
+            
         self.dimensions = np.shape(self.tpf)
+        
         
         summed_tpf = np.sum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
@@ -798,11 +822,21 @@ class TargetData(object):
             cy -= np.median(cy)
             bkg = self.flux_bkg[mask]
             bkg -= np.min(bkg)
-
-            cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
-                                       bkg[qm][skip:], t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
-            x = xhat(cm, norm_l[skip:])
-            cm = np.column_stack((cx, cy, cx**2, cy**2, bkg, t[mask], np.ones_like(t[mask])))
+            
+            
+            if np.std(bkg) < 1e-10:
+                
+                cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
+                                            t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
+                x = xhat(cm, norm_l[skip:])
+                cm = np.column_stack((cx, cy, cx**2, cy**2, t[mask], np.ones_like(t[mask])))
+                
+            else:
+                
+                cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
+                                           bkg[qm][skip:], t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
+                x = xhat(cm, norm_l[skip:])
+                cm = np.column_stack((cx, cy, cx**2, cy**2, bkg, t[mask], np.ones_like(t[mask])))
             fmod = fhat(x, cm)
             lc_pred = (fmod+1)
             return lc_pred
