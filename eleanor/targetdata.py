@@ -293,7 +293,10 @@ class TargetData(object):
             self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             
-        else:
+        else:            
+            if (height > 31) or (width > 31):
+                raise ValueError("Maximum allowed TPF size is 31 x 31 pixels.")
+
             self.tpf     = post_flux[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
             self.bkg_tpf = post_flux
             self.tpf_err = post_err[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]           
