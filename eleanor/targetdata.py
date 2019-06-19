@@ -171,6 +171,7 @@ class TargetData(object):
             self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
             self.set_quality()
             self.get_cbvs()
+            
 
             self.create_apertures(height, width)
             
@@ -333,7 +334,7 @@ class TargetData(object):
         all_apertures  = np.array(list(pickle_dict.values()))
         
 
-        default = 9
+        default = 13
 
         # Creates aperture based on the requested size of TPF
         if (height, width) == (default, default):
@@ -442,6 +443,7 @@ class TargetData(object):
             tpf_stds = np.ones(len(self.all_apertures)) 
             
             ap_size = np.sum(self.all_apertures, axis=(1,2))
+            
 
             for a in range(len(self.all_apertures)):       
                 for cad in range(len(self.tpf)):
@@ -449,6 +451,7 @@ class TargetData(object):
                         all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
                         all_raw_lc_tpf_sub[a, cad]   = np.sum( (self.tpf[cad]) * self.all_apertures[a] )
                         all_raw_lc_pc_sub[a, cad]  = np.sum( (self.tpf[cad] + self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
+                        
                     except ValueError:
                         continue
 
@@ -464,6 +467,7 @@ class TargetData(object):
                 lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
                                        flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
+                
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
                 lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
