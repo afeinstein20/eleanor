@@ -36,4 +36,4 @@ def test_coords():
 
 def test_contamination():
     # there should only be 1 target with contamination < 5.5 in this region
-    assert(len(tic_by_contamination(pos1, 1, [0,1], [0, 5.5])) == 1)
+    assert(len(tic_by_contamination(pos1, 1, [0,1], [0, 7.5])) == 1)

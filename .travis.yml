@@ -32,6 +32,8 @@ install:
   - pip install coverage
   - pip install pytest
   - pip install pytest-cov
+  - pip install beautifulsoup4>=4.6.0
+  - pip install lxml
   - pip install tess-point
   - python setup.py install
 
