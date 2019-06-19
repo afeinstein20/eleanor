@@ -75,7 +75,7 @@ def convolve_cbvs(sectors=np.arange(1,14,1)):
         time = cutout[1].data['TIME'] - cutout[1].data['TIMECORR']
 
         for c in trange(len(files)):
-            cbvs_short = np.zeros((len(time),16))
+            convolved = np.zeros((len(time),16))
         
             cbvs   = fits.open(cbv_dir+files[c])
             
@@ -84,13 +84,16 @@ def convolve_cbvs(sectors=np.arange(1,14,1)):
             
             new_fn = './s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(sector, camera, ccd)
 
+            convolved = np.zeros((len(time), 16))
             for i in range(len(time)):
-                g = np.where(np.abs(time[i] - cbvs[1].data['Time']) == np.min(np.abs(time[i] - cbvs[1].data['Time'])))[0][0]
+                g = np.where( np.abs(time[i] - cbv_time) == np.min(np.abs(time[i] - cbv_time))  )[0][0]
+                inds = np.append(inds, g)
                 for j in range(16):
-                    string = 'VECTOR_' + str(j+1)
-                    cbvs_short[i,j] = np.mean(cbvs[1].data[string][g-7:g+8])
+                    string = 'VECTOR_{0}'.format(j+1) 
+                    column = cbv[1].data[string][inds]
+                    convolved[i,j] = np.mean(column)
 
-                np.savetxt(new_fn, cbvs_short)
+                np.savetxt(new_fn, convolved)
     return
 
 def set_quality_flags(sector=np.arange(1,14,1)):
