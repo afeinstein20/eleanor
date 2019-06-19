@@ -7,6 +7,7 @@ from astropy.coordinates import SkyCoord
 from astropy.io import fits
 import os, sys, requests
 from bs4 import BeautifulSoup
+from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
 from os.path import join, abspath
 import warnings
 from . import PACKAGEDIR
@@ -35,7 +36,20 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
     """
     objs = []
     if sectors == 'all':
-        sectors = list(np.arange(1,3,1, dtype=int))
+        if coords is None:
+            if tic is not None:
+                coords = coords_from_tic(tic)[0]
+            elif gaia is not None:
+                coords = coords_from_gaia(gaia)
+
+        if coords is not None:
+            if type(coords) is SkyCoord:
+                coords = (coords.ra.degree, coords.dec.degree)
+
+            result = tess_stars2px(8675309, coords[0], coords[1]) #tic is arbitrary
+            sectors = result[3].tolist()
+
+        
     if type(sectors) == list:
         for s in sectors:
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
