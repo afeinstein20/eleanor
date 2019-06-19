@@ -47,9 +47,9 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
                 coords = (coords.ra.degree, coords.dec.degree)
 
             result = tess_stars2px(8675309, coords[0], coords[1]) #tic is arbitrary
-            sectors = result[3].tolist()
+            sectors = result[3][result[3] < 10.5].tolist()
 
-        
+    print(sectors)
     if type(sectors) == list:
         for s in sectors:
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
