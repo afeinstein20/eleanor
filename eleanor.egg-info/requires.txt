@@ -9,3 +9,5 @@ muchbettermoments
 fitsio
 tensorflow
 vaneska
+beautifulsoup4>=4.6.0
+tess-point
