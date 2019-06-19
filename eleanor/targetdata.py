@@ -21,7 +21,7 @@ import pickle
 import eleanor
 
 from .ffi import use_pointing_model, load_pointing_model
-from .postcard import Postcard
+from .postcard import Postcard, Postcard_tesscut
 
 __all__  = ['TargetData']
 
@@ -127,24 +127,31 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=True, do_psf=False, bkg_size=None, crowded_field=False, 
-                 cal_cadences=None, bkg_type=None):
-
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None):
         self.source_info = source 
-        self.header = None
 
         if self.source_info.premade is True:
             self.load(directory=self.source_info.fn_dir)
 
         else:            
             self.aperture = None
-            if save_postcard == True:
-                self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+            
+            if source.tc == False:
+                if save_postcard == True:
+                    self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+                else:
+                    self.post_obj = Postcard(source.postcard, source.ELEANORURL)
             else:
-                self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+                self.post_obj = Postcard_tesscut(source.cutout)
+                
+            self.ffiindex = self.post_obj.ffiindex
+                    
+
             self.flux_bkg = self.post_obj.bkg 
+            
+            
             self.get_time(source.coords)
-     
+
             
             if bkg_size is None:
                 bkg_size = width
@@ -156,30 +163,30 @@ class TargetData(object):
             else:
                 self.cal_cadences = cal_cadences
             
-            self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
-            x_offset, y_offset = self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard)
-
+            try:
+                self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
+            except:
+                self.pointing_model = None
+            
+            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
             self.set_quality()
             self.get_cbvs()
-            
-            # should be the same as input height and width unless the star is 
-            # at the edge of the detector
-            h, w = self.tpf[0].shape[0], self.tpf[0].shape[1]
-            self.create_apertures(h, w, x_offset, y_offset)
-            self.get_lightcurve(bkg_type=bkg_type)
 
+            self.create_apertures(height, width)
+            
+            self.get_lightcurve()
             if do_pca == True:
                 self.corrected_flux(pca=True)
             else:
                 self.modes = None
                 self.pca_flux = None
-
             if do_psf == True:
                 self.psf_lightcurve()
             else:
                 self.psf_flux = None
-
             self.center_of_mass()
+            
+
 
 
     def get_time(self, coords):
@@ -197,7 +204,7 @@ class TargetData(object):
         self.time = t0 + ltt_bary
         self.barycorr = ltt_bary
 
-    def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard):
+    def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard, source):
         """Gets TPF from postcard."""
 
         self.tpf         = None
@@ -205,24 +212,34 @@ class TargetData(object):
         self.centroid_ys = None
 
         xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
-
+        
         # Apply the pointing model to each cadence to find the centroids
-        centroid_xs, centroid_ys = [], []
-        for i in range(len(self.pointing_model)):
-            new_coords = use_pointing_model(np.array(xy), self.pointing_model[i])
-            centroid_xs.append(new_coords[0][0])
-            centroid_ys.append(new_coords[0][1])
-        self.centroid_xs = np.array(centroid_xs)
-        self.centroid_ys = np.array(centroid_ys)
+        
+        if self.pointing_model is None:
+            self.centroid_xs = np.zeros_like(self.post_obj.time)
+            self.centroid_ys = np.zeros_like(self.post_obj.time)
+        else:
+            centroid_xs, centroid_ys = [], []
+            for i in range(len(self.pointing_model)):
+                new_coords = use_pointing_model(np.array(xy), self.pointing_model[i])
+                centroid_xs.append(new_coords[0][0])
+                centroid_ys.append(new_coords[0][1])
+            self.centroid_xs = np.array(centroid_xs)
+            self.centroid_ys = np.array(centroid_ys)
         
         # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
 
         med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
+        
+        if source.tc == False:
 
-        post_flux = np.transpose(self.post_obj.flux, (2,0,1))
-        post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
-        post_2d   = np.transpose(self.post_obj.bkg_2d, (2,0,1))
+            post_flux = np.transpose(self.post_obj.flux, (2,0,1))
+            post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
+        else:
+            post_flux = self.post_obj.flux + 0.0
+            post_err = self.post_obj.flux_err + 0.0
+
 
         self.cen_x, self.cen_y = med_x, med_y
         
@@ -239,55 +256,49 @@ class TargetData(object):
         x_low_bkg = med_x-x_bkg_len
         x_upp_bkg = med_x+x_bkg_len + 1
     
+
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
 
         post_y_upp, post_x_upp = self.post_obj.dimensions[0], self.post_obj.dimensions[1]
 
-        x_offset, y_offset = 0, 0
-        
-        if (x_low_lim<=0) or (y_low_lim<=0) or (x_upp_lim>=post_x_upp) or (y_upp_lim>=post_y_upp):
-            warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
-            warnings.warn("WARNING: Your postage stamp may not be centered.")
-
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
             y_low_lim = 0
-            y_offset = y_low_lim
-            y_upp_lim = y_upp_lim + np.abs(y_offset) + 1
-
         if x_low_lim <= 0:
             x_low_lim = 0
-            x_offset = x_low_lim
-            x_upp_lim = x_upp_lim + np.abs(x_offset) + 1
-
         if y_upp_lim  > post_y_upp:
             y_upp_lim = post_y_upp+1
-            y_offset = post_y_upp - y_upp_lim
-            y_low_lim = y_low_lim - np.abs(y_offset) - 1
-
         if x_upp_lim >  post_x_upp:
             x_upp_lim = post_x_upp+1
-            x_offset = post_x_upp - x_upp_lim
-            x_low_lim = x_low_lim - np.abs(x_offset) - 1
-            
             
         if y_low_bkg <= 0:
             y_low_bkg = 0
         if x_low_bkg <= 0:
             x_low_bkg = 0
-
         if y_upp_bkg  > post_y_upp:
             y_upp_bkg = post_y_upp+1
         if x_upp_bkg >  post_x_upp:
             x_upp_bkg = post_x_upp+1
 
-        self.tpf        = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-        self.bkg_tpf    = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
-        self.tpf_err    = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-        self.bkg_2d_tpf = post_2d[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            
+        if source.tc == False:
+            
+            if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
+                warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
+                warnings.warn("WARNING: Your postage stamp may not be centered.")
 
+            self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
+            self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            
+        else:
+            self.tpf     = post_flux[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
+            self.bkg_tpf = post_flux
+            self.tpf_err = post_err[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]           
+            
         self.dimensions = np.shape(self.tpf)
+        
         
         summed_tpf = np.sum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
@@ -306,11 +317,10 @@ class TargetData(object):
                 os.remove(self.post_obj.local_path)
             except OSError:
                 pass
+        return
 
-        return x_offset, y_offset
 
-
-    def create_apertures(self, height, width, x_offset, y_offset):
+    def create_apertures(self, height, width):
         """Creates a range of sizes and shapes of apertures to test."""
         import eleanor
         self.all_apertures = None
@@ -322,91 +332,45 @@ class TargetData(object):
         self.aperture_names = np.array(list(pickle_dict.keys()))
         all_apertures  = np.array(list(pickle_dict.values()))
         
-        default = 13
+
+        default = 9
 
         # Creates aperture based on the requested size of TPF
-        if (height, width) == (default, default) and (x_offset == 0) and (y_offset == 0):
+        if (height, width) == (default, default):
             self.all_apertures = all_apertures
 
         else:
             new_aps = []
 
-            if (x_offset == 0) and (y_offset == 0):
-
-                h_diff = height-default; w_diff = width-default
-                half_h = int(np.ceil(np.abs(h_diff/2))) ; half_w = int(np.ceil(np.abs(w_diff/2)))
+            h_diff = height-default; w_diff = width-default
+            half_h = int(np.ceil(np.abs(h_diff/2))) ; half_w = int(np.ceil(np.abs(w_diff/2)))
 
             # HEIGHT PADDING
-                if h_diff > 0:
-                    h_pad = (half_h, half_h)
-                elif h_diff < 0:
-                    warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
-                    h_pad = (0,0)
-                    all_apertures = all_apertures[:, half_h:int(len(all_apertures[0][:,0])-half_h), :]
-                else:
-                    h_pad = (0,0)
+            if h_diff > 0:
+                h_pad = (half_h, half_h)
+            elif h_diff < 0:
+                warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
+                h_pad = (0,0)
+                all_apertures = all_apertures[:, half_h:int(len(all_apertures[0][:,0])-half_h), :]
+            else:
+                h_pad = (0,0)
 
             # WIDTH PADDING
-                if w_diff > 0:
-                    w_pad = (half_w, half_w)
-                elif w_diff < 0:
-                    warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
-                    w_pad = (0,0)
-                    all_apertures = all_apertures[:, :, half_w:int(len(all_apertures[0][0])-half_w)]
-                else:
-                    w_pad = (0,0)
-
-
-                for a in range(len(all_apertures)):
-                    new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
-#                self.all_apertures = np.array(new_aps)
-
-            # OFFSET APERTURES FOR STARS ON THE EDGES
+            if w_diff > 0:
+                w_pad = (half_w, half_w)
+            elif w_diff < 0:
+                warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
+                w_pad = (0,0)
+                all_apertures = all_apertures[:, :, half_w:int(len(all_apertures[0][0])-half_w)]
             else:
-                warnings.warn('WARNING: Your star is near the edge of the camera. Please use caution with the resulting apertures.')
+                w_pad=(0,0)
 
-                if x_offset > 0:
-                    h_pad = (0, np.abs(x_offset))
-                elif x_offset < 0:
-                    h_pad = (np.abs(x_offset), 0)
-                else:
-                    h_pad = (0,0)
-                    h_remove = None
-
-                if y_offset > 0:
-                    w_pad = (0, np.abs(y_offset))
-                elif y_offset < 0:
-                    w_pad = (np.abs(y_offset), 0)
-                else:
-                    w_pad = (0,0)
-                    w_remove = None
-
-                for a in range(len(all_apertures)):
-                    new = np.pad(all_apertures[a], (w_pad, h_pad), 'constant', constant_values=(0))
-                    # Adds offset in the X direction
-                    if h_pad != (0,0) and x_offset < 0:
-                        h_remove = np.arange(new.shape[1]-np.abs(x_offset), new.shape[1]+1,1)
-                    if h_pad != (0,0) and x_offset > 0:
-                        h_remove = np.arange(0, np.abs(x_offset), 1)
-                        
-                    # Adds offset in the Y direction
-                    if w_pad != (0,0) and y_offset > 0:
-                        w_remove = np.arange(new.shape[1]-np.abs(y_offset), new.shape[1]+1, 1)
-                    elif w_pad != (0,0) and y_offset < 0:
-                        w_remove = np.arange(0, np.abs(y_offset), 1)
-
-                        
-                    # Removes extra rows so aperture is same shape as tpf
-                    if w_remove is not None:
-                        new = np.delete(new, w_remove, axis=0)
-                    if h_remove is not None:
-                        new = np.delete(new, h_remove, axis=1)
-                    new_aps.append(new)
-
+            for a in range(len(all_apertures)):
+                new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
             self.all_apertures = np.array(new_aps)
 
 
-    def bkg_subtraction(self, scope="tpf", sigma=1.2):
+    def bkg_subtraction(self, scope="tpf", sigma=2.5):
         """Subtracts background flux from target pixel file.
 
         Parameters
@@ -433,7 +397,7 @@ class TargetData(object):
         
 
 
-    def get_lightcurve(self, aperture=None, bkg_type=None):
+    def get_lightcurve(self, aperture=None):
         """Extracts a light curve using the given aperture and TPF.
         Can pass a user-defined aperture mask, otherwise determines which of a set of pre-determined apertures
         provides the lowest scatter in the light curve.
@@ -446,7 +410,6 @@ class TargetData(object):
             (`height`, `width`) array of floats in the range [0,1] with desired weights for each pixel to
             create a light curve. If not set, ideal aperture is inferred automatically. If set, uses this
             aperture at the expense of all other set apertures.
-        bkg_type : string, "constant" or "2d_bkg"
         """
 
         def apply_mask(mask):
@@ -456,13 +419,7 @@ class TargetData(object):
                 lc[cad]     = np.sum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc) 
-            
-            if self.source_info.sector == 4:
-                skip = 112
-            else:
-                skip = 50
-
-            self.corr_flux  = self.corrected_flux(flux=lc, skip=skip)
+            self.corr_flux  = self.corrected_flux(flux=lc, skip=50)
             self.flux_err   = np.array(lc_err)
             return
 
@@ -471,20 +428,17 @@ class TargetData(object):
         if (self.aperture is None):
 
             self.all_lc_err  = None
-            
-            all_lc_err = np.zeros((len(self.all_apertures), len(self.tpf)))
 
-            all_raw_lc_2d_sub  = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_corr_lc_2d_sub = np.copy(all_raw_lc_2d_sub)
-
+            all_raw_lc_pc_sub  = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_lc_err  = np.zeros((len(self.all_apertures), len(self.tpf)))
+            all_corr_lc_pc_sub = np.copy(all_raw_lc_pc_sub)
             all_raw_lc_tpf_sub = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_corr_lc_tpf_sub = np.copy(all_raw_lc_tpf_sub)
             
             for epoch in range(len(self.time)):
                 self.tpf[epoch] -= self.tpf_flux_bkg[epoch]
 
-            ## STDS for comparing 2D bkg subtration and TPF level bkg subtraction
-            stds_2d = np.ones(len(self.all_apertures)) 
+            pc_stds = np.ones(len(self.all_apertures)) 
             tpf_stds = np.ones(len(self.all_apertures)) 
             
             ap_size = np.sum(self.all_apertures, axis=(1,2))
@@ -494,12 +448,16 @@ class TargetData(object):
                     try:
                         all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
                         all_raw_lc_tpf_sub[a, cad]   = np.sum( (self.tpf[cad]) * self.all_apertures[a] )
-                        all_raw_lc_2d_sub[a, cad]  = np.sum( (self.tpf[cad] + self.tpf_flux_bkg[cad] - self.bkg_2d_tpf[cad]) * self.all_apertures[a] )
+                        all_raw_lc_pc_sub[a, cad]  = np.sum( (self.tpf[cad] + self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
                     except ValueError:
                         continue
 
-                all_corr_lc_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_2d_sub[a]/np.nanmedian(all_raw_lc_2d_sub[a]))
-                all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
+                ## Remove something from all_raw_lc before passing into jitter_corr ##
+                try:
+                    all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
+                    all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
+                except IndexError:
+                    continue
 
                 q = self.quality == 0
 
@@ -508,42 +466,37 @@ class TargetData(object):
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
-                obj_pc_2d = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                                   flux = all_corr_lc_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                flat_lc_2d = obj_pc_2d.flatten(polyorder=2, window_length=51)
-                stds_2d[a] = np.std(flat_lc_2d.flux)
+                lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+                                                   flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+                flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51)
+                pc_stds[a] = np.std(flat_lc_pc.flux)
 
-                all_corr_lc_2d_sub[a]  = all_corr_lc_2d_sub[a]  * np.nanmedian(all_raw_lc_2d_sub[a])
+                all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
                 all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
-
-            self.all_raw_lc  = np.array(all_raw_lc_2d_sub)
+            self.all_raw_lc  = np.array(all_raw_lc_pc_sub)
             self.all_lc_err  = np.array(all_lc_err)
-            self.all_corr_lc = np.array(all_corr_lc_2d_sub)
+            self.all_corr_lc = np.array(all_corr_lc_pc_sub)
             
             if self.crowded_field == True:
                 tpf_stds[ap_size > 9] = 1.0
-                stds_2d[ap_size > 9] = 1.0
+                pc_stds[ap_size > 9] = 1.0
 
             best_ind_tpf = np.where(tpf_stds == np.min(tpf_stds))[0][0]
-            best_ind_2d  = np.where(stds_2d == np.min(stds_2d))[0][0]
+            best_ind_pc  = np.where(pc_stds == np.min(pc_stds))[0][0]
+            
 
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
-
-            if (stds_2d[best_ind_2d] <= tpf_stds[best_ind_tpf] and bkg_type is None) or (bkg_type is not None and bkg_type.upper() == '2D_BKG'):
-                best_ind = best_ind_2d
-                self.bkg_type = '2D_BKG'
+            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
+                best_ind = best_ind_pc
+                self.bkg_type = 'PC_LEVEL'
                 for epoch in range(len(self.time)):
                     self.tpf[epoch] += self.tpf_flux_bkg[epoch]
-
-            elif (stds_2d[best_ind_2d] >= tpf_stds[best_ind_tpf] and bkg_type is None) or (bkg_type is not None and bkg_type.upper() == 'CONSTANT'):
+            else:
                 best_ind = best_ind_tpf
-                self.bkg_type = 'CONSTANT'
+                self.bkg_type = 'TPF_LEVEL'
                 self.all_raw_lc  = np.array(all_raw_lc_tpf_sub)
                 self.all_corr_lc = np.array(all_corr_lc_tpf_sub)
-                    
-            if (bkg_type is not None) and ((bkg_type.upper() != '2D_BKG') or (bkg_type != 'CONSTANT')):
-                warnings.warn("You input an unavailable background method. We are returning the background method we deem best for your light curve.")
 
             self.corr_flux= self.all_corr_lc[best_ind]
             self.raw_flux = self.all_raw_lc[best_ind]
@@ -551,7 +504,6 @@ class TargetData(object):
             self.flux_err = self.all_lc_err[best_ind]
             self.aperture_size = np.sum(self.aperture)
             self.best_ind = best_ind
-
         else:
             if np.shape(aperture) == np.shape(self.tpf[0]):
                 self.aperture = aperture
@@ -565,12 +517,46 @@ class TargetData(object):
         return
     
 
+
+    def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=4):
+        """ Applies cotrending basis vectors, found through principal component analysis, to light curve to
+        remove systematics shared by nearby stars.
+
+        Parameters
+        ----------
+        flux : numpy.ndarray
+            Flux array to which cotrending basis vectors are applied. Default is `self.corr_flux`.
+        modes : int
+            Number of cotrending basis vectors to apply. Default is 8.
+        """
+        if flux is None:
+            flux = self.corr_flux
+
+        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/tpfs/pca_components_s{0:04d}_{1}.txt'.format(self.source_info.sector,
+                                                                                                                            self.source_info.camera))
+        A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
+        A = np.asarray(A)
+
+        la = len(A)
+        A  = A.reshape((int(la/16), 16))  # Hard coded 4 a reason -- fight me
+            
+
+        def matrix(f):
+            nonlocal A
+            ATA     = np.dot(A.T, A)
+            invATA  = np.linalg.inv(ATA)
+            A_coeff = np.dot(invATA, A.T)
+            return np.dot(A_coeff, f)
+
+        self.modes    = modes
+        self.pca_flux = flux - np.dot(A[:,0:modes], matrix(flux)[0:modes])
+
     def get_cbvs(self):
         """ Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.
         Parameters
         ----------
         """
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
+        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
                                                                                                                                                      self.source_info.camera,
                                                                                                                                                      self.source_info.chip))
         A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
@@ -616,7 +602,7 @@ class TargetData(object):
     def set_quality(self):
         """ Reads in quality flags set in the postcard
         """
-        self.quality = self.post_obj.quality
+        self.quality = np.array(self.post_obj.quality)
         return
 
 
@@ -779,7 +765,7 @@ class TargetData(object):
 
     def find_break(self):
         t   = np.diff(self.time)
-        ind = np.where( t > np.mean(t)+2*np.std(t))[0][0]
+        ind = np.where( t == np.max(t))[0][0]
         return ind + 1
 
 
@@ -817,7 +803,6 @@ class TargetData(object):
     def corrected_flux(self, flux=None, skip=30, modes=3, pca=False):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
-
         Parameters
         ----------
         skip: int
@@ -829,6 +814,8 @@ class TargetData(object):
             flux = self.raw_flux
 
         flux = np.array(flux)
+        
+        med = np.nanmedian(flux)
 
         quality = self.quality
 
@@ -861,31 +848,74 @@ class TargetData(object):
         def calc_corr(mask, cx, cy, skip=50):
             nonlocal quality, flux
 
+
             qm = quality[mask] == 0
 
             medval = np.nanmedian(flux[mask][qm])
             norm_l = norm(flux[mask], qm)
 
-            cx, cy = rotate_centroids(cx[mask], cy[mask])
+            #cx, cy = rotate_centroids(cx[mask], cy[mask])
+            cx = cx[mask]
+            cy = cy[mask]
             cx -= np.median(cx)
             cy -= np.median(cy)
+            
 
             bkg = self.flux_bkg[mask]
             bkg -= np.min(bkg)
 
             vv = self.cbvs[mask][:,0:modes]
             
+                        
             if pca == False:
-                cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
-                                           vv[qm][skip:], bkg[qm][skip:], t[mask][qm][skip:],
-                                           np.ones_like(t[mask][qm][skip:])))
-                cm_full = np.column_stack((cx, cy, cx**2, cy**2, vv, bkg, t[mask], np.ones_like(t[mask])))
+                cm = np.column_stack((t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
+                cm_full = np.column_stack((t[mask], np.ones_like(t[mask])))
+                
+
+                cm = np.column_stack((cm, vv[qm][skip:]))
+                cm_full = np.column_stack((cm_full, vv))
+                
+
+                if np.std(bkg) > 1e-10:
+                    cm = np.column_stack((cm, bkg[qm][skip:]))
+                    cm_full = np.column_stack((cm_full, bkg))
+
+                if np.std(cx) > 1e-10:
+                    cm = np.column_stack((cm, cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2))
+                    cm_full = np.column_stack((cm_full, cx, cy, cx**2, cy**2))
+                
             else:
                 cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((vv, np.ones_like(t[mask])))
 
             x = xhat(cm, norm_l[skip:])
             fmod = fhat(x, cm_full)
+            lc_pred = (fmod+1)
+            return lc_pred*medval
+
+
+        brk = self.find_break()
+        f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
+
+        lc_pred = calc_corr(f, cx, cy, skip)
+        corr_f = flux[f]/lc_pred * med
+
+        lc_pred = calc_corr(s, cx, cy, skip)
+        corr_s = flux[s]/lc_pred * med
+
+        if pca==True:
+            self.pca_flux = np.append(corr_f, corr_s)
+        else:
+            return np.append(corr_f, corr_s)
+            
+
+            
+            
+            
+            
+            
+            
+            fmod = fhat(x, cm)
             lc_pred = (fmod+1)
             return lc_pred
 
@@ -899,10 +929,7 @@ class TargetData(object):
         lc_pred = calc_corr(s, cx, cy, skip)
         corr_s = flux[s]/lc_pred
 
-        if pca==True:
-            self.pca_flux = np.append(corr_f, corr_s)
-        else:
-            return np.append(corr_f, corr_s)
+        return np.append(corr_f, corr_s)
 
 
     def set_header(self):
@@ -937,15 +964,9 @@ class TargetData(object):
                                      comment='central y pixel of TPF in FFI'))
         self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
                                      comment=''))
-
-        post_cen = self.post_obj.center_xy
-        position_on_post = (post_cen[0]-self.post_obj.height/2.,
-                            post_cen[1]-self.post_obj.width/2.)
-        position_on_post = self.source_info.position_on_chip - postition_on_post
-
-        self.header.append(fits.Card(keyword='POSTPOS1', value= position_on_post[0],
+        self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
                                      comment='predicted x pixel of source on postcard'))
-        self.header.append(fits.Card(keyword='POSTPOS2', value= position_on_post[1],
+        self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
                                      comment='predicted y pixel of source on postcard'))
         self.header.append(fits.Card(keyword='CEN_RA', value = self.source_info.coords[0],
                                      comment='RA of TPF source'))
@@ -977,8 +998,8 @@ class TargetData(object):
         directory : str, optional
             Directory to save file into.
         """
-        if self.header is None:
-            self.set_header()
+        
+        self.set_header()
 
         # if the user did not specify a directory, set it to default
         if directory is None:
@@ -1003,15 +1024,12 @@ class TargetData(object):
         ext1['X_COM']      = self.x_com
         ext1['Y_COM']      = self.y_com
         ext1['FLUX_BKG']   = self.flux_bkg
-        ext1['2D_BKG']     = self.bkg_2d_tpf
+        ext1['FFIINDEX']   = self.ffiindex
 
-        if self.source_info.premade == True:
+        if self.bkg_type == "PC_LEVEL":
             ext1['FLUX_BKG'] = self.flux_bkg
         else:
-            if self.bkg_type == "PC_LEVEL":
-                ext1['FLUX_BKG'] = self.flux_bkg
-            else:
-                ext1['FLUX_BKG'] = self.flux_bkg + self.tpf_flux_bkg 
+            ext1['FLUX_BKG'] = self.flux_bkg + self.tpf_flux_bkg 
         
 
         if self.pca_flux is not None:
@@ -1067,15 +1085,11 @@ class TargetData(object):
         hdu = fits.open(os.path.join(directory, self.source_info.fn))
         hdr = hdu[0].header
         self.header = hdr
-        
-        self.bkg_type = hdr['BKG_LVL']
-
         # Loads in everything from the first extension
         cols  = hdu[1].columns.names
         table = hdu[1].data
         self.time        = table['TIME']
         self.tpf         = table['TPF']
-        self.barycorr    = table['BARYCORR']
         self.tpf_err     = table['TPF_ERR']
         self.raw_flux    = table['RAW_FLUX']
         self.corr_flux   = table['CORR_FLUX']
@@ -1086,17 +1100,12 @@ class TargetData(object):
         self.x_com       = table['X_COM']
         self.y_com       = table['Y_COM']
         self.flux_bkg    = table['FLUX_BKG']
-        self.bkg_2d_tpf  = table['2D_BKG']
+        self.ffiindex    = table['FFIINDEX']
 
         if 'PSF_FLUX' in cols:
             self.psf_flux = table['PSF_FLUX']
-        else:
-            self.psf_flux = None
-
         if 'PCA_FLUX' in cols:
             self.pca_flux = table['PCA_FLUX']
-        else:
-            self.pca_flux = None
 
         # Loads in apertures from second extension
         self.all_apertures = []
@@ -1109,11 +1118,6 @@ class TargetData(object):
                 self.aperture = table[i]
             else:
                 self.all_apertures.append(table[i])
-
-        self.aperture_names = cols
-        for i in range(len(cols)):
-            if cols[i] == hdr['APERTURE']:
-                self.best_ind = i
 
         # Loads in remaining light curves from third extension
         cols  = hdu[3].columns.names

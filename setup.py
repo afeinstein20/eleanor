@@ -43,6 +43,7 @@ setup(
         'astroquery', 'bokeh', 'muchbettermoments', 'fitsio',
         'tensorflow', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point'],
 
+
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',

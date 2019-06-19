@@ -1,15 +1,16 @@
 import numpy as np
 from astropy.wcs import WCS
-from astropy.wcs import NoConvergence
 from astropy.table import Table
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
-import os, sys, requests
-from bs4 import BeautifulSoup
-from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
+import os
+import sys
 from os.path import join, abspath
+from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
 import warnings
+from astroquery.mast import Tesscut
+
 from . import PACKAGEDIR
 
 import urllib
@@ -19,7 +20,7 @@ from .utils import *
 __all__ = ['Source', 'multi_sectors']
 
 
-def multi_sectors(sectors, tic=None, gaia=None, coords=None):
+def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
     """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
 
     Parameters
@@ -35,24 +36,24 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
         for which there are data.
     """
     objs = []
+
     if sectors == 'all':
         if coords is None:
             if tic is not None:
-                coords = coords_from_tic(tic)[0]
+                coords, _, _ = coords_from_tic(tic)
             elif gaia is not None:
                 coords = coords_from_gaia(gaia)
 
         if coords is not None:
             if type(coords) is SkyCoord:
                 coords = (coords.ra.degree, coords.dec.degree)
-
-            result = tess_stars2px(8675309, coords[0], coords[1]) #tic is arbitrary
-            sectors = result[3][result[3] < 10.5].tolist()
-
-    print(sectors)
+            result = tess_stars2px(8675309, coords[0], coords[1])
+            sector = result[3][result[3] < 10.5]
+            sectors = sector.tolist()
+        print('Found star in Sector(s) ' +" ".join(str(x) for x in sectors))
     if type(sectors) == list:
         for s in sectors:
-            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
+            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc)
             if star.sector is not None:
                 objs.append(star)
         if len(objs) < len(sectors):
@@ -64,7 +65,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
         raise TypeError("Sectors needs to be either 'all' or a type(list) to work.")
 
 
-def load_guide():
+def load_postcard_guide(sector):
     """Load and return the postcard coordinates guide."""
     try:
         user_agent = 'eleanor 0.1.6'
@@ -75,7 +76,7 @@ def load_guide():
         data = urllib.parse.urlencode(values)
         data = data.encode('ascii')
         
-        guide_link = 'https://archipelago.uchicago.edu/tess_postcards/metadata/ffi.guide'
+        guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/postcard.guide'.format(sector)
         
         req = urllib.request.Request(guide_link, data, headers)
         with urllib.request.urlopen(req) as response:
@@ -124,13 +125,14 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None):
+    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None, tc=False):
         self.tic     = tic
         self.gaia    = gaia
         self.coords  = coords
         self.fn      = fn
         self.premade = False
         self.usr_sec = sector
+        self.tc      = False
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
@@ -181,77 +183,74 @@ class Source(object):
                 
 
             self.tess_mag = self.tess_mag[0]
-
-            self.sector = None
-            self.camera = None
-            self.chip   = None
-
-            self.locate_on_tess() # sets sector, camera, chip, postcard,
+            
+            if tc == False:
+                self.locate_on_tess() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
+                
+            if tc == True:
+                self.locate_with_tesscut() # sets sector, camera, chip, postcard,
+                                  # position_on_chip, position_on_postcard
+            
 
         self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
                                                                                                                                  self.camera,
                                                                                                                                  self.chip)
 
 
-    def locate_on_chip(self):
+    def locate_on_chip(self):#, guide):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
-        def cam_chip_loop():
-            nonlocal guide
+        def cam_chip_loop(sec):
+            for cam in np.unique(guide['CAMERA']):
+                for chip in np.unique(guide['CCD']):
+                    mask = ((guide['SECTOR'] == sec) & (guide['CAMERA'] == cam)
+                            & (guide['CCD'] == chip))
+                    if np.sum(mask) == 0:
+                        continue # this camera-chip combo is not in the postcard database yet
+                    else:
+                        random_postcard = guide[mask][0]
+                    d = {}
+                    for j,col in enumerate(random_postcard.colnames):
+                        d[col] = random_postcard[j]
 
-            sectors, cameras, chips = [], [], []
-            positions = []
+                    hdr = fits.Header(cards=d) # make WCS info from one postcard header
+                    xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
+                    x_zero, y_zero = hdr['POSTPIX1'], hdr['POSTPIX2']
+#                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
+                    if (44 <= xy[0] < 2092) & (0 <= xy[1] < 2048):
+                        self.sector = sec
+                        self.camera = cam
+                        self.chip = chip
+                        self.position_on_chip = np.ravel(xy)
+                        self.position_on_chip[0] += 44
 
-            # If the user has a specific sector in mind
+        self.sector=None
+
+        if self.usr_sec is None:
+            self.usr_sec = 'recent'
+
+        if self.usr_sec is not None:
             if type(self.usr_sec) == int:
-                sector = 's{0:04d}'.format(self.usr_sec)
-                mask = (guide['SECTOR'] == sector)
-                guide = guide[mask]
+                guide = load_postcard_guide(self.usr_sec)
+                if guide is None:
+                    raise SearchError("Sorry, this sector isn't available yet. We're working on it!")
+                else:
+                    cam_chip_loop(self.usr_sec)
 
-            for i in range(len(guide)):
-                d = {}
-                names = guide.colnames
-                for j,col in enumerate(guide[i]):
-                    d[names[j]] = guide[i][j]
-                    
-                hdr = fits.Header(cards=d) 
-                try:
-                    xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1)
-                except NoConvergence:
-                    xy = (-100, -100)
-                x_zero, y_zero = hdr['CRPIX1'], hdr['CRPIX2']
+            # Searches for the most recent sector the object was observed in
+            elif self.usr_sec.lower() == 'recent':
+                for s in np.arange(15,0,-1):
+                    guide = load_postcard_guide(s)
+                    if guide is not None:
+                        cam_chip_loop(s)
+                        if self.sector is not None:
+                            break
+            if self.sector is None:
+                raise SearchError("TESS has not (yet) observed your target.")
 
-                if (44 <= xy[0] < 2092) & (0 <= xy[1] < 2048):
-                    sectors.append(int(d['SECTOR'][1::]))
-                    cameras.append(d['CAMERA'])
-                    chips.append(d['CCD'])
-
-                    position_on_chip = np.ravel(xy)
-                    position_on_chip += 44
-                    positions.append(position_on_chip)
-                
-            sectors, cameras, chips = np.array(sectors), np.array(cameras), np.array(chips)
-            positions = np.array(positions)
-
-            if len(sectors) == 1:
-                self.sector = sectors[0]
-                self.camera = cameras[0]
-                self.chip   = chips[0]
-                self.position_on_chip = positions[0]
-            elif len(sectors) > 1:
-                ind = np.where(sectors == np.max(sectors))[0]
-                self.sector = sectors[ind][0]
-                self.camera = cameras[ind][0]
-                self.chip   = chips[ind][0]
-                self.position_on_chip = positions[ind][0]
-            else:
-                raise SearchError('TESS has not (yet) observed your target.')
-                
-
-        guide = load_guide()
-        cam_chip_loop()
+        return guide
 
 
     def locate_on_tess(self):
@@ -259,52 +258,85 @@ class Source(object):
         Sets attributes postcard, position_on_postcard, all_postcards.
         """
         self.locate_on_chip()
-
-        URL = 'https://users.flatironinstitute.org/~dforeman/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
-                                                                                                           self.camera,
-                                                                                                           self.chip)
+        guide = load_postcard_guide(self.sector)
 
         if self.sector is None:
             return
 
-        # Grabs postcard names and centers from website
-        postcards = []
-        post_cens = []
+        # Searches through postcards for the given sector, camera, chip
+        in_file, dists=[], []
 
-        paths = BeautifulSoup(requests.get(URL).text, 'lxml').find_all('a')
-        for p in paths:
-            fn = p.get('href')
-            if 'hlsp_eleanor' in fn:
-                postcards.append(fn)
-                locs = os.path.split(fn)[-1].split('-')[-2::]
-                locs = [locs[0], os.path.split(locs[1])[-1].split('.')[0]]
-                locs = np.array([int(i) for i in locs])
-                post_cens.append(locs)
-        postcards, post_cens = np.array(postcards), np.array(post_cens)
-
+        # Searches through rows of the table
+        for i in range(len(guide)):
+            postcard_inds = np.arange(len(guide))[(guide['SECTOR'] == self.sector) & (guide['CAMERA'] == self.camera)
+                                                  & (guide['CCD'] == self.chip)]
         xy = self.position_on_chip
-        l, w = 148/2., 104/2.
-
-        dists, in_file = [], []
 
         # Finds postcards containing the source
-        for i in range(len(post_cens)):
-            x_cen, y_cen = post_cens[i][0], post_cens[i][1]
-            
+        for i in postcard_inds: # loop rows
+
+            x_cen, y_cen= guide['CEN_X'][i], guide['CEN_Y'][i]
+            l, w = guide['POST_H'][i]/2., guide['POST_W'][i]/2.
+
             # Checks to see if xy coordinates of source falls within postcard
-            if (xy[0] >= x_cen) & (xy[0] <= x_cen+2*l) & (xy[1] >= y_cen) & (xy[1] <= y_cen+2*w):
+            if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
                 in_file.append(i)
                 dists.append(np.min([xy[0]-(x_cen-l), (x_cen+l)-xy[0], xy[1]-(y_cen-w), (y_cen+w)-xy[1]]))
+
 
         # If more than one postcard is found for a single source, choose the postcard where the
         # source is closer to the center
         if in_file == []:
             raise SearchError("Sorry! We don't have a postcard for you at the moment.")
         elif len(in_file) > 1:
-            best_ind = np.argmin(dists)
+            best_ind = np.argmax(dists)
         else:
             best_ind = 0
-        self.all_postcards = postcards[in_file]
-        self.postcard = postcards[in_file[best_ind]]
+
+        self.all_postcards = guide['POSTNAME'][in_file]
+        self.postcard = guide['POSTNAME'][in_file[best_ind]]
+
+        self.sector = guide['SECTOR'][in_file[best_ind]] # WILL BREAK FOR MULTI-SECTOR TARGETS
+        self.camera = guide['CAMERA'][in_file[best_ind]]
+        self.chip = guide['CCD'][in_file[best_ind]]
+
+        i = in_file[best_ind]
+        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
+                                guide['CEN_Y'][i] - guide['POST_W'][i]/2.)
+        self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
+        
+
+    def locate_with_tesscut(self):
+        """Finds the best TESS postcard(s) and the position of the source on postcard.
+        Sets attributes postcard, position_on_postcard, all_postcards.
+         sector, camera, chip, position_on_chip.
+        
+        """
+        self.postcard = []
+        self.position_on_postcard = []
+        self.all_postcards = []
+        
+        self.tc = True
+        
+        coord = SkyCoord(self.coords[0], self.coords[1], unit="deg")
+        
+        sector_table = Tesscut.get_sectors(coord)
+
+        manifest = Tesscut.download_cutouts(coord, 31, sector = self.usr_sec)
+
+        self.sector = self.usr_sec
+        self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0]
+        self.chip = sector_table[sector_table['sector'] == self.sector]['ccd'].quantity[0]
+
+        whichtc = np.where(sector_table['sector'] == self.usr_sec)[0][0]
+
+        cutout = fits.open(manifest['Local Path'][0])
+        
+        self.cutout = cutout
+        
+        xcoord = cutout[1].header['1CRV4P']
+        ycoord = cutout[1].header['2CRV4P']
+        
+        self.position_on_chip = np.array([xcoord, ycoord])
 
 
