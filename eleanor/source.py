@@ -7,6 +7,7 @@ from astropy.io import fits
 import os
 import sys
 from os.path import join, abspath
+from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
 import warnings
 from astroquery.mast import Tesscut
 
@@ -19,7 +20,7 @@ from .utils import *
 __all__ = ['Source', 'multi_sectors']
 
 
-def multi_sectors(sectors, tic=None, gaia=None, coords=None):
+def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
     """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
 
     Parameters
@@ -35,11 +36,24 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None):
         for which there are data.
     """
     objs = []
+
     if sectors == 'all':
-        sectors = list(np.arange(1,3,1, dtype=int))
+        if coords is None:
+            if tic is not None:
+                coords, _, _ = coords_from_tic(tic)
+            elif gaia is not None:
+                coords = coords_from_gaia(gaia)
+
+        if coords is not None:
+            if type(coords) is SkyCoord:
+                coords = (coords.ra.degree, coords.dec.degree)
+            result = tess_stars2px(8675309, coords[0], coords[1])
+            sector = result[3][result[3] < 10.5]
+            sectors = sector.tolist()
+        print('Found star in Sector(s) ' +" ".join(str(x) for x in sectors))
     if type(sectors) == list:
         for s in sectors:
-            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s))
+            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc)
             if star.sector is not None:
                 objs.append(star)
         if len(objs) < len(sectors):
@@ -314,9 +328,9 @@ class Source(object):
         self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0]
         self.chip = sector_table[sector_table['sector'] == self.sector]['ccd'].quantity[0]
 
-        
         whichtc = np.where(sector_table['sector'] == self.usr_sec)[0][0]
-        cutout = fits.open(manifest['Local Path'][whichtc])
+
+        cutout = fits.open(manifest['Local Path'][0])
         
         self.cutout = cutout
         

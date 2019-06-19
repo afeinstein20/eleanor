@@ -163,7 +163,11 @@ class TargetData(object):
             else:
                 self.cal_cadences = cal_cadences
             
-            self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
+            try:
+                self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
+            except:
+                self.pointing_model = None
+            
             self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
             self.set_quality()
             self.get_cbvs()
@@ -210,13 +214,18 @@ class TargetData(object):
         xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
         
         # Apply the pointing model to each cadence to find the centroids
-        centroid_xs, centroid_ys = [], []
-        for i in range(len(self.pointing_model)):
-            new_coords = use_pointing_model(np.array(xy), self.pointing_model[i])
-            centroid_xs.append(new_coords[0][0])
-            centroid_ys.append(new_coords[0][1])
-        self.centroid_xs = np.array(centroid_xs)
-        self.centroid_ys = np.array(centroid_ys)
+        
+        if self.pointing_model is None:
+            self.centroid_xs = np.zeros_like(self.post_obj.time)
+            self.centroid_ys = np.zeros_like(self.post_obj.time)
+        else:
+            centroid_xs, centroid_ys = [], []
+            for i in range(len(self.pointing_model)):
+                new_coords = use_pointing_model(np.array(xy), self.pointing_model[i])
+                centroid_xs.append(new_coords[0][0])
+                centroid_ys.append(new_coords[0][1])
+            self.centroid_xs = np.array(centroid_xs)
+            self.centroid_ys = np.array(centroid_ys)
         
         # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
@@ -547,10 +556,6 @@ class TargetData(object):
         Parameters
         ----------
         """
-        print('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
-                                                                                                                                                     self.source_info.camera,
-                                                                                                                                                     self.source_info.chip))
-
         matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
                                                                                                                                                      self.source_info.camera,
                                                                                                                                                      self.source_info.chip))
@@ -760,7 +765,7 @@ class TargetData(object):
 
     def find_break(self):
         t   = np.diff(self.time)
-        ind = np.where( t > np.mean(t)+2*np.std(t))[0][0]
+        ind = np.where( t == np.max(t))[0][0]
         return ind + 1
 
 
@@ -849,32 +854,36 @@ class TargetData(object):
             medval = np.nanmedian(flux[mask][qm])
             norm_l = norm(flux[mask], qm)
 
-            cx, cy = rotate_centroids(cx[mask], cy[mask])
+            #cx, cy = rotate_centroids(cx[mask], cy[mask])
+            cx = cx[mask]
+            cy = cy[mask]
             cx -= np.median(cx)
             cy -= np.median(cy)
+            
 
             bkg = self.flux_bkg[mask]
             bkg -= np.min(bkg)
 
             vv = self.cbvs[mask][:,0:modes]
             
-
-                
-            
+                        
             if pca == False:
+                cm = np.column_stack((t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
+                cm_full = np.column_stack((t[mask], np.ones_like(t[mask])))
                 
-                if np.std(bkg) < 1e-10:
 
-                    cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
-                                                vv[qm][skip:], t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
-                    cm_full = np.column_stack((cx, cy, cx**2, cy**2, vv, t[mask], np.ones_like(t[mask])))
+                cm = np.column_stack((cm, vv[qm][skip:]))
+                cm_full = np.column_stack((cm_full, vv))
+                
 
-                else:
+                if np.std(bkg) > 1e-10:
+                    cm = np.column_stack((cm, bkg[qm][skip:]))
+                    cm_full = np.column_stack((cm_full, bkg))
 
-                    cm     = np.column_stack( (cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2,
-                                               vv[qm][skip:], bkg[qm][skip:], t[mask][qm][skip:],
-                                               np.ones_like(t[mask][qm][skip:])))
-                    cm_full = np.column_stack((cx, cy, cx**2, cy**2, vv, bkg, t[mask], np.ones_like(t[mask])))
+                if np.std(cx) > 1e-10:
+                    cm = np.column_stack((cm, cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2))
+                    cm_full = np.column_stack((cm_full, cx, cy, cx**2, cy**2))
+                
             else:
                 cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((vv, np.ones_like(t[mask])))
