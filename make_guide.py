@@ -64,8 +64,10 @@ def get_headers(cards, exists=False, t=None):
                     check = [t['SECTOR'][j], t['CAMERA'][j], t['CCD'][j]]
                     if check==file_check:
                         checker += 1
-
-            elif exists == False and checker == 0:
+                if checker == 0:
+                    t.add_row(row)
+                        
+            elif exists == False:
                 t.add_row(row)
 
         except:
