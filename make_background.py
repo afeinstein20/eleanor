@@ -38,7 +38,7 @@ def lowpass(vec):
     new_signal = np.convolve(vec, sinc_func)
 
     lns = len(new_signal)
-    diff = int(np.abs(lns - len(vec))/2)
+    diff = int(np.abs(lns - len(vec))/2)  # low pass filter to remove high order modes
 
     return new_signal[diff:-diff]
 
@@ -60,10 +60,10 @@ def fhat(xhat, data):
 
 def calc_2dbkg(flux, qual, time):
     q = qual == 0
-    med = np.percentile(flux[:,:,:], 1, axis=(2))
+    med = np.percentile(flux[:,:,:], 1, axis=(2))   # build a single frame in shape of detector. This was once the median image, not sure why it was changed 
     
-    med = med-mf(med, 25)
-    g = np.ma.masked_where(med < np.percentile(med, 70.), med)
+    med = med-mf(med, 25) # subtract off median to remove stable background emission, which is especially apparent in corners
+    g = np.ma.masked_where(med < np.percentile(med, 70.), med)  # mask which should separate pixels dominated by starlight from background
 
     modes = 21
 
@@ -78,7 +78,9 @@ def calc_2dbkg(flux, qual, time):
             if i > 0:
                 rolled = np.pad(pv.T, ((0,0),(i,0)), mode='constant')[:, :-i].T
             else:
-                rolled = np.pad(pv.T, ((0,0),(0,-i)), mode='constant')[:, -i:].T
+                rolled = np.pad(pv.T, ((0,0),(0,-i)), mode='constant')[:, -i:].T # assumption: background is a linear sum of what is seen on pixels on the
+                                                                                 # detector. Because the earthshine varies with axis, this can be time-shifted
+                                                                                 # so that individual pixels see the same response at different times
             vv = np.column_stack((vv, rolled))
 
     vv = np.column_stack((vv, np.ones_like(vv[:,0])))
@@ -90,7 +92,7 @@ def calc_2dbkg(flux, qual, time):
     for i in range(len(g)):
         for j in range(len(g[0])):
             if g.mask[i][j] == True:
-                maskvals.data[i,j] = do_pca(i,j, flux, vv, q)
+                maskvals.data[i,j] = do_pca(i,j, flux, vv, q)  # build eigenvectors to model the background at each pixel
 
     noval = maskvals.data[:,:,:] == 0
     maskvals.mask[noval] = True
@@ -99,7 +101,8 @@ def calc_2dbkg(flux, qual, time):
     for i in range(len(maskvals[0,0])):
         outmeasure += (np.abs(maskvals.data[:,:,i]-np.nanmean(maskvals.data[:,:,i])))/np.nanstd(maskvals.data[:,:,i])
 
-    metric = outmeasure/len(maskvals.data[0,0])
+    metric = outmeasure/len(maskvals.data[0,0]) # these eigenvectors give a bad fit when something astrophysical happens to these pixels, like a bright
+                                                # asteroid crossing the FOV. Isolate these pixels and add them into the mask of pixels we don't use
     maskvals.mask[metric > 1.00,:] = True
 
     x = np.arange(0, maskvals.data.shape[1])
@@ -116,8 +119,8 @@ def calc_2dbkg(flux, qual, time):
         newarr = array[~array.mask]
 
 
-        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
-                                  (xx, yy),
+        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),  # take the masked pixels (where the stars are, in theory) and interpolate the 
+                                  (xx, yy),                         # inferred background onto these pixels
                                      method='linear')
 
         array = np.ma.masked_invalid(GD[:,:,i])
@@ -127,9 +130,10 @@ def calc_2dbkg(flux, qual, time):
         y1 = yy[~array.mask]
         newarr = array[~array.mask]
 
-        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),
-                                  (xx, yy),
-                                     method='nearest')
+        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(), # in the corners, just extend the background based on the nearest pixel. This shouldn't
+                                  (xx, yy),                         # be too important since these pixels are in theory closer to the center of another postcard
+                                   method='nearest')               # in which case inferring the background is going to be a challenge regardless
+                                    
     bkg_arr = np.zeros_like(flux)
 
     for i in range(104):
@@ -138,8 +142,9 @@ def calc_2dbkg(flux, qual, time):
             bkg_arr[i,j,q] = lowpass(bkg_arr[i,j,q])
 
 
-    f = interp1d(time[q], bkg_arr[:,:,q], kind='linear', axis=2, bounds_error=False, fill_value='extrapolate')
-    fout = f(time)
+    f = interp1d(time[q], bkg_arr[:,:,q], kind='linear', axis=2, bounds_error=False, fill_value='extrapolate') # then interpolate the background smoothly across
+    fout = f(time)                                                                                             # all times, where we've only been learning with the
+                                                                                                               # good quality cadences
 
     return fout
 
