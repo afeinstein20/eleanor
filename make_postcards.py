@@ -8,6 +8,7 @@ __all__ = ["make_postcards"]
 import os
 import glob
 import tqdm
+import shutil
 import fitsio
 import numpy as np
 from time import strftime
@@ -15,14 +16,9 @@ from astropy.wcs import WCS
 from astropy.time import Time
 from astropy.stats import SigmaClip
 from photutils import MMMBackground
-from scipy import interpolate
-from scipy.signal import medfilt2d as mf
-from scipy.interpolate import interp1d
-from astropy.io import fits
 
 from eleanor.ffi import ffi, set_quality_flags
 from eleanor.version import __version__
-
 
 
 def bkg(flux, sigma=2.5):
@@ -300,6 +296,14 @@ def run_sector_camera_chip(base_dir, output_dir, sector, camera, chip):
     fns = list(sorted(glob.glob(pattern)))
     make_postcards(fns, outdir)
 
+    # Move the pointing model
+    pointingdir = os.path.join(output_dir, "s{0:04d}".format(sector),
+                               "pointing_model")
+    os.makedirs(pointingdir, exist_ok=True)
+    open(os.path.join(pointingdir, "index.auto"), "w").close()
+    pointingfn = "pointingModel_{0:04d}_{1}-{2}.txt".format(
+        sector, camera, chip)
+    shutil.move(pointingfn, os.path.join(pointingdir, pointingfn))
 
 
 if __name__ == "__main__":
