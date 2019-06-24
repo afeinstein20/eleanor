@@ -200,7 +200,7 @@ class TargetData(object):
 
                 self.center_of_mass()
             
-
+                self.set_header()
 
 
     def get_time(self, coords):
