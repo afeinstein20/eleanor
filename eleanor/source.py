@@ -331,7 +331,9 @@ class Source(object):
         if fn_exists is None:
             manifest = Tesscut.download_cutouts(coord, self.tesscut_size, sector=self.usr_sec, path=download_dir)
             cutout = fits.open(manifest['Local Path'][0])
+            self.postcard_path = manifest['Local Path'][0]
         else:
+            self.postcard_path = fn_exists
             cutout = fits.open(fn_exists)
         
         self.cutout = cutout
@@ -369,6 +371,6 @@ class Source(object):
             except OSError:
                 download_dir = '.'
                 warnings.warn('Warning: unable to create {}. '
-                              'Downloading TPFs to the current '
+                              'Downloading TessCut to the current '
                               'working directory instead.'.format(download_dir))
         return download_dir

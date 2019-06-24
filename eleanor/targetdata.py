@@ -331,7 +331,10 @@ class TargetData(object):
 
         if save_postcard == False:
             try:
-                os.remove(self.post_obj.local_path)
+                if self.source_info.tc == False:
+                    os.remove(self.post_obj.local_path)
+                else:
+                    os.remove(self.source_info.postcard_path)
             except OSError:
                 pass
         return
