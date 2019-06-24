@@ -3,25 +3,16 @@
 
 from __future__ import division, print_function
 
-__all__ = ["make_background"]
-
 import os
 import glob
 import tqdm
-import fitsio
 import numpy as np
-from time import strftime
-from astropy.wcs import WCS
-from astropy.time import Time
-from astropy.stats import SigmaClip
 from sklearn.decomposition import PCA
 from scipy import interpolate
 from scipy.signal import medfilt2d as mf
 from scipy.interpolate import interp1d
 from astropy.io import fits
-
-from eleanor.ffi import ffi, set_quality_flags
-from eleanor.version import __version__
+from multiprocessing import Pool
 
 
 def lowpass(vec):
@@ -60,6 +51,7 @@ def fhat(xhat, data):
 
 def calc_2dbkg(flux, qual, time):
     q = qual == 0
+
     med = np.percentile(flux[:,:,:], 1, axis=(2))   # build a single frame in shape of detector. This was once the median image, not sure why it was changed 
     
     med = med-mf(med, 25) # subtract off median to remove stable background emission, which is especially apparent in corners
@@ -148,13 +140,20 @@ def calc_2dbkg(flux, qual, time):
 
     return fout
 
+def do_background(fn):
+    with fits.open(fn) as hdu:
+        bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'],
+                         hdu[1].data['TSTART'])
+        # Checks to make sure there isn't a background extension already
+        if len(hdu) < 5:
+            fits.append(fn, bkg)
+        else:
+            fits.update(fn, bkg, 4)
 
-
-def run_sector_camera_chip(base_dir, sector, camera, chip):
-    pattern = os.path.join(base_dir, "hlsp_eleanor_*.fits")
-    outdir = base_dir
-    open(os.path.join(outdir, "index.auto"), "w").close()
-    open(os.path.join(os.path.dirname(outdir), "index.auto"), "w").close()    
+def run_sector_camera_chip(base_dir, sector, camera, chip, threads=1):
+    postdir = os.path.join(base_dir, "s{0:04d}".format(sector),
+                           "{0:d}-{1:d}".format(camera, chip))
+    pattern = os.path.join(postdir, "hlsp_eleanor_*.fits")
 
     fns = list(sorted(glob.glob(pattern)))
 
@@ -163,15 +162,11 @@ def run_sector_camera_chip(base_dir, sector, camera, chip):
 
     # Writes in the background after making the postcards
     print("Computing backgrounds...")
-    for fn in tqdm.tqdm(fns, total=len(fns)):
-        with fits.open(fn) as hdu:
-            bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'],
-                             hdu[1].data['TSTART'])
-            # Checks to make sure there isn't a background extension already
-            if len(hdu) < 5:
-                fits.append(fn, bkg)
-            else:
-                fits.update(fn, bkg, 4)
+    if threads > 1:
+        with Pool(threads) as pool:
+            list(tqdm.tqdm(pool.map(do_background, fns), total=len(fns)))
+    else:
+        list(tqdm.tqdm(map(do_background, fns), total=len(fns)))
 
 
 if __name__ == "__main__":
@@ -187,6 +182,8 @@ if __name__ == "__main__":
                         help='the camera number')
     parser.add_argument('--chip', type=int, default=None,
                         help='the chip number')
+    parser.add_argument('--threads', type=int, default=1,
+                        help='the number of threads to run in parallel')
     args = parser.parse_args()
 
     if args.camera is None:
@@ -205,4 +202,5 @@ if __name__ == "__main__":
         for chip in chips:
             print("Running {0:04d}-{1}-{2}".format(args.sector, camera, chip))
             run_sector_camera_chip(args.base_dir,
-                                   args.sector, camera, chip)
+                                   args.sector, camera, chip,
+                                   threads=args.threads)
