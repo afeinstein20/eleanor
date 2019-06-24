@@ -15,7 +15,7 @@ rev=$(git rev-parse --short HEAD)
 # Initialize a new git repo in the build dir,
 # add the necessary files, and force-push
 # to the gh-pages branch
-cd $TRAVIS_BUILD_DIR/docs/_build/html
+cd $TRAVIS_BUILD_DIR/docs/_build
 git init
 touch .nojekyll
 git add -f .nojekyll
