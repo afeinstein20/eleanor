@@ -165,7 +165,7 @@ def coords_from_gaia(gaia_id):
 def tic_from_coords(coords):
     """Returns TIC ID, Tmag, and separation of best match(es) to input coords."""
     tess = crossmatch_by_position(coords, 0.01, 'Mast.Tic.Crossmatch')
-    tessPos = [tess['MatchRA'], tess['MatchDEC']]
+    tessPos = [tess['MatchRa'], tess['MatchDEC']]
     sepTess = crossmatch_distance(coords, tessPos)
     return int(tess[sepTess==np.min(sepTess)]['MatchID'].data[0]), [tess[sepTess==np.min(sepTess)]['Tmag'].data[0]], sepTess[sepTess==np.min(sepTess)]/u.arcsec, int(tess['version'][0])
 
