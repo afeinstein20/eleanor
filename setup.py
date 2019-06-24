@@ -41,6 +41,7 @@ setup(
     install_requires=[
         'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
         'astroquery', 'bokeh', 'muchbettermoments', 'fitsio',
+        'setuptools>=41.0.0',
         'tensorflow', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point'],
 
 
