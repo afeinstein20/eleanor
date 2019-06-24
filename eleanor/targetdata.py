@@ -53,6 +53,9 @@ class TargetData(object):
         If true, will return a light curve made with a simple PSF model.
     cal_cadences : tuple, optional
         Start and end cadence numbers to use for optimal aperture selection.
+    try_load: bool, optional
+        If true, will search hidden ~/.eleanor directory to see if TPF has already
+        been created. 
 
     Attributes
     ----------
@@ -127,61 +130,75 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None,
+                 try_load=True):
         self.source_info = source 
 
         if self.source_info.premade is True:
             self.load(directory=self.source_info.fn_dir)
 
         else:            
-            self.aperture = None
-            
-            if source.tc == False:
-                if save_postcard == True:
+            fnf = True
+            # Checks to see if file exists already
+            if try_load==True:
+                try:
+                    default_fn = 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(self.source_info.tic,
+                                                                                                  self.source_info.sector,
+                                                                                                  eleanor.__version__)
+                    self.load(fn=default_fn)
+                    fnf = False
+                except:
+                    pass
+
+            if fnf is True:
+                self.aperture = None
+                
+                if source.tc == False:
                     self.post_obj = Postcard(source.postcard, source.ELEANORURL)
                 else:
-                    self.post_obj = Postcard(source.postcard, source.ELEANORURL)
-            else:
-                self.post_obj = Postcard_tesscut(source.cutout)
+                    self.post_obj = Postcard_tesscut(source.cutout)
                 
-            self.ffiindex = self.post_obj.ffiindex
-            self.flux_bkg = self.post_obj.bkg 
-            self.get_time(source.coords)
+                self.ffiindex = self.post_obj.ffiindex
+                self.flux_bkg = self.post_obj.bkg 
+                self.get_time(source.coords)
 
             
-            if bkg_size is None:
-                bkg_size = width
+                if bkg_size is None:
+                    bkg_size = width
 
-            self.crowded_field = crowded_field
+                self.crowded_field = crowded_field
 
-            if cal_cadences is None:
-                self.cal_cadences = (0, len(self.post_obj.time))
-            else:
-                self.cal_cadences = cal_cadences
+                if cal_cadences is None:
+                    self.cal_cadences = (0, len(self.post_obj.time))
+                else:
+                    self.cal_cadences = cal_cadences
             
-            try:
-                self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
-            except:
-                self.pointing_model = None
-            
-            self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
-            self.set_quality()
-            self.get_cbvs()
+                try:
+                    self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
+                except:
+                    self.pointing_model = None
+                    
+                self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
+                self.set_quality()
+                self.get_cbvs()
             
 
-            self.create_apertures(height, width)
+                self.create_apertures(height, width)
             
-            self.get_lightcurve()
-            if do_pca == True:
-                self.corrected_flux(pca=True)
-            else:
-                self.modes = None
-                self.pca_flux = None
-            if do_psf == True:
-                self.psf_lightcurve()
-            else:
-                self.psf_flux = None
-            self.center_of_mass()
+                self.get_lightcurve()
+
+                if do_pca == True:
+                    self.corrected_flux(pca=True)
+                else:
+                    self.modes = None
+                    self.pca_flux = None
+
+                if do_psf == True:
+                    self.psf_lightcurve()
+                else:
+                    self.psf_flux = None
+
+                self.center_of_mass()
             
 
 
@@ -1072,7 +1089,7 @@ class TargetData(object):
 
 
 
-    def load(self, directory=None):
+    def load(self, directory=None, fn=None):
         """
         Loads in and sets all the attributes for a pre-created TPF file.
 
@@ -1084,8 +1101,10 @@ class TargetData(object):
 
         if directory is None:
             directory = self.fetch_dir()
-
-        hdu = fits.open(os.path.join(directory, self.source_info.fn))
+        if fn is None:
+            fn = self.source_info.fn
+            
+        hdu = fits.open(os.path.join(directory, fn))
         hdr = hdu[0].header
         self.header = hdr
         # Loads in everything from the first extension
