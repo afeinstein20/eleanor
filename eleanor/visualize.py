@@ -5,9 +5,10 @@ import bokeh.io
 import bokeh.models
 from astropy.io import fits
 import warnings
+from tqdm import trange
 
 from astropy.wcs import WCS
-from .ffi import use_pointing_model
+from .ffi import use_pointing_model, load_pointing_model
 
 
 from .mast import *
@@ -25,21 +26,27 @@ class Visualize(object):
     obj :
         Object must have minimum attributes of 2D array of flux.
         Will allow for plotting of both postcards & tpfs.
+    obj_type :
+        Object type can be set to "tpf" or "postcard". Default is "tpf".
     """
 
-    def __init__(self, object):
-        self.obj = object
+    def __init__(self, object, obj_type="tpf"):
+        self.obj      = object
+        self.obj_type = obj_type.lower()
         self.header = self.obj.header
 
-        if self.obj.tpf is not None:
+        if self.obj_type == "tpf":
             self.flux   = self.obj.tpf
             self.center = (np.nanmedian(self.obj.centroid_xs),
                              np.nanmedian(self.obj.centroid_ys))
-            self.pointing_model = self.obj.pointing_model
+            self.pointing_model = load_pointing_model(self.obj.source_info.sector,
+                                                      self.obj.source_info.camera,
+                                                      self.obj.source_info.chip)
+            self.dimensions = self.obj.tpf[0].shape
         else:
             self.flux   = self.obj.flux
             self.center = self.obj.center_xy
-
+            self.dimensions = self.obj.dimensions
 
 
 
@@ -165,8 +172,8 @@ class Visualize(object):
 
         def create_labels(gaia_ra, gaia_dec):
             ticLabel, tmagLabel = np.zeros(len(gaia_id)), np.zeros(len(gaia_id))
-            for i in range(len(gaia_ra)):
-                tic, tmag, sep = tic_from_coords([gaia_ra[i], gaia_dec[i]])
+            for i in trange(len(gaia_ra)):
+                tic, tmag, sep, version = tic_from_coords([gaia_ra[i], gaia_dec[i]])
                 if sep < 1.0:
                     ticLabel[i]  = tic
                     tmagLabel[i] = tmag[0]
@@ -185,12 +192,12 @@ class Visualize(object):
         new_coords = np.array(new_coords)
 
         # Finds sources that lie in the frame
-        in_frame = np.where( (new_coords[:,0] >= center_xy[0]-self.obj.dimensions[1]/2.) &
-                             (new_coords[:,0] <= center_xy[0]+self.obj.dimensions[1]/2.) &
-                             (new_coords[:,1] >= center_xy[1]-self.obj.dimensions[2]/2.) &
-                             (new_coords[:,1] <= center_xy[1]+self.obj.dimensions[2]/2.) )
-        gaia_pos_x = new_coords[:,1][in_frame] - center_xy[1] + self.obj.dimensions[1]/2.
-        gaia_pos_y = new_coords[:,0][in_frame] - center_xy[0] + self.obj.dimensions[2]/2.
+        in_frame = np.where( (new_coords[:,0] >= center_xy[0]-self.dimensions[0]/2.) &
+                             (new_coords[:,0] <= center_xy[0]+self.dimensions[0]/2.) &
+                             (new_coords[:,1] >= center_xy[1]-self.dimensions[1]/2.) &
+                             (new_coords[:,1] <= center_xy[1]+self.dimensions[1]/2.) )
+        gaia_pos_x = new_coords[:,1][in_frame] - center_xy[1] + self.dimensions[0]/2.
+        gaia_pos_y = new_coords[:,0][in_frame] - center_xy[0] + self.dimensions[1]/2.
         gaia_g_mag = sources['phot_g_mean_mag'][in_frame]
         gaia_id    = sources['source_id'][in_frame]
 
@@ -205,26 +212,26 @@ class Visualize(object):
             ('G_mag', '')
             ]
 
-        x_range = (-0.5,self.obj.dimensions[1]-0.5)
-        y_range = (-0.5,self.obj.dimensions[2]-0.5)
+        x_range = (-0.5,self.dimensions[0]-0.5)
+        y_range = (-0.5,self.dimensions[1]-0.5)
         p = figure(x_range=x_range, y_range=y_range, toolbar_location='above',
                    plot_width=500, plot_height=450)
 
         color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(self.flux[0]),
                                          high=np.max(self.flux[0]))
-        tpf_img = p.image(image=[self.flux[0]], x=-0.5, y=-0.5, dw=self.obj.dimensions[1],
-                          dh=self.obj.dimensions[2], color_mapper=color_mapper)
+        tpf_img = p.image(image=[self.flux[0]], x=-0.5, y=-0.5, dw=self.dimensions[0],
+                          dh=self.dimensions[1], color_mapper=color_mapper)
 
         # Sets the placement of the tick labels
-        p.xaxis.ticker = np.arange(0, self.obj.dimensions[1])
-        p.yaxis.ticker = np.arange(0, self.obj.dimensions[2])
+        p.xaxis.ticker = np.arange(0, self.dimensions[0])
+        p.yaxis.ticker = np.arange(0, self.dimensions[1])
 
         # Sets the tick labels
         x_overrides, y_overrides = {}, {}
-        x_list = np.arange(int(center_xy[0]-self.obj.dimensions[1]/2),
-                           int(center_xy[0]+self.obj.dimensions[1]/2), 1)
-        y_list = np.arange(int(center_xy[1]-self.obj.dimensions[2]/2),
-                           int(center_xy[1]+self.obj.dimensions[2]/2), 1)
+        x_list = np.arange(int(center_xy[0]-self.dimensions[0]/2),
+                           int(center_xy[0]+self.dimensions[0]/2), 1)
+        y_list = np.arange(int(center_xy[1]-self.dimensions[1]/2),
+                           int(center_xy[1]+self.dimensions[1]/2), 1)
 
         for i in range(9):
             ind = str(i)
