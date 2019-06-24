@@ -182,17 +182,16 @@ class Source(object):
                                "tic, gaia, coords, fn.")
                 
 
-            self.tess_mag = self.tess_mag[0]
-            
+            self.tess_mag = self.tess_mag[0]            
             if tc == False:
                 self.locate_on_tess() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
-                
             if tc == True:
+                self.tesscut_size = 31
                 self.locate_with_tesscut() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
             
-
+                
         self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
                                                                                                                                  self.camera,
                                                                                                                                  self.chip)
@@ -321,16 +320,19 @@ class Source(object):
         coord = SkyCoord(self.coords[0], self.coords[1], unit="deg")
         
         sector_table = Tesscut.get_sectors(coord)
-
-        manifest = Tesscut.download_cutouts(coord, 31, sector = self.usr_sec)
-
         self.sector = self.usr_sec
         self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0]
         self.chip = sector_table[sector_table['sector'] == self.sector]['ccd'].quantity[0]
 
-        whichtc = np.where(sector_table['sector'] == self.usr_sec)[0][0]
+        download_dir = self.tesscut_dir()
 
-        cutout = fits.open(manifest['Local Path'][0])
+        fn_exists = self.search_tesscut(download_dir, coord)
+
+        if fn_exists is None:
+            manifest = Tesscut.download_cutouts(coord, self.tesscut_size, sector=self.usr_sec, path=download_dir)
+            cutout = fits.open(manifest['Local Path'][0])
+        else:
+            cutout = fits.open(fn_exists)
         
         self.cutout = cutout
         
@@ -340,3 +342,33 @@ class Source(object):
         self.position_on_chip = np.array([xcoord, ycoord])
 
 
+    def search_tesscut(self, download_dir, coords):
+        """Searches to see if the TESSCut cutout has already been downloaded.
+        """
+        ra  = np.round(coords.ra.deg,  6)
+        dec = np.round(coords.dec.deg, 6)
+
+        tesscut_fn = "tess-s{0:04d}-{1}-{2}_{3}_{4}_{5}x{5}_astrocut.fits".format(self.sector,
+                                                                                  self.camera,
+                                                                                  self.chip,
+                                                                                  ra, dec,
+                                                                                  self.tesscut_size)
+        local_path = os.path.join(download_dir, tesscut_fn)
+        if os.path.isfile(local_path):
+            return local_path
+        else:
+            return None
+
+    def tesscut_dir(self):
+        """Creates a TESSCut directory in the hidden eleanor directory.
+        """
+        download_dir = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
+        if os.path.isdir(download_dir) is False:
+            try:
+                os.mkdir(download_dir)
+            except OSError:
+                download_dir = '.'
+                warnings.warn('Warning: unable to create {}. '
+                              'Downloading TPFs to the current '
+                              'working directory instead.'.format(download_dir))
+        return download_dir

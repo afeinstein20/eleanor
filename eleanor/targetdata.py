@@ -145,11 +145,7 @@ class TargetData(object):
                 self.post_obj = Postcard_tesscut(source.cutout)
                 
             self.ffiindex = self.post_obj.ffiindex
-                    
-
             self.flux_bkg = self.post_obj.bkg 
-            
-            
             self.get_time(source.coords)
 
             
@@ -1155,7 +1151,7 @@ class TargetData(object):
         download_dir : str
             Path to location of `ffi_dir` where FFIs will be downloaded
         """
-        download_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
+        download_dir    = os.path.join(os.path.expanduser('~'), '.eleanor')
         if os.path.isdir(download_dir):
             return download_dir
         else:
