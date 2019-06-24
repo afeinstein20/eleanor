@@ -19,5 +19,6 @@ help:
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 	mkdir -p $(BUILDDIR)/html/_images
+	mkdir -p $(BUILDDIR)/html/getting_started
 	cp ../figures/eleanor.gif $(BUILDDIR)/html/_images/eleanor.gif
 	cp ../docs/getting_started/customApExample.gif $(BUILDDIR)/html/getting_started/customApExample.gif
