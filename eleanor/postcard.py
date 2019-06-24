@@ -65,7 +65,7 @@ class Postcard(object):
                                   'working directory instead.'.format(self.post_dir))
 
             self.filename = '{}{}'.format(ELEANORURL, filename)
-            self.local_path = '{}/{}'.format(self.post_dir, filename)
+            self.local_path = os.path.join(self.post_dir, filename)
 
             if os.path.isfile(self.local_path) == False:
                 print("Downloading {}".format(self.filename))
@@ -232,7 +232,9 @@ class Postcard_tesscut(object):
     """
     def __init__(self, cutout, location=None):
 
-            self.hdu = cutout
+        if location is None:
+            self.local_path = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
+        self.hdu = cutout
 
 
     def plot(self, frame=0, ax=None, scale='linear', **kwargs):
