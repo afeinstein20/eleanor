@@ -33,27 +33,15 @@ def lowpass(vec):
 
     return new_signal[diff:-diff]
 
-def do_pca(i, j, data, vv, q):
-    xvals = xhat(vv[:], data[i,j,:][q])
-    fmod = fhat(xvals, vv)
-    lc_pred = (fmod+1)
+def do_pca(i, j, data, factor, q):
+    xvals = np.dot(factor, data[i,j,:][q])
     return xvals
-
-def xhat(mat, lc):
-    ATA = np.dot(mat.T, mat)
-    ATAinv = np.linalg.inv(ATA)
-    ATf = np.dot(mat.T, lc)
-    xhat = np.dot(ATAinv, ATf)
-    return xhat
-
-def fhat(xhat, data):
-    return np.dot(data, xhat)
 
 def calc_2dbkg(flux, qual, time):
     q = qual == 0
 
-    med = np.percentile(flux[:,:,:], 1, axis=(2))   # build a single frame in shape of detector. This was once the median image, not sure why it was changed 
-    
+    med = np.percentile(flux[:,:,:], 1, axis=(2))   # build a single frame in shape of detector. This was once the median image, not sure why it was changed
+
     med = med-mf(med, 25) # subtract off median to remove stable background emission, which is especially apparent in corners
     g = np.ma.masked_where(med < np.percentile(med, 70.), med)  # mask which should separate pixels dominated by starlight from background
 
@@ -76,6 +64,7 @@ def calc_2dbkg(flux, qual, time):
             vv = np.column_stack((vv, rolled))
 
     vv = np.column_stack((vv, np.ones_like(vv[:,0])))
+    factor = np.linalg.solve(np.dot(vv.T, vv), vv.T)
 
     maskvals = np.ma.masked_array(data=np.zeros((104,148,np.shape(vv)[1])),
                                   mask=np.zeros((104,148,np.shape(vv)[1])))
@@ -84,7 +73,7 @@ def calc_2dbkg(flux, qual, time):
     for i in range(len(g)):
         for j in range(len(g[0])):
             if g.mask[i][j] == True:
-                maskvals.data[i,j] = do_pca(i,j, flux, vv, q)  # build eigenvectors to model the background at each pixel
+                maskvals.data[i, j] = do_pca(i, j, flux, factor, q)  # build eigenvectors to model the background at each pixel
 
     noval = maskvals.data[:,:,:] == 0
     maskvals.mask[noval] = True
@@ -111,7 +100,7 @@ def calc_2dbkg(flux, qual, time):
         newarr = array[~array.mask]
 
 
-        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),  # take the masked pixels (where the stars are, in theory) and interpolate the 
+        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),  # take the masked pixels (where the stars are, in theory) and interpolate the
                                   (xx, yy),                         # inferred background onto these pixels
                                      method='linear')
 
@@ -125,14 +114,12 @@ def calc_2dbkg(flux, qual, time):
         GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(), # in the corners, just extend the background based on the nearest pixel. This shouldn't
                                   (xx, yy),                         # be too important since these pixels are in theory closer to the center of another postcard
                                    method='nearest')               # in which case inferring the background is going to be a challenge regardless
-                                    
-    bkg_arr = np.zeros_like(flux)
 
+    bkg_arr = np.zeros_like(flux)
+    bkg_arr[:, :, q] = np.dot(GD, vv.T)
     for i in range(104):
         for j in range(148):
-            bkg_arr[i,j,q] = np.dot(GD[i,j,:], vv.T)
             bkg_arr[i,j,q] = lowpass(bkg_arr[i,j,q])
-
 
     f = interp1d(time[q], bkg_arr[:,:,q], kind='linear', axis=2, bounds_error=False, fill_value='extrapolate') # then interpolate the background smoothly across
     fout = f(time)                                                                                             # all times, where we've only been learning with the
