@@ -154,7 +154,7 @@ class Source(object):
             self.camera   = hdr['CAMERA']
             self.chip     = hdr['CHIP']
             self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
-            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
+#            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
 
         else:
             if self.coords is not None:
