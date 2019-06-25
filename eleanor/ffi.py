@@ -27,11 +27,11 @@ def load_pointing_model(sector, camera, chip):
     data = data.encode('ascii')
 
     guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/pointing_model/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector, camera, chip)
-                                           
+
     req = urllib.request.Request(guide_link, data, headers)
     with urllib.request.urlopen(req) as response:
         pointing = response.read().decode('utf-8')
-                                                                                                                                                                            
+
     pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
     return pointing
 
@@ -165,7 +165,7 @@ class ffi:
         self.sector = sector
         self.camera = camera
         self.chip   = chip
-
+        self.ffiindex = None
 
     def download_ffis(self, download_dir=None):
         """
@@ -196,7 +196,7 @@ class ffi:
                     subsub = fn.get('href')
                     if (subsub[0] != '?') and (subsub[0] != '/'):
                         subsub_paths.append(os.path.join(sp, subsub))
-            
+
             subsub_paths = [os.path.join(i, '{}-{}/'.format(self.camera, self.chip)) for i in subsub_paths]
 
             for sbp in subsub_paths:
@@ -259,15 +259,20 @@ class ffi:
 
         return download_dir
 
-
     def sort_by_date(self):
         """Sorts FITS files by start date of observation."""
-        dates, time = [], []
+        dates, time, index = [], [], []
         for f in self.local_paths:
             hdu = fits.open(f)
             hdr = hdu[1].header
             dates.append(hdr['DATE-OBS'])
-        dates, fns = np.sort(np.array([dates, self.local_paths]))
+            if 'ffiindex' in hdu[0].header:
+                index.append(hdu[0].header['ffiindex'])
+        if len(index) == len(dates):
+            dates, index, fns = np.sort(np.array([dates, index, self.local_paths]))
+            self.ffiindex = index.astype(int)
+        else:
+            dates, fns = np.sort(np.array([dates, self.local_paths]))
         self.local_paths = fns
         self.dates = dates
         return
@@ -317,7 +322,7 @@ class ffi:
             init_d   = 8.0
             counter  = 0.0
             isolated = []
-                                                                                           
+
             while ((init_d - counter) > 0) and (counter < 3.5):
                 for i in range(len(x)):
                     x_list  = np.delete(x, np.where(x==x[i]))
@@ -410,7 +415,7 @@ class ffi:
                 xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
 
                 solution = self.build_pointing_model(xy.T, pos_inferred.T)
-                
+
                 xy = apply_pointing_model(xy.T, solution)
                 matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
 
