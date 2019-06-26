@@ -290,9 +290,10 @@ def run_sector_camera_chip(base_dir, output_dir, sector, camera, chip):
                            "*", "*",
                            "{0:d}-{1:d}".format(camera, chip),
                            "*.fits")
-    #fnpattern = f"tess*-s{sector:04d}-{camera:d}-" \
-    #    f"{chip:d}-*fits"
-    #pattern = os.path.join(base_dir, 'sector{0}'.format(sector), fnpattern)
+    # LOCAL
+    fnpattern = f"tess*-s{sector:04d}-{camera:d}-" \
+        f"{chip:d}-*fits"
+    pattern = os.path.join(base_dir, 'sector{0}'.format(sector), fnpattern)
 
     outdir = os.path.join(output_dir, "s{0:04d}".format(sector),
                           "{0:d}-{1:d}".format(camera, chip))

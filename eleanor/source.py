@@ -68,20 +68,21 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
 def load_postcard_guide(sector):
     """Load and return the postcard coordinates guide."""
     try:
-        user_agent = 'eleanor 0.1.6'
+        from .version import __version__
+        user_agent = f'eleanor {__version__}'
         values = {'name': 'eleanor',
                   'language': 'Python' }
         headers = {'User-Agent': user_agent}
-        
+
         data = urllib.parse.urlencode(values)
         data = data.encode('ascii')
-        
+
         guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/postcard.guide'.format(sector)
-        
+
         req = urllib.request.Request(guide_link, data, headers)
         with urllib.request.urlopen(req) as response:
             guide = response.read().decode('utf-8')
-        
+
         guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
     except urllib.error.HTTPError:
         return None
@@ -180,18 +181,18 @@ class Source(object):
             else:
                 assert False, ("Source: one of the following keywords must be given: "
                                "tic, gaia, coords, fn.")
-                
 
-            self.tess_mag = self.tess_mag[0]            
-            if tc == False:
+
+            self.tess_mag = self.tess_mag[0]
+            if not tc:
                 self.locate_on_tess() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
-            if tc == True:
+            else:
                 self.tesscut_size = 31
                 self.locate_with_tesscut() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
-            
-                
+
+
         self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
                                                                                                                                  self.camera,
                                                                                                                                  self.chip)
@@ -303,22 +304,22 @@ class Source(object):
         postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
                                 guide['CEN_Y'][i] - guide['POST_W'][i]/2.)
         self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
-        
+
 
     def locate_with_tesscut(self):
         """Finds the best TESS postcard(s) and the position of the source on postcard.
         Sets attributes postcard, position_on_postcard, all_postcards.
          sector, camera, chip, position_on_chip.
-        
+
         """
         self.postcard = []
         self.position_on_postcard = []
         self.all_postcards = []
-        
+
         self.tc = True
-        
+
         coord = SkyCoord(self.coords[0], self.coords[1], unit="deg")
-        
+
         sector_table = Tesscut.get_sectors(coord)
         self.sector = self.usr_sec
         self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0]
@@ -335,12 +336,12 @@ class Source(object):
         else:
             self.postcard_path = fn_exists
             cutout = fits.open(fn_exists)
-        
+
         self.cutout = cutout
-        
+
         xcoord = cutout[1].header['1CRV4P']
         ycoord = cutout[1].header['2CRV4P']
-        
+
         self.position_on_chip = np.array([xcoord, ycoord])
 
 
