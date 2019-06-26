@@ -14,6 +14,10 @@ from scipy.interpolate import interp1d
 from astropy.io import fits
 from multiprocessing import Pool
 
+import cppimport
+cppimport.set_quiet(False)
+fill_grid = cppimport.imp("fill_grid")
+
 
 def lowpass(vec):
     fc = 0.12
@@ -37,7 +41,7 @@ def do_pca(i, j, data, factor, q):
     xvals = np.dot(factor, data[i,j,:][q])
     return xvals
 
-def calc_2dbkg(flux, qual, time):
+def calc_2dbkg(flux, qual, time, fast=True):
     q = qual == 0
 
     med = np.percentile(flux[:,:,:], 1, axis=(2))   # build a single frame in shape of detector. This was once the median image, not sure why it was changed
@@ -69,7 +73,6 @@ def calc_2dbkg(flux, qual, time):
     maskvals = np.ma.masked_array(data=np.zeros((104,148,np.shape(vv)[1])),
                                   mask=np.zeros((104,148,np.shape(vv)[1])))
 
-    GD = np.zeros_like(maskvals)
     for i in range(len(g)):
         for j in range(len(g[0])):
             if g.mask[i][j] == True:
@@ -91,29 +94,35 @@ def calc_2dbkg(flux, qual, time):
 
     xx, yy = np.meshgrid(x, y)
 
-
+    GD = np.copy(maskvals.data)
+    if fast:
+        count = np.zeros(GD.shape[:2], dtype=np.int32)
     for i in range(np.shape(vv)[1]):
         array = np.ma.masked_invalid(maskvals[:,:,i])
 
-        x1 = xx[~array.mask]
-        y1 = yy[~array.mask]
-        newarr = array[~array.mask]
+        if fast:
+            fill_grid.fill_grid(GD[:, :, i], ~array.mask, count)
+
+        else:
+            x1 = xx[~array.mask]
+            y1 = yy[~array.mask]
+            newarr = array[~array.mask]
 
 
-        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),  # take the masked pixels (where the stars are, in theory) and interpolate the
-                                  (xx, yy),                         # inferred background onto these pixels
-                                     method='linear')
+            GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(),  # take the masked pixels (where the stars are, in theory) and interpolate the
+                                    (xx, yy),                         # inferred background onto these pixels
+                                        method='linear')
 
-        array = np.ma.masked_invalid(GD[:,:,i])
-        xx, yy = np.meshgrid(x, y)
+            array = np.ma.masked_invalid(GD[:,:,i])
+            xx, yy = np.meshgrid(x, y)
 
-        x1 = xx[~array.mask]
-        y1 = yy[~array.mask]
-        newarr = array[~array.mask]
+            x1 = xx[~array.mask]
+            y1 = yy[~array.mask]
+            newarr = array[~array.mask]
 
-        GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(), # in the corners, just extend the background based on the nearest pixel. This shouldn't
-                                  (xx, yy),                         # be too important since these pixels are in theory closer to the center of another postcard
-                                   method='nearest')               # in which case inferring the background is going to be a challenge regardless
+            GD[:,:,i] = interpolate.griddata((x1, y1), newarr.ravel(), # in the corners, just extend the background based on the nearest pixel. This shouldn't
+                                    (xx, yy),                         # be too important since these pixels are in theory closer to the center of another postcard
+                                    method='nearest')               # in which case inferring the background is going to be a challenge regardless
 
     bkg_arr = np.zeros_like(flux)
     bkg_arr[:, :, q] = np.dot(GD, vv.T)
