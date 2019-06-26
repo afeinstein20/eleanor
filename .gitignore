@@ -12,3 +12,6 @@ dist
 .coverage
 .eggs
 .ipynb_checkpoints
+*.so
+*.cppimporthash
+.rendered.*
