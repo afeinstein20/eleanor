@@ -17,7 +17,7 @@ def get_headers(cards, exists=False, t=None):
             # Initiate table using first postcard
             if i == 0 and not exists:
                 names, counts = [], []
-                hdrKeys = [k for k in hdr.keys() if not k.startswith('TMOFST')]
+                hdrKeys = [k for k in hdr.keys() if (not k.startswith('TMOFST') and len(k) > 0)]
                 for k in range(len(hdrKeys)):
                     if hdrKeys[k] not in names:
                         names.append(hdrKeys[k])
@@ -42,7 +42,6 @@ def get_headers(cards, exists=False, t=None):
             # row = np.append(row, sector)
             row = np.append(row, os.path.split(cards[i])[1])
             row = np.append(row, hdr[key])
-            print(row)
             if exists:
                 sec_ind = [i for i in np.arange(0,len(names),1) if 'SECTOR' in names[i]][0]
                 cam_ind = [i for i in np.arange(0,len(names),1) if 'CAMERA' in names[i]][0]
@@ -69,8 +68,6 @@ def get_headers(cards, exists=False, t=None):
 if len(sys.argv) > 1:
     # directory to place the output file
     dirname = sys.argv[1]
-    # location of the postcards for this sector.
-    ffidir = sys.argv[2]
 else:
     raise Exception('must be called from command line')
 
@@ -81,7 +78,7 @@ if exists:
     os.remove(fn_path)
     exists = False
 
-ffis = glob(os.path.join(ffidir, '*', '*eleanor*postcard*fits'))
+ffis = glob(os.path.join(dirname, '*', '*eleanor*postcard*fits'))
 
 if exists:
     t = Table.read(fn_path, format='ascii')
