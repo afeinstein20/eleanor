@@ -160,7 +160,7 @@ class Source(object):
             if self.coords is not None:
                 if type(self.coords) is SkyCoord:
                     self.coords = (self.coords.ra.degree, self.coords.dec.degree)
-                elif (len(self.coords) == 2) & all(isinstance(c, float) for c in self.coords):
+                elif (len(self.coords) == 2) & (all(isinstance(c, float) for c in self.coords) | all(isinstance(c, int) for c in self.coords) ):
                     self.coords  = coords
                 else:
                     assert False, ("Source: invalid coords. Valid input types are: "
