@@ -6,35 +6,34 @@ from __future__ import division, print_function
 import os
 import glob
 import tqdm
+import fitsio
 import numpy as np
+from functools import partial
 from sklearn.decomposition import PCA
 from scipy import interpolate
 from scipy.signal import medfilt2d as mf
 from scipy.interpolate import interp1d
-from astropy.io import fits
 from multiprocessing import Pool
 
-import cppimport
-cppimport.set_quiet(False)
-fill_grid = cppimport.imp("fill_grid")
+from eleanor import fill_grid
 
+# Pre-compute the low pass filter
+fc = 0.12
+b = 0.08
+N = int(np.ceil((4 / b)))
+if not N % 2:
+    N += 1
+n = np.arange(N)
+sinc_func = np.sinc(2 * fc * (n - (N - 1) / 2.))
+window = 0.42 - 0.5 * np.cos(2 * np.pi * n / (N - 1))
+window += 0.08 * np.cos(4 * np.pi * n / (N - 1))
+sinc_func = sinc_func * window
+sinc_func = sinc_func / np.sum(sinc_func)
 
 def lowpass(vec):
-    fc = 0.12
-    b = 0.08
-    N = int(np.ceil((4 / b)))
-    if not N % 2: N += 1
-    n = np.arange(N)
-
-    sinc_func = np.sinc(2 * fc * (n - (N - 1) / 2.))
-    window = 0.42 - 0.5 * np.cos(2 * np.pi * n / (N - 1)) + 0.08 * np.cos(4 * np.pi * n / (N - 1))
-    sinc_func = sinc_func * window
-    sinc_func = sinc_func / np.sum(sinc_func)
     new_signal = np.convolve(vec, sinc_func)
-
     lns = len(new_signal)
     diff = int(np.abs(lns - len(vec))/2)  # low pass filter to remove high order modes
-
     return new_signal[diff:-diff]
 
 def do_pca(i, j, data, factor, q):
@@ -136,20 +135,29 @@ def calc_2dbkg(flux, qual, time, fast=True):
 
     return fout
 
-def do_background(fn):
-    with fits.open(fn) as hdu:
-        bkg = calc_2dbkg(hdu[2].data, hdu[1].data['QUALITY'],
-                         hdu[1].data['TSTART'])
-        # Checks to make sure there isn't a background extension already
-        if len(hdu) < 5:
-            fits.append(fn, bkg)
-        else:
-            fits.update(fn, bkg, 4)
+def do_background(fn, fast=True, suffix="_bkg"):
+    base, ext = os.path.splitext(fn)
+    new_filename = base + suffix + ext
 
-def run_sector_camera_chip(base_dir, sector, camera, chip, threads=1):
+    with fitsio.FITS(fn) as fits:
+        hdr = fits[1].read_header()
+        tbl = fits[1].read()
+        bkg = calc_2dbkg(fits[2].read(), tbl['QUALITY'], tbl['TSTART'],
+                         fast=fast)
+
+    hdr["BACKGROUND"] = True
+    fitsio.write(new_filename, bkg, header=dict(hdr), clobber=True)
+
+def run_sector_camera_chip(base_dir, sector, camera, chip, threads=1,
+                           fast=True, suffix="_bkg"):
     postdir = os.path.join(base_dir, "s{0:04d}".format(sector),
                            "{0:d}-{1:d}".format(camera, chip))
-    pattern = os.path.join(postdir, "hlsp_eleanor_*.fits")
+    pattern = os.path.join(
+        postdir,
+        "hlsp_eleanor_tess_ffi_postcard-s{0:04d}-{1:d}-{2:d}-cal-*-*[0-9].fits"
+        .format(sector, camera, chip))
+
+    # pattern = os.path.join(postdir, "hlsp_eleanor_*.fits")
 
     fns = list(sorted(glob.glob(pattern)))
 
@@ -158,11 +166,12 @@ def run_sector_camera_chip(base_dir, sector, camera, chip, threads=1):
 
     # Writes in the background after making the postcards
     print("Computing backgrounds...")
+    func = partial(do_background, fast=fast, suffix=suffix)
     if threads > 1:
         with Pool(threads) as pool:
-            list(tqdm.tqdm(pool.map(do_background, fns), total=len(fns)))
+            list(tqdm.tqdm(pool.map(func, fns), total=len(fns)))
     else:
-        list(tqdm.tqdm(map(do_background, fns), total=len(fns)))
+        list(tqdm.tqdm(map(func, fns), total=len(fns)))
 
 
 if __name__ == "__main__":
@@ -180,6 +189,10 @@ if __name__ == "__main__":
                         help='the chip number')
     parser.add_argument('--threads', type=int, default=1,
                         help='the number of threads to run in parallel')
+    parser.add_argument('--slow', action="store_true",
+                        help='use the old slower version of the interpolation')
+    parser.add_argument('--suffix', type=str, default="_bkg",
+                        help='use the old slower version of the interpolation')
     args = parser.parse_args()
 
     if args.camera is None:
@@ -199,4 +212,5 @@ if __name__ == "__main__":
             print("Running {0:04d}-{1}-{2}".format(args.sector, camera, chip))
             run_sector_camera_chip(args.base_dir,
                                    args.sector, camera, chip,
-                                   threads=args.threads)
+                                   threads=args.threads, fast=not args.slow,
+                                   suffix=args.suffix)
