@@ -49,19 +49,18 @@ def calc_2dbkg(flux, qual, time, fast=True):
     g = np.ma.masked_where(med < np.percentile(med, 70.), med)  # mask which should separate pixels dominated by starlight from background
 
     modes = 21
-
+    X = flux[g.mask][:, q]
     pca = PCA(n_components=modes)
-    pca.fit(flux[g.mask])
-    pv = pca.components_[0:modes].T[q]
+    pca.fit(X)
+    pv = pca.components_[0:modes]
 
-    vv = np.column_stack((pv.T))
-
+    vv = np.column_stack((pv))
     for i in range(-15, 15, 6):
         if i != 0:
             if i > 0:
-                rolled = np.pad(pv.T, ((0,0),(i,0)), mode='constant')[:, :-i].T
+                rolled = np.pad(pv, ((0,0),(i,0)), mode='constant')[:, :-i].T
             else:
-                rolled = np.pad(pv.T, ((0,0),(0,-i)), mode='constant')[:, -i:].T # assumption: background is a linear sum of what is seen on pixels on the
+                rolled = np.pad(pv, ((0,0),(0,-i)), mode='constant')[:, -i:].T # assumption: background is a linear sum of what is seen on pixels on the
                                                                                  # detector. Because the earthshine varies with axis, this can be time-shifted
                                                                                  # so that individual pixels see the same response at different times
             vv = np.column_stack((vv, rolled))
