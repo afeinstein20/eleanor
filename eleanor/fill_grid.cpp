@@ -16,7 +16,7 @@ void fill_grid (py::array_t<double> grid_array, py::array_t<bool> mask_array, py
 
   for (ssize_t i = 0; i < grid.shape(0); ++i) {
     ssize_t left_ind = -1, right_ind = -1;
-    double left, right;
+    double left = 0.0, right = 0.0;
     for (ssize_t j = 0; j < grid.shape(1); ++j) {
       if (mask(i, j)) {
         left = grid(i, j);
@@ -50,7 +50,7 @@ void fill_grid (py::array_t<double> grid_array, py::array_t<bool> mask_array, py
 
   for (ssize_t i = 0; i < grid.shape(1); ++i) {
     ssize_t left_ind = -1, right_ind = -1;
-    double left, right;
+    double left = 0.0, right = 0.0;
     for (ssize_t j = 0; j < grid.shape(0); ++j) {
       if (mask(j, i)) {
         left = grid(j, i);
