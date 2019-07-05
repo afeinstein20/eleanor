@@ -45,7 +45,7 @@ def calc_2dbkg(flux, qual, time, fast=True):
 
     med = np.percentile(flux[:,:,:], 1, axis=(2))   # build a single frame in shape of detector. This was once the median image, not sure why it was changed
 
-    med = med-mf(med, 25) # subtract off median to remove stable background emission, which is especially apparent in corners
+    med = med-mf(med, 21) # subtract off median to remove stable background emission, which is especially apparent in corners
     g = np.ma.masked_where(med < np.percentile(med, 70.), med)  # mask which should separate pixels dominated by starlight from background
 
     modes = 21
@@ -55,7 +55,7 @@ def calc_2dbkg(flux, qual, time, fast=True):
     pv = pca.components_[0:modes]
 
     vv = np.column_stack((pv))
-    for i in range(-15, 15, 6):
+    for i in range(-15, 16, 3):
         if i != 0:
             if i > 0:
                 rolled = np.pad(pv, ((0,0),(i,0)), mode='constant')[:, :-i].T
