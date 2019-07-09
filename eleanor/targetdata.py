@@ -132,7 +132,7 @@ class TargetData(object):
 
     def __init__(self, source, height=13, width=13, save_postcard=True,
                  do_pca=False, do_psf=False, bkg_size=None, crowded_field=False,
-                 cal_cadences=None, try_load=True):
+                 cal_cadences=None, try_load=True, local=False, localdir=None):
         self.source_info = source
 
         if self.source_info.premade:
@@ -155,7 +155,12 @@ class TargetData(object):
                 self.aperture = None
 
                 if not source.tc:
-                    self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+                    ldir = None
+                    if local:
+                        ldir = os.path.join(localdir, f's{source.sector:04d}',
+                                            f'{source.camera}-{source.chip}')
+                    self.post_obj = Postcard(source.postcard, source.ELEANORURL,
+                                             local=local, localdir=ldir)
                 else:
                     self.post_obj = Postcard_tesscut(source.cutout)
 
@@ -175,14 +180,18 @@ class TargetData(object):
                     self.cal_cadences = cal_cadences
 
                 try:
-                    self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
+                    ldir2 = None
+                    if local:
+                        ldir2 = os.path.join(localdir, f's{source.sector:04d}',
+                                             'pointing_model')
+                    self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip, local=local, localdir=ldir2)
                 except:
                     self.pointing_model = None
 
                 self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
                 self.set_quality()
-                self.get_cbvs()
-
+                if not local and do_pca:
+                    self.get_cbvs()
 
                 self.create_apertures(height, width)
 
