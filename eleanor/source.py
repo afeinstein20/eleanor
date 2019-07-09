@@ -132,7 +132,7 @@ class Source(object):
         self.fn      = fn
         self.premade = False
         self.usr_sec = sector
-        self.tc      = False
+        self.tc      = tc
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
