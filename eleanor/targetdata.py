@@ -13,6 +13,7 @@ from astropy.stats import SigmaClip
 from time import strftime
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
+from scipy.stats import mode
 from urllib.request import urlopen
 import os, sys, copy
 import os.path
@@ -629,7 +630,8 @@ class TargetData(object):
         return
 
 
-    def psf_lightcurve(self, nstars=1, model='gaussian', likelihood='gaussian', xc=None, yc=None):
+    def psf_lightcurve(self, nstars=1, model='gaussian', likelihood='gaussian', xc=None, yc=None, verbose=False, 
+                      err_method='True'):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -680,11 +682,30 @@ class TargetData(object):
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
+        
 
             if nstars == 1:
                 mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
             else:
                 mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
+                mean = np.sum(mean, axis=0)
+                
+            var_list = [flux, xshift, yshift, a, b, c, bkg]
+            
+            var_to_bounds = {flux: (0, np.infty), 
+                             xshift: (-1.0, 1.0),
+                             yshift: (-1.0, 1.0),
+                             a: (0, np.infty),
+                             b: (-0.5, 0.5),
+                             c: (0, np.infty)
+                            }
+            
+            aout = np.zeros(len(self.tpf))
+            bout = np.zeros(len(self.tpf))
+            cout = np.zeros(len(self.tpf))
+            xout = np.zeros(len(self.tpf))
+            yout = np.zeros(len(self.tpf))
+
         else:
             raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
                                                                     # and a gentle return
@@ -692,47 +713,79 @@ class TargetData(object):
         mean += bkg
 
         data = tf.placeholder(dtype=tf.float64, shape=self.tpf[0].shape)
+        derr = tf.placeholder(dtype=tf.float64, shape=self.tpf[0].shape)
         bkgval = tf.placeholder(dtype=tf.float64)
 
         if likelihood == 'gaussian':
-            nll = tf.reduce_sum(tf.squared_difference(mean, data))
+            nll = tf.reduce_sum(tf.truediv(tf.squared_difference(mean, data), derr))
         elif likelihood == 'poisson':
             nll = tf.reduce_sum(tf.subtract(mean+bkgval, tf.multiply(data+bkgval, tf.log(mean+bkgval))))
         else:
             raise ValueError("likelihood argument {0} not supported".format(likelihood))
 
-        var_list = [flux, xshift, yshift, a, b, c, bkg]
         grad = tf.gradients(nll, var_list)
 
         sess = tf.Session()
         sess.run(tf.global_variables_initializer())
         
 
-        var_to_bounds = {flux: (0, np.infty), 
-                         xshift: (-1.0, 1.0),
-                         yshift: (-1.0, 1.0),
-                         a: (0, np.infty),
-                         b: (0, np.infty),
-                         c: (0, np.infty)
-                        }
+
         
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
         fout = np.zeros((len(self.tpf), nstars))
         bkgout = np.zeros(len(self.tpf))
+        
+
+        f_err = np.ones_like(self.tpf)
+        if err_method == 'True':
+            f_err = self.tpf_err + 0.0
+                
+        dsum = np.sum(self.tpf, axis=(0))
+        modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
+        if len(modepix[0]) > 2.5:
+            for i in range(len(self.time)):
+                f_err[i][modepix] = np.inf
+            
+
+            
+
+        llout = np.zeros(len(self.tpf))
 
         for i in tqdm(range(len(self.tpf))):
-            optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i], bkgval:np.median(self.flux_bkg)}) # we could also pass a pointing model here
+            optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i], derr:f_err[i], bkgval:np.median(self.flux_bkg)}) # we could also pass a pointing model here
                                                                            # and just fit a single offset in all frames
 
             fout[i] = sess.run(flux)
             bkgout[i] = sess.run(bkg)
+            
+            if model == 'gaussian':
+                aout[i] = sess.run(a)
+                bout[i] = sess.run(b)
+                cout[i] = sess.run(c)
+                xout[i] = sess.run(xshift)
+                yout[i] = sess.run(yshift)
+                llout[i] = sess.run(nll, feed_dict={data:self.tpf[i], derr:f_err[i], bkgval:np.median(self.flux_bkg)})
+                
+            
 
         sess.close()
 
         self.psf_flux = fout[:,0]
         self.psf_bkg = bkgout
+        
+        if verbose:
+            if model == 'gaussian':
+                self.psf_a = aout
+                self.psf_b = bout
+                self.psf_c = cout
+                self.psf_x = xout
+                self.psf_y = yout
+                self.psf_ll = llout
+            if nstars > 1:
+                self.all_psf = fout
         return
+
 
 
     def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
