@@ -654,7 +654,7 @@ class TargetData(object):
             stars will be fixed following the delta values from this list.
         """
         import tensorflow as tf
-        from vaneska.models import Gaussian
+        from vaneska.models import Gaussian, Moffat
         from tqdm import tqdm
         
         tf.logging.set_verbosity(tf.logging.ERROR)
@@ -675,7 +675,7 @@ class TargetData(object):
         xshift = tf.Variable(0.0, dtype=tf.float64)
         yshift = tf.Variable(0.0, dtype=tf.float64)
 
-        if model == 'gaussian':
+        if (model == 'gaussian'):
 
             gaussian = Gaussian(shape=self.tpf.shape[1:], col_ref=0, row_ref=0)
 
@@ -700,15 +700,46 @@ class TargetData(object):
                              c: (0, np.infty)
                             }
             
-            aout = np.zeros(len(self.tpf))
-            bout = np.zeros(len(self.tpf))
-            cout = np.zeros(len(self.tpf))
-            xout = np.zeros(len(self.tpf))
-            yout = np.zeros(len(self.tpf))
+        elif model == 'moffat':
+
+            moffat = Moffat(shape=self.tpf.shape[1:], col_ref=0, row_ref=0)
+
+            a = tf.Variable(initial_value=1., dtype=tf.float64)
+            b = tf.Variable(initial_value=0., dtype=tf.float64)
+            c = tf.Variable(initial_value=1., dtype=tf.float64)
+            beta = tf.Variable(initial_value=1, dtype=tf.float64)
+        
+
+            if nstars == 1:
+                mean = moffat(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
+            else:
+                mean = [moffat(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
+                mean = np.sum(mean, axis=0)
+                
+            var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
+            
+            var_to_bounds = {flux: (0, np.infty), 
+                             xshift: (-2.0, 2.0),
+                             yshift: (-2.0, 2.0),
+                             a: (0, 3.0),
+                             b: (-0.5, 0.5),
+                             c: (0, 3.0),
+                             beta: (0, 10)
+                            }
+            
+
+            betaout = np.zeros(len(self.tpf))
+            
 
         else:
             raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
                                                                     # and a gentle return
+                
+        aout = np.zeros(len(self.tpf))
+        bout = np.zeros(len(self.tpf))
+        cout = np.zeros(len(self.tpf))
+        xout = np.zeros(len(self.tpf))
+        yout = np.zeros(len(self.tpf))
 
         mean += bkg
 
@@ -767,6 +798,14 @@ class TargetData(object):
                 yout[i] = sess.run(yshift)
                 llout[i] = sess.run(nll, feed_dict={data:self.tpf[i], derr:f_err[i], bkgval:np.median(self.flux_bkg)})
                 
+            if model == 'moffat':
+                aout[i] = sess.run(a)
+                bout[i] = sess.run(b)
+                cout[i] = sess.run(c)
+                xout[i] = sess.run(xshift)
+                yout[i] = sess.run(yshift)
+                llout[i] = sess.run(nll, feed_dict={data:self.tpf[i], derr:f_err[i], bkgval:np.median(self.flux_bkg)})
+                betaout[i] = sess.run(beta)
             
 
         sess.close()
@@ -782,6 +821,14 @@ class TargetData(object):
                 self.psf_x = xout
                 self.psf_y = yout
                 self.psf_ll = llout
+            if model == 'moffat':
+                self.psf_a = aout
+                self.psf_b = bout
+                self.psf_c = cout
+                self.psf_x = xout
+                self.psf_y = yout
+                self.psf_ll = llout
+                self.psf_beta = betaout
             if nstars > 1:
                 self.all_psf = fout
         return
