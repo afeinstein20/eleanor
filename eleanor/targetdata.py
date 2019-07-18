@@ -24,6 +24,7 @@ import eleanor
 from .ffi import use_pointing_model, load_pointing_model
 from .postcard import Postcard, Postcard_tesscut
 
+
 __all__  = ['TargetData']
 
 class TargetData(object):
@@ -631,7 +632,7 @@ class TargetData(object):
 
 
     def psf_lightcurve(self, nstars=1, model='gaussian', likelihood='gaussian', xc=None, yc=None, verbose=False, 
-                      err_method='True'):
+                      err_method='True', gpu=False):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -654,7 +655,7 @@ class TargetData(object):
             stars will be fixed following the delta values from this list.
         """
         import tensorflow as tf
-        from vaneska.models import Gaussian, Moffat
+        from .models import Gaussian, Moffat
         from tqdm import tqdm
         
         tf.logging.set_verbosity(tf.logging.ERROR)
