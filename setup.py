@@ -22,6 +22,16 @@ takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
 observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
+
+### Changelog
+
+#### 0.2.2 (2019-07-18)
+
+* Added "Moffat" profile to PSF modeling options
+* Better treatment of pixel flux uncertainties in PSF modeling
+* PSF modeling bugfixes
+* Improved treatment of cadence numbers
+* Handling of TessCut files into a .eleanor directory, and only downloading files if not on local machine
 """
 
 
