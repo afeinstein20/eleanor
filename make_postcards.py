@@ -113,8 +113,12 @@ def make_postcards(fns, outdir, width=104, height=148, wstep=None, hstep=None):
     s = int(sector[1::])
     metadata_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                 'metadata', 's{0:04d}'.format(s))
-    ffiindex = np.loadtxt(os.path.join(metadata_dir,
-                                       'cadences_s{0:04d}.txt'.format(s)))
+    if f.ffiindex is None:
+        ffiindex = np.loadtxt(os.path.join(metadata_dir,
+                                           'cadences_s{0:04d}.txt'.format(s)))
+    else:
+        ffiindex = f.ffiindex * 1
+
     sc_fn = os.path.join(metadata_dir, 'target_s{0:04d}.fits'.format(s))
 
     # We'll have the same primary HDU for each postcard - this will store the
