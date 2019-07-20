@@ -757,7 +757,7 @@ class TargetData(object):
 
         grad = tf.gradients(nll, var_list)
 
-        sess = tf.Session()
+        sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
         sess.run(tf.global_variables_initializer())
         
 
