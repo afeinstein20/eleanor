@@ -632,7 +632,7 @@ class TargetData(object):
 
 
     def psf_lightcurve(self, nstars=1, model='gaussian', likelihood='gaussian', xc=None, yc=None, verbose=False, 
-                      err_method='True', gpu=False):
+                      err_method='True'):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -653,6 +653,9 @@ class TargetData(object):
             The y-coordinates of stars in the zeroth cadence. Must have length `nstars`.
             While the positions of stars will be fit in all cadences, the relative positions of
             stars will be fixed following the delta values from this list.
+        verbose: bool, optional
+            If True, return information about the shape of the PSF at every cadence as well as the
+            PSF-inferred centroid shape.
         """
         import tensorflow as tf
         from .models import Gaussian, Moffat
