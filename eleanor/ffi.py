@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from muchbettermoments import quadratic_2d
-from astropy.wcs import WCS
+from astropy.wcs import WCS, NoConvergence
 from astropy.table import Table
 from astropy.nddata import Cutout2D
 from astropy.utils.data import download_file
@@ -380,6 +380,9 @@ class ffi:
 
         pm_fn = 'pointingModel_{0:04d}_{1}-{2}.txt'.format(self.sector, self.camera, self.chip)
 
+        qf = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector,
+                                                                                                                        self.sector))
+
         if out_dir is not None:
             pm_fn = out_dir+ '/' + pm_fn
 
@@ -396,33 +399,42 @@ class ffi:
 
         t  = tic_by_contamination(pos, r, contam, tmag_lim).group_by('contratio')
 
-        for fn in self.local_paths:
+        for i, fn in enumerate(self.local_paths):
             hdu = fits.open(fn)
             hdr = hdu[1].header
-            xy = WCS(hdr).all_world2pix(t['ra'], t['dec'], 1)
+            
+            try:
+                xy = WCS(hdr).all_world2pix(t['ra'], t['dec'], 1)
 
-            # Triple checks the sources are on the FFI
-            onFrame = np.where( (xy[0]>10) & (xy[0]<2092-10) & (xy[1]>10) & (xy[1]<2048-10) )[0]
-            xy  = np.array([xy[0][onFrame], xy[1][onFrame]])
-            iso = find_isolated(xy[0], xy[1])
-            if len(iso) > 0:
-                xy  = np.array([xy[0][iso], xy[1][iso]])
-                cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
+                # Triple checks the sources are on the FFI
+                onFrame = np.where( (xy[0]>10) & (xy[0]<2092-10) & (xy[1]>10) & (xy[1]<2048-10) )[0]
+                xy  = np.array([xy[0][onFrame], xy[1][onFrame]])
+                iso = find_isolated(xy[0], xy[1])
+                if len(iso) > 0:
+                    xy  = np.array([xy[0][iso], xy[1][iso]])
+                    cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
+                    
+                    # Triple checks there are no nans; Nans make people sad
+                    no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
+                    pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
+                    xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
 
-                # Triple checks there are no nans; Nans make people sad
-                no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
-                pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
-                xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
+                    solution = self.build_pointing_model(xy.T, pos_inferred.T)
+                    
+                    xy = apply_pointing_model(xy.T, solution)
+                    matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
 
-                solution = self.build_pointing_model(xy.T, pos_inferred.T)
+                    sol    = np.dot(matrix, solution)
+                    sol    = sol.flatten()
+                else:
+                    sol = np.full((9,), 1e5)
 
-                xy = apply_pointing_model(xy.T, solution)
-                matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
-
-                sol    = np.dot(matrix, solution)
-                sol    = sol.flatten()
-            else:
-                sol = np.full((9,), 1e5)
+            except NoConvergence:
+                if qf[i] != 0:
+                    sol = np.full((9,), 1e5)
+                else:
+                    a   = np.zeros((3, 3), int)
+                    sol = np.fill_diagonal(a, 1)
 
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
