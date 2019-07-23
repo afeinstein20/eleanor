@@ -434,8 +434,9 @@ class ffi:
                     sol = np.full((9,), 1e5)
                 else:
                     a   = np.zeros((3, 3), int)
-                    sol = np.fill_diagonal(a, 1)
-
+                    np.fill_diagonal(a, 1)
+                    sol = np.reshape(a, (9,))
+                    
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
 
