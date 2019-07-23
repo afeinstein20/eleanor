@@ -7,6 +7,8 @@ import numpy as np
 import warnings
 import pandas as pd
 import copy
+from astropy.stats import SigmaClip
+from photutils import MMMBackground
 from .mast import crossmatch_by_position
 from urllib.request import urlopen
 
@@ -348,7 +350,10 @@ class Postcard_tesscut(object):
 
     @property
     def bkg(self):
-        return np.nanmedian(self.flux, axis=(1,2))
+        sigma_clip = SigmaClip(sigma=3.)
+        bkg = MMMBackground(sigma_clip=sigma_clip)
+        b = bkg.calc_background(self.flux, axis=(1,2))
+        return b
     
     @property 
     def barycorr(self):
