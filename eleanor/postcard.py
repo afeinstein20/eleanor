@@ -348,7 +348,7 @@ class Postcard_tesscut(object):
 
     @property
     def bkg(self):
-        return np.nanmedian(self.hdu[1].data['FLUX_BKG'], axis=(1,2))
+        return np.nanmedian(self.flux, axis=(1,2))
     
     @property 
     def barycorr(self):
