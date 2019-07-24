@@ -152,7 +152,7 @@ class TargetData(object):
                 except:
                     pass
 
-            if fnf is True:
+            if fnf is False:
                 self.aperture = None
                 
                 if source.tc == False:
@@ -1261,6 +1261,19 @@ class TargetData(object):
                 self.all_lc_err.append(table[i])
             else:
                 self.all_raw_lc.append(table[i])
+                
+        if os.path.isfile(self.source_info.postcard_path) == True:
+            post_fn = self.source_info.postcard_path.split('/')[-1]
+            post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
+
+            if self.source_info.tc == False:
+                self.post_obj = Postcard(filename=post_fn, ELEANORURL=self.source_info.ELEANORURL,
+                                         location=post_path)
+            else:
+                self.post_obj =Postcard_tesscut(self.source_info.cutout,
+                                                location=post_path)
+
+
         return
 
     def fetch_dir(self):
