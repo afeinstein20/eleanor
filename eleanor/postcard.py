@@ -52,7 +52,7 @@ class Postcard(object):
     """
     def __init__(self, filename, ELEANORURL, location=None):
         if location is not None:
-            self.filename = '{}{}'.format(location, filename)
+            self.filename = os.path.join(location, filename)
             self.local_path = copy.copy(self.filename)
             self.hdu = fits.open(self.local_path)
         else:
@@ -236,6 +236,9 @@ class Postcard_tesscut(object):
 
         if location is None:
             self.local_path = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
+        else:
+            self.local_path = location
+
         self.hdu = cutout
 
 
