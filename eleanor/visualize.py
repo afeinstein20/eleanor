@@ -1,16 +1,11 @@
 import matplotlib as mpl
-import matplotlib.animation as animation
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
-import bokeh.io
-import bokeh.models
-from astropy.io import fits
 import warnings
-from tqdm import trange
 
-from astropy.wcs import WCS
 from .ffi import use_pointing_model, load_pointing_model
-
-
 from .mast import *
 
 __all__ = []
@@ -33,15 +28,11 @@ class Visualize(object):
     def __init__(self, object, obj_type="tpf"):
         self.obj      = object
         self.obj_type = obj_type.lower()
-        self.header = self.obj.header
 
         if self.obj_type == "tpf":
             self.flux   = self.obj.tpf
             self.center = (np.nanmedian(self.obj.centroid_xs),
                              np.nanmedian(self.obj.centroid_ys))
-            self.pointing_model = load_pointing_model(self.obj.source_info.sector,
-                                                      self.obj.source_info.camera,
-                                                      self.obj.source_info.chip)
             self.dimensions = self.obj.tpf[0].shape
         else:
             self.flux   = self.obj.flux
@@ -50,306 +41,85 @@ class Visualize(object):
 
 
 
-    def movie(self, output_fn=None, plot_lc=False, pointing_model=False, aperture=False, **kwargs):
+    def pixel_by_pixel(self, colrange=None, rowrange=None,
+                       flux_type="corrected", mask=None):
         """
-        This function allows the user to create a movie of a TPF or postcard
-
+        Creates a pixel-by-pixel light curve using the corrected flux.
+        
         Parameters
-        ----------
-        output_fn : str, optional
-            Output filename to save the movie to.
-        plot_lc : bool, optional
-            If True, plot the light curve and track location along
-            light curve with time-dependent movie (Defaults to False).
-        pointing_model : bool, optional
-            If True, plot the movement of the pointing_model
-            for a given source; only applicable on TPFs (Defaults to False).
-        aperture : bool, optional
-            If True, overplot the aperture on the TPF movie.
-        **kwargs :
-            Passed to matplotlib.pyplot.imshow.
-
-        Returns
-        -------
-        ani : matplotlib.animation.Animation
-            Movie.
+        ---------- 
+        colrange : np.array, optional
+             A list of start column and end column you're interested in 
+             zooming in on.
+        rowrange : np.array, optional
+             A list of start row and end row you're interested in zooming
+             in on.
+        flux_type : str, optional
+             The type of flux used. Either: 'raw' or 'corrected'. If not,
+             default set to 'corrected'.
+        mask : np.array, optional
+             Specifies the cadences used in the light curve. If not, default
+             set to good quality cadences.
         """
-        if pointing_model==True:
-            if self.obj.centroid_xs is None:
-                raise Exception("Sorry, you can only track the pointing model on TPFs, not postcards\n",
-                                "Please set pointing_model=False or remove when calling .movie()")
-            else:
-                xs = self.obj.centroid_xs-self.center[0]+4.0
-                ys = self.obj.centroid_ys-self.center[1]+4.0
+        if colrange is None:
+            colrange = [0, self.dimensions[0]]
+
+        if rowrange is None:
+            rowrange = [0, self.dimensions[1]]
 
 
-        if 'vmax' not in kwargs:
-            kwargs['vmax'] = np.max(self.flux[0])
-        if 'vmin' not in kwargs:
-            kwargs['vmin'] = np.min(self.flux[0])
-        if 'cmap' not in kwargs:
-            kwargs['cmap'] = 'viridis' # the superior colormap
+        nrows = int(np.round(colrange[1]-colrange[0]))
+        ncols = int(np.round(rowrange[1]-rowrange[0]))
 
+        if (colrange[1] > self.dimensions[1]) or (rowrange[1] > self.dimensions[0]):
+            raise ValueError("Asking for more pixels than available in the TPF.")
+        
 
-        def animate(i):
-            nonlocal xs, ys, scats, line
-            ax.imshow(self.flux[i], origin='lower', **kwargs)
-            if pointing_model==True:
-                for c in scats:
-                    c.remove()
-                scats=[]
-                scats.append(ax.scatter(xs[i], ys[i], s=16, c='k', **kwargs))
-            if plot_lc==True:
-                for l in line:
-                    l.remove()
-                line=[]
-                line.append(ax1.scatter(self.obj.time[i], self.obj.corr_flux[i], c='r', s=16))
-            time_text.set_text('Frame {}'.format(i))
+        figure = plt.figure(figsize=(20,8))
+        outer = gridspec.GridSpec(1,2, width_ratios=[1,4])
 
+        inner = gridspec.GridSpecFromSubplotSpec(nrows, ncols, hspace=0.1, wspace=0.1,
+                                                 subplot_spec=outer[1])
 
-        line, scats = [], []
+        i, j = rowrange[0], colrange[0]
 
-        # Creates 2 subplots if user requests lc to be plotted
-        if plot_lc==True:
-            fig  = mpl.pyplot.figure(figsize=(18,5))
-            spec = mpl.gridspec.GridSpec(ncols=3, nrows=1)
-            ax   = fig.add_subplot(spec[0,2])
-            ax1  = fig.add_subplot(spec[0,0:2])
-            ax1.plot(self.obj.time, self.obj.corr_flux,'k-')
-            ax1.set_ylabel('Corrected Flux')
-            ax1.set_xlabel('Time')
-            ax1.set_xlim([np.min(self.obj.time)-0.05, np.max(self.obj.time)+0.05])
-            ax1.set_ylim([np.min(self.obj.corr_flux)-0.05, np.max(self.obj.corr_flux)+0.05])
-
-        # Creates 1 subplot is user just wants a pixel movie
+        if mask is None:
+            q = self.obj.quality == 0
         else:
-            fig  = mpl.pyplot.figure()
-            spec = mpl.gridspec.GridSpec(ncols=1, nrows=1)
-            ax   = fig.add_subplot(spec[0,0])
-            ax.set_xlabel('Pixel Column')
-            ax.set_ylabel('Pixel Row')
+            q = mask == 0
 
-        if aperture==True:
-            raise Exception("Aperture has not been implemented yet. Sorry friend, we're working on it!")
-            return
+        for ind in range( int(nrows * ncols) ):
+            ax = plt.Subplot(figure, inner[ind])
 
-        # Plots axes in correct (x,y) coordinate space
-        if self.obj.centroid_ys is not None:
-            mid_x = int(np.round(self.center[0], 0))
-            mid_y = int(np.round(self.center[1], 0))
-            ax.set_yticklabels([str(e) for e in np.arange(mid_x-4, mid_x+6,1)])
-            ax.set_xticklabels([str(e) for e in np.arange(mid_y-4, mid_y+6,1)])
+            flux = self.flux[:,i,j]
 
-        # Sets text for pixel movie frames
-        time_text = ax.text(5.5, -0.25, '', color='white', fontweight='bold')
-        time_text.set_text('')
+            if flux_type.lower() == 'corrected':
+                flux = self.obj.corrected_flux(flux=flux)
 
-        # Allows movie to be saved as mp4
-        Writer = animation.writers['ffmpeg']
-        writer = Writer(fps=20, metadata=dict(artist='Adina D. Feinstein'), bitrate=1800)
+            flux = flux[q]/np.nanmedian(flux[q])
+            ax.plot(self.obj.time[q], flux, 'k')
 
-        ani = animation.FuncAnimation(fig, animate, frames=len(self.flux))
+            j += 1
+            if j == colrange[1]:
+                i += 1
+                j  = colrange[0]
 
-        mpl.pyplot.colorbar(ax.imshow(self.flux[0], **kwargs), ax=ax)
+            ax.set_ylim(np.percentile(flux, 1), np.percentile(flux, 99))
 
-        mpl.pyplot.tight_layout()
+            ax.set_xlim(np.min(self.obj.time[q])-0.1,
+                        np.max(self.obj.time[q])+0.1)
 
-        return ani
+            ax.set_xticks([])
+            ax.set_yticks([])
 
+            figure.add_subplot(ax)
 
-    def mark_gaia_sources(self):
-        """Mark Gaia sources within a given TPF or postcard.
+        ax = plt.subplot(outer[0])
+        c = ax.imshow(self.flux[0, colrange[0]:colrange[1],
+                                rowrange[0]:rowrange[1]], 
+                      vmax=np.percentile(self.flux[0], 95))
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size='5%', pad=0.15)
+        plt.colorbar(c, cax=cax, orientation='vertical')
 
-        Hover over the points to reveal the source's TIC ID, Gaia ID, Tmag, and Gmag.
-        Also crossmatches with TIC and identifies closest TIC object.
-        """
-
-        from bokeh.models import (ColumnDataSource, HoverTool, BasicTicker,
-                          Slider, Button, Label, LinearColorMapper, Span,
-                          ColorBar)
-        from bokeh.plotting import figure, show, output_file
-        from bokeh.palettes import Viridis256
-
-        def create_labels(gaia_ra, gaia_dec):
-            ticLabel, tmagLabel = np.zeros(len(gaia_id)), np.zeros(len(gaia_id))
-            for i in trange(len(gaia_ra)):
-                tic, tmag, sep, version = tic_from_coords([gaia_ra[i], gaia_dec[i]])
-                if sep < 1.0:
-                    ticLabel[i]  = tic
-                    tmagLabel[i] = tmag[0]
-            return ticLabel, tmagLabel
-
-        center = [self.header['CEN_RA'], self.header['CEN_DEC']]
-        center_xy = WCS(self.header).all_world2pix(center[0], center[1], 1)
-
-        sources    = cone_search(pos=center, r=0.5, service='Mast.Catalogs.GaiaDR2.Cone')
-        sources_xy = WCS(self.header).all_world2pix(sources['ra'], sources['dec'], 1)
-        new_coords = []
-        for i in range(len(sources_xy[0])):
-            xy = [sources_xy[0][i], sources_xy[1][i]]
-            coords_corr = use_pointing_model(xy, self.pointing_model[0])
-            new_coords.append([coords_corr[0][0],coords_corr[0][1]])
-        new_coords = np.array(new_coords)
-
-        # Finds sources that lie in the frame
-        in_frame = np.where( (new_coords[:,0] >= center_xy[0]-self.dimensions[0]/2.) &
-                             (new_coords[:,0] <= center_xy[0]+self.dimensions[0]/2.) &
-                             (new_coords[:,1] >= center_xy[1]-self.dimensions[1]/2.) &
-                             (new_coords[:,1] <= center_xy[1]+self.dimensions[1]/2.) )
-        gaia_pos_x = new_coords[:,1][in_frame] - center_xy[1] + self.dimensions[0]/2.
-        gaia_pos_y = new_coords[:,0][in_frame] - center_xy[0] + self.dimensions[1]/2.
-        gaia_g_mag = sources['phot_g_mean_mag'][in_frame]
-        gaia_id    = sources['source_id'][in_frame]
-
-        ticLabel, tmagLabel = create_labels(sources['ra'][in_frame], sources['dec'][in_frame])
-
-        # Creates hover label
-        hover = HoverTool()
-        hover.tooltips = [
-            ('TIC', ''),
-            ('T_mag', ''),
-            ('Gaia ID', ''),
-            ('G_mag', '')
-            ]
-
-        x_range = (-0.5,self.dimensions[0]-0.5)
-        y_range = (-0.5,self.dimensions[1]-0.5)
-        p = figure(x_range=x_range, y_range=y_range, toolbar_location='above',
-                   plot_width=500, plot_height=450)
-
-        color_mapper = LinearColorMapper(palette='Viridis256', low=np.min(self.flux[0]),
-                                         high=np.max(self.flux[0]))
-        tpf_img = p.image(image=[self.flux[0]], x=-0.5, y=-0.5, dw=self.dimensions[0],
-                          dh=self.dimensions[1], color_mapper=color_mapper)
-
-        # Sets the placement of the tick labels
-        p.xaxis.ticker = np.arange(0, self.dimensions[0])
-        p.yaxis.ticker = np.arange(0, self.dimensions[1])
-
-        # Sets the tick labels
-        x_overrides, y_overrides = {}, {}
-        x_list = np.arange(int(center_xy[0]-self.dimensions[0]/2),
-                           int(center_xy[0]+self.dimensions[0]/2), 1)
-        y_list = np.arange(int(center_xy[1]-self.dimensions[1]/2),
-                           int(center_xy[1]+self.dimensions[1]/2), 1)
-
-        for i in range(9):
-            ind = str(i)
-            x_overrides[i] = str(x_list[i])
-            y_overrides[i] = str(y_list[i])
-
-        p.xaxis.major_label_overrides = x_overrides
-        p.yaxis.major_label_overrides = y_overrides
-        p.xaxis.axis_label = 'Pixel Column Number'
-        p.yaxis.axis_label = 'Pixel Row Number'
-
-        # Sets the color bar
-        color_bar = ColorBar(color_mapper=color_mapper, location=(0,0), border_line_color=None,
-                             ticker=BasicTicker(), title='Intensity', title_text_align='left')
-        p.add_layout(color_bar, 'right')
-
-        # Adds points onto image
-        source = ColumnDataSource(data=dict(x=gaia_pos_x, y=gaia_pos_y,
-                                            tic=ticLabel, tmag=tmagLabel,
-                                            gaia=gaia_id, gmag=gaia_g_mag))
-
-        s = p.circle('x', 'y', size=8, source=source, line_color=None,
-                     selection_color='red', nonselection_fill_alpha=0.0, nonselection_line_alpha=0.0,
-                     nonselection_line_color=None, fill_color='black', hover_alpha=0.9, hover_line_color='white')
-
-        # Activates hover feature
-        p.add_tools(HoverTool( tooltips=[("TIC ID", "@tic")  , ("TESS Tmag", "@tmag"),
-                                         ("Gaia ID", "@gaia"), ("Gaia Gmag", "@gmag")
-                                         ], renderers=[s], mode='mouse', point_policy='snap_to_data') )
-
-        show(p)
-        return
-
-
-
-    def click_aperture(self, path=None):
-        """Interactively set aperture."""
-
-        def click_pixels():
-            nonlocal tpf
-            """Creates a rectangle over a pixel when that pixel is clicked."""
-            coords, rectList = [], []
-
-            fig, ax = mpl.pyplot.subplots()
-            ax.imshow(tpf[0], origin='lower')
-
-            def onclick(event):
-                """Update figure canvas."""
-                nonlocal coords, rectList
-                x, y = int(np.round(event.xdata,0)), int(np.round(event.ydata,0))
-
-                # Highlights pixel
-                rect = mpl.patches.Rectangle((x-0.5, y-0.5), 1.0, 1.0)
-                rect.set_color('white')
-                rect.set_alpha(0.4)
-                # Adds pixel if not previously clicked
-                if [x,y] not in coords:
-                    coords.append([x,y])
-                    rectList.append(rect)
-                    ax.add_patch(rect)
-                fig.canvas.draw()
-            cid = fig.canvas.mpl_connect('button_press_event', onclick)
-            mpl.pyplot.show()
-            mpl.pyplot.close()
-            return coords, rectList
-
-
-        def check_pixels():
-            nonlocal tpf, coords, rectList
-            """Presents a figure for the user to approve of selected pixels."""
-            fig, ax = mpl.pyplot.subplots(1)
-            ax.imshow(tpf[0], origin='lower')
-
-            # Recreates patches for confirmation
-            for i in range(len(coords)):
-                x, y = coords[i][0], coords[i][1]
-                rect = mpl.patches.Rectangle((x-0.5, y-0.5), 1.0, 1.0)
-                rect.set_color('red')
-                rect.set_alpha(0.4)
-                ax.add_patch(rect)
-
-            # Make Buttons
-            mpl.pyplot.text(-3.5, 5.5, 'Are you happy\nwith this\naperture?', fontsize=8)
-            axRadio  = mpl.pyplot.axes([0.05, 0.45, 0.10, 0.15])
-            butRadio = mpl.widgets.RadioButtons(axRadio, ('Yes', 'No'), activecolor='red')
-            good=True
-
-            # Checks if user is happy with custom aperture
-            def get_status(value):
-                nonlocal good
-                if value == 'Yes':
-                    good=True
-                else:
-                    good=False
-
-            butRadio.on_clicked(get_status)
-            mpl.pyplot.show()
-            return good
-
-        hdu = self.header
-        tpf = self.flux
-        coords, rectList = click_pixels()
-        check = check_pixels()
-
-        custlc = []
-        if check==True:
-            if len(coords) == 0:
-                warnings.warn("You have not selected any pixels. No photometry will be completed.")
-            else:
-                for f in range(len(tpf)):
-                    cadence = []
-                    for i in range(len(coords)):
-                        cadence.append(tpf[f][coords[i][0], coords[i][1]])
-                    custlc.append(np.sum(cadence))
-                custlc = np.array(custlc) / np.nanmedian(custlc)
-                return custlc
-
-        else:
-            self.click_aperture()
-
-        return
+        figure.show()

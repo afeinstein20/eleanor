@@ -132,8 +132,9 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None,
-                 try_load=True):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, 
+                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True):
+
         self.source_info = source 
 
         if self.source_info.premade is True:
@@ -1057,29 +1058,7 @@ class TargetData(object):
             self.pca_flux = np.append(corr_f, corr_s)
         else:
             return np.append(corr_f, corr_s)
-            
 
-            
-            
-            
-            
-            
-            
-            fmod = fhat(x, cm)
-            lc_pred = (fmod+1)
-            return lc_pred
-
-
-        brk = self.find_break()
-        f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
-
-        lc_pred = calc_corr(f, cx, cy, skip)
-        corr_f = flux[f]/lc_pred
-
-        lc_pred = calc_corr(s, cx, cy, skip)
-        corr_s = flux[s]/lc_pred
-
-        return np.append(corr_f, corr_s)
 
 
     def set_header(self):
@@ -1126,8 +1105,11 @@ class TargetData(object):
                                      comment='Height of the TPF in pixels'))
         self.header.append(fits.Card(keyword='TPF_W', value=np.shape(self.tpf[0])[1],
                                            comment='Width of the TPF in pixels'))
-        self.header.append(fits.Card(keyword='BKG_SIZE', value=np.shape(self.bkg_tpf[0])[1],
-                                           comment='Size of region used for background subtraction'))
+
+        if self.source_info.tc == False:
+            self.header.append(fits.Card(keyword='BKG_SIZE', value=np.shape(self.bkg_tpf[0])[1],
+                                         comment='Size of region used for background subtraction'))
+
         self.header.append(fits.Card(keyword='BKG_LVL', value=self.bkg_type,
                                      comment='Stage at which background is subtracted'))
         self.header.append(fits.Card(keyword='URL', value=self.source_info.ELEANORURL,
@@ -1237,6 +1219,7 @@ class TargetData(object):
         hdu = fits.open(os.path.join(directory, fn))
         hdr = hdu[0].header
         self.header = hdr
+        self.bkg_type =hdr['BKG_LVL']
         # Loads in everything from the first extension
         cols  = hdu[1].columns.names
         table = hdu[1].data
@@ -1253,6 +1236,7 @@ class TargetData(object):
         self.y_com       = table['Y_COM']
         self.flux_bkg    = table['FLUX_BKG']
         self.ffiindex    = table['FFIINDEX']
+        self.barycorr    = table['BARYCORR']
 
         if 'PSF_FLUX' in cols:
             self.psf_flux = table['PSF_FLUX']
@@ -1277,13 +1261,36 @@ class TargetData(object):
         self.all_raw_lc  = []
         self.all_corr_lc = []
         self.all_lc_err  = []
+        
+        names = []
         for i in cols:
+            name = ('_').join(i.split('_')[0:-1])
+            names.append(name)
+
             if i[-4::] == 'corr':
                 self.all_corr_lc.append(table[i])
             elif i[-3::] == 'err':
                 self.all_lc_err.append(table[i])
             else:
                 self.all_raw_lc.append(table[i])
+
+        self.aperture_names = np.unique(names)
+        self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
+
+        if os.path.isfile(self.source_info.postcard_path) == True:
+            post_fn = self.source_info.postcard_path.split('/')[-1]
+            post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
+
+            if self.source_info.tc == False:
+                self.post_obj = Postcard(filename=post_fn, ELEANORURL=self.source_info.ELEANORURL,
+                                         location=post_path)
+            else:
+                self.post_obj =Postcard_tesscut(self.source_info.cutout,
+                                                location=post_path)
+
+                
+        self.get_cbvs()
+
         return
 
     def fetch_dir(self):
