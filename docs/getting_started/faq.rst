@@ -39,8 +39,8 @@ Frequently Asked Questions
 	If these checks don't turn up anything and you suspect a problem with the code, feel free to open a `Git Issue`_.
 
 * How do I cite eleanor in a published work?
-    If you find eleanor light curves useful for your work, please cite Feinstein et al. in prep. Once the paper is posted to the arXiv upon submission to a journal, this will be updated to reflect the arXiv identifier.
-    If you use the public light curves developed with eleanor hosted as a high level science product on MAST, please additionally cite Montet et al., RNAAS in prep., which will also be updated once the note is posted to the arXiv.
+    If you find eleanor light curves useful for your work, please cite Feinstein et al. 2019, PASP in press. A preprint can be found at arXiv:`1903.09152`_.
 
 
 .. _Git Issue: http://github.com/afeinstein20/eleanor/issues
+.. _1903.09152: https://arxiv.org/abs/1903.09152

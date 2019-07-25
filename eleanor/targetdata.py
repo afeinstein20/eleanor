@@ -678,7 +678,7 @@ class TargetData(object):
         from .models import Gaussian, Moffat
         from tqdm import tqdm
         
-        tf.logging.set_verbosity(tf.logging.ERROR)
+        tf.compat.v1.logging.set_verbosity(tf.logging.ERROR)
         
         if yc is None:
             yc = 0.5*np.ones(nstars)*np.shape(self.tpf[0])[1]
@@ -1025,7 +1025,7 @@ class TargetData(object):
 
                 cm = np.column_stack((cm, vv[qm][skip:]))
                 cm_full = np.column_stack((cm_full, vv))
-                
+
 
                 if np.std(bkg) > 1e-10:
                     cm = np.column_stack((cm, bkg[qm][skip:]))
@@ -1038,6 +1038,7 @@ class TargetData(object):
             else:
                 cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((vv, np.ones_like(t[mask])))
+
 
             x = xhat(cm, norm_l[skip:])
             fmod = fhat(x, cm_full)
@@ -1115,9 +1116,9 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='URL', value=self.source_info.ELEANORURL,
                                      comment='URL eleanor files are located at'))
 
-        if self.modes is not None:
-            self.header.append(fits.Card(keyword='MODES', value=self.modes,
-                                         comment='Number of modes used in PCA analysis'))
+        #if self.modes is not None:
+        #    self.header.append(fits.Card(keyword='MODES', value=self.modes,
+        #                                 comment='Number of modes used in PCA analysis'))
 
 
     def save(self, output_fn=None, directory=None):
