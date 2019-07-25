@@ -42,7 +42,7 @@ class Visualize(object):
 
 
     def pixel_by_pixel(self, colrange=None, rowrange=None,
-                       flux_type="corrected"):
+                       flux_type="corrected", mask=None):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
         
@@ -57,6 +57,9 @@ class Visualize(object):
         flux_type : str, optional
              The type of flux used. Either: 'raw' or 'corrected'. If not,
              default set to 'corrected'.
+        mask : np.array, optional
+             Specifies the cadences used in the light curve. If not, default
+             set to good quality cadences.
         """
         if colrange is None:
             colrange = [0, self.dimensions[0]]
@@ -79,7 +82,11 @@ class Visualize(object):
                                                  subplot_spec=outer[1])
 
         i, j = rowrange[0], colrange[0]
-        q = self.obj.quality == 0
+
+        if mask is None:
+            q = self.obj.quality == 0
+        else:
+            q = mask == 0
 
         for ind in range( int(nrows * ncols) ):
             ax = plt.Subplot(figure, inner[ind])
@@ -99,8 +106,8 @@ class Visualize(object):
 
             ax.set_ylim(np.percentile(flux, 1), np.percentile(flux, 99))
 
-            ax.set_xlim(np.min(self.obj.time)-0.1,
-                        np.max(self.obj.time)+0.1)
+            ax.set_xlim(np.min(self.obj.time[q])-0.1,
+                        np.max(self.obj.time[q])+0.1)
 
             ax.set_xticks([])
             ax.set_yticks([])
