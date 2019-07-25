@@ -321,6 +321,7 @@ class Source(object):
         
         sector_table = Tesscut.get_sectors(coord)
         self.sector = self.usr_sec
+
         self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0]
         self.chip = sector_table[sector_table['sector'] == self.sector]['ccd'].quantity[0]
 

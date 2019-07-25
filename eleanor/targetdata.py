@@ -132,8 +132,9 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, bkg_size=None, crowded_field=False, cal_cadences=None,
-                 try_load=True):
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, 
+                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True):
+
         self.source_info = source 
 
         if self.source_info.premade is True:
@@ -152,7 +153,7 @@ class TargetData(object):
                 except:
                     pass
 
-            if fnf is False:
+            if fnf is True:
                 self.aperture = None
                 
                 if source.tc == False:
@@ -1035,7 +1036,6 @@ class TargetData(object):
         else:
             return np.append(corr_f, corr_s)
 
-        return np.append(corr_f, corr_s)
 
 
     def set_header(self):
