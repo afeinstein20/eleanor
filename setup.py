@@ -22,13 +22,10 @@ observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
 
-Changes to v0.2.2 (2019-07-18):
+Changes to v0.2.4 (2019-07-25):
 
-* Added "Moffat" profile to PSF modeling options
-* Better treatment of pixel flux uncertainties in PSF modeling
-* PSF modeling minor bug fixes
-* Improved treatment of cadence numbers
-* Improved handling of TessCut files into local .eleanor directory
+* Fixed bug in postcard background estimation
+* Included a pixel_by_pixel visualization tool in .visualize
 """
 
 
