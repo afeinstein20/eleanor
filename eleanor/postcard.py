@@ -200,11 +200,10 @@ class Postcard(object):
 class Postcard_tesscut(object):
     """TESS FFI data for one postcard across one sector.
     
-    A postcard is an rectangular subsection cut out from the FFIs. 
-    It's like a TPF, but bigger. 
-    The Postcard object contains a stack of these cutouts from all available 
-    FFIs during a given sector of TESS observations.
-    
+    TESSCut is a service from MAST to produce TPF cutouts from the TESS FFIs. If
+    `eleanor.Source()` is called with `tc=True`, TESSCut is used to produce a large
+    postcard-like cutout region rather than downlading a standard eleanor postcard.
+
     Parameters
     ----------
     filename : str
