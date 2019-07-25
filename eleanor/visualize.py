@@ -1,6 +1,7 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import warnings
 
@@ -40,14 +41,36 @@ class Visualize(object):
 
 
 
-    def pixel_by_pixel(self, colrange=None, rowrange=None):
+    def pixel_by_pixel(self, colrange=None, rowrange=None,
+                       flux_type="corrected"):
+        """
+        Creates a pixel-by-pixel light curve using the corrected flux.
+        
+        Parameters
+        ---------- 
+        colrange : np.array, optional
+             A list of start column and end column you're interested in 
+             zooming in on.
+        rowrange : np.array, optional
+             A list of start row and end row you're interested in zooming
+             in on.
+        flux_type : str, optional
+             The type of flux used. Either: 'raw' or 'corrected'. If not,
+             default set to 'corrected'.
+        """
         if colrange is None:
             colrange = [0, self.dimensions[0]]
+
         if rowrange is None:
             rowrange = [0, self.dimensions[1]]
 
+
         nrows = int(np.round(colrange[1]-colrange[0]))
         ncols = int(np.round(rowrange[1]-rowrange[0]))
+
+        if (colrange[1] > self.dimensions[1]) or (rowrange[1] > self.dimensions[0]):
+            raise ValueError("Asking for more pixels than available in the TPF.")
+        
 
         figure = plt.figure(figsize=(20,8))
         outer = gridspec.GridSpec(1,2, width_ratios=[1,4])
@@ -62,10 +85,13 @@ class Visualize(object):
             ax = plt.Subplot(figure, inner[ind])
 
             flux = self.flux[:,i,j]
-            flux = self.obj.corrected_flux(flux=flux)
+
+            if flux_type.lower() == 'corrected':
+                flux = self.obj.corrected_flux(flux=flux)
+
             flux = flux[q]/np.nanmedian(flux[q])
             ax.plot(self.obj.time[q], flux, 'k')
-            
+
             j += 1
             if j == colrange[1]:
                 i += 1
@@ -82,8 +108,11 @@ class Visualize(object):
             figure.add_subplot(ax)
 
         ax = plt.subplot(outer[0])
-        ax.imshow(self.flux[0, colrange[0]:colrange[1],
-                            rowrange[0]:rowrange[1]], 
-                  vmax=300)
+        c = ax.imshow(self.flux[0, colrange[0]:colrange[1],
+                                rowrange[0]:rowrange[1]], 
+                      vmax=np.percentile(self.flux[0], 95))
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes('right', size='5%', pad=0.15)
+        plt.colorbar(c, cax=cax, orientation='vertical')
 
         figure.show()
