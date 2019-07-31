@@ -92,22 +92,23 @@ class Visualize(object):
         for ind in range( int(nrows * ncols) ):
             ax = plt.Subplot(figure, inner[ind])
 
-            y = self.flux[:,i,j]
-            x = self.obj.time
+            flux = self.flux[:,i,j]
+            time = self.obj.time
+            corr_flux = self.obj.corrected_flux(flux=flux)
 
             if data_type.lower() == 'corrected':
-                y = self.obj.corrected_flux(flux=y)
-                y = y[q]/np.nanmedian(y[q])
-                x = x[q]
+                y = corr_flux[q]/np.nanmedian(corr_flux[q])
+                x = time[q]
 
             elif data_type.lower() == 'amplitude':
-                pg = lk.LightCurve(time=x, flux=y).to_periodogram()
+                lc = lk.LightCurve(time=time, flux=corr_flux)
+                pg = lc.normalize().to_periodogram()
                 x = pg.frequency.value
                 y = pg.power.value
 
             elif data_type.lower() == 'raw':
-                y = y[q]/np.nanmedian(y[q])
-                x = x[q]
+                y = flux[q]/np.nanmedian(flux[q])
+                x = time[q]
 
             ax.plot(x, y, 'k')
 
@@ -127,7 +128,8 @@ class Visualize(object):
                 ax.set_ylim(y.min(), y.max())
                 ax.set_xlim(np.min(x),
                             np.max(x))
-
+                ax.set_xticks([])
+                ax.set_yticks([])
             ax.set_xticks([])
             ax.set_yticks([])
 
