@@ -556,7 +556,8 @@ class TargetData(object):
             Number of cotrending basis vectors to apply. Default is 8.
         """
         if flux is None:
-            flux = self.corr_flux
+#            flux = self.corr_flux
+            flux = self.raw_flux - self.flux_bkg
 
         matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/tpfs/pca_components_s{0:04d}_{1}.txt'.format(self.source_info.sector,
                                                                                                                             self.source_info.camera))
@@ -566,7 +567,6 @@ class TargetData(object):
         la = len(A)
         A  = A.reshape((int(la/16), 16))  # Hard coded 4 a reason -- fight me
             
-
         def matrix(f):
             nonlocal A
             ATA     = np.dot(A.T, A)
@@ -975,7 +975,6 @@ class TargetData(object):
 
         def calc_corr(mask, cx, cy, skip=50):
             nonlocal quality, flux
-
 
             qm = quality[mask] == 0
 
