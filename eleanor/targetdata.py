@@ -632,13 +632,21 @@ class TargetData(object):
         return
 
 
-    def psf_lightcurve(self, nstars=1, model='gaussian', likelihood='gaussian', xc=None, yc=None, verbose=False, 
-                      err_method='True'):
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model='gaussian', likelihood='gaussian',
+                       xc=None, yc=None, verbose=False,
+                       err_method=True, ignore_pixels=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
         Parameters
         ----------
+        data_arr: numpy.ndarray, optional
+            Data array to fit with the PSF model. If None, will default to `TargetData.tpf`.
+        err_arr: numpy.ndarray, optional
+            Uncertainty array to fit with the PSF model. If None, will default to `TargetData.tpf_flux_err`.
+        bkg_arr: numpy.ndarray, optional
+            List of background values to include as initial guesses for the background model. If None,
+            will default to `TargetData.flux_bkg`.
         nstars: int, optional
             Number of stars to be modeled on the TPF.
         model: string, optional
@@ -657,17 +665,46 @@ class TargetData(object):
         verbose: bool, optional
             If True, return information about the shape of the PSF at every cadence as well as the
             PSF-inferred centroid shape.
+        err_method: bool, optional
+            If True, use the photometric uncertainties for each pixel in the TPF as delivered by the
+            TESS team. Otherwise, each pixel takes an equal uncertainty. If `err_arr` is passed
+            through instead, this setting is ignored.
+        ignore_pixels: int, optional
+            If not None, ignore a certain percentage of the brightest pixels away from the source
+            target, effectively masking other nearby, bright stars. This strategy appears to do a
+            reasonable job estimating the background more accurately in relatively crowded regions.
         """
         import tensorflow as tf
         from .models import Gaussian, Moffat
         from tqdm import tqdm
         
-        tf.logging.set_verbosity(tf.logging.ERROR)
+        tf.compat.v1.logging.set_verbosity(tf.logging.ERROR)
         
         if yc is None:
             yc = 0.5*np.ones(nstars)*np.shape(self.tpf[0])[1]
         if xc is None:
             xc = 0.5*np.ones(nstars)*np.shape(self.tpf[0])[0]
+
+        if data_arr is None:
+            data_arr = self.tpf + 0.0
+        if err_arr is None:
+            if err_method == True:
+                err_arr = (self.tpf_err + 0.0)**2
+            else:
+                err_arr = np.ones_like(data_arr)
+        if bkg_arr is None:
+            bkg_arr = self.flux_bkg + 0.0
+
+        dsum = np.sum(data_arr, axis=(0))
+        modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
+        if len(modepix[0]) > 2.5:
+            for i in range(len(bkg_arr)):
+                err_arr[i][modepix] = np.inf
+
+        if ignore_pixels is not None:
+            percentile = 100-ignore_pixels
+            tpfsum[int(xc[0]-1.5):int(xc[0]+2.5),int(yc[0]-1.5):int(yc[0]+2.5)] = 0.0
+            err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf
 
         if len(xc) != nstars:
             raise ValueError('xc must have length nstars')
@@ -675,14 +712,14 @@ class TargetData(object):
             raise ValueError('yc must have length nstars')
 
 
-        flux = tf.Variable(np.ones(nstars)*np.max(self.tpf[0]), dtype=tf.float64)
-        bkg = tf.Variable(self.flux_bkg[0], dtype=tf.float64)
+        flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
+        bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
         xshift = tf.Variable(0.0, dtype=tf.float64)
         yshift = tf.Variable(0.0, dtype=tf.float64)
 
         if (model == 'gaussian'):
 
-            gaussian = Gaussian(shape=self.tpf.shape[1:], col_ref=0, row_ref=0)
+            gaussian = Gaussian(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
 
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
@@ -707,7 +744,7 @@ class TargetData(object):
             
         elif model == 'moffat':
 
-            moffat = Moffat(shape=self.tpf.shape[1:], col_ref=0, row_ref=0)
+            moffat = Moffat(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
 
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
@@ -733,23 +770,23 @@ class TargetData(object):
                             }
             
 
-            betaout = np.zeros(len(self.tpf))
+            betaout = np.zeros(len(data_arr))
             
 
         else:
             raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
                                                                     # and a gentle return
                 
-        aout = np.zeros(len(self.tpf))
-        bout = np.zeros(len(self.tpf))
-        cout = np.zeros(len(self.tpf))
-        xout = np.zeros(len(self.tpf))
-        yout = np.zeros(len(self.tpf))
+        aout = np.zeros(len(data_arr))
+        bout = np.zeros(len(data_arr))
+        cout = np.zeros(len(data_arr))
+        xout = np.zeros(len(data_arr))
+        yout = np.zeros(len(data_arr))
 
         mean += bkg
 
-        data = tf.placeholder(dtype=tf.float64, shape=self.tpf[0].shape)
-        derr = tf.placeholder(dtype=tf.float64, shape=self.tpf[0].shape)
+        data = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
+        derr = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
         bkgval = tf.placeholder(dtype=tf.float64)
 
         if likelihood == 'gaussian':
@@ -769,27 +806,13 @@ class TargetData(object):
         
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
-        fout = np.zeros((len(self.tpf), nstars))
-        bkgout = np.zeros(len(self.tpf))
-        
+        fout = np.zeros((len(data_arr), nstars))
+        bkgout = np.zeros(len(data_arr))
 
-        f_err = np.ones_like(self.tpf)
-        if err_method == 'True':
-            f_err = self.tpf_err + 0.0
-                
-        dsum = np.sum(self.tpf, axis=(0))
-        modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
-        if len(modepix[0]) > 2.5:
-            for i in range(len(self.time)):
-                f_err[i][modepix] = np.inf
-            
+        llout = np.zeros(len(data_arr))
 
-            
-
-        llout = np.zeros(len(self.tpf))
-
-        for i in tqdm(range(len(self.tpf))):
-            optim = optimizer.minimize(session=sess, feed_dict={data:self.tpf[i], derr:f_err[i], bkgval:np.median(self.flux_bkg)}) # we could also pass a pointing model here
+        for i in tqdm(range(len(data_arr))):
+            optim = optimizer.minimize(session=sess, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]}) # we could also pass a pointing model here
                                                                            # and just fit a single offset in all frames
 
             fout[i] = sess.run(flux)
@@ -801,7 +824,7 @@ class TargetData(object):
                 cout[i] = sess.run(c)
                 xout[i] = sess.run(xshift)
                 yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:self.tpf[i], derr:f_err[i], bkgval:np.median(self.flux_bkg)})
+                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
                 
             if model == 'moffat':
                 aout[i] = sess.run(a)
@@ -809,7 +832,7 @@ class TargetData(object):
                 cout[i] = sess.run(c)
                 xout[i] = sess.run(xshift)
                 yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:self.tpf[i], derr:f_err[i], bkgval:np.median(self.flux_bkg)})
+                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_err[i], bkgval:bkg_arr[i]})
                 betaout[i] = sess.run(beta)
             
 
@@ -1001,7 +1024,7 @@ class TargetData(object):
 
                 cm = np.column_stack((cm, vv[qm][skip:]))
                 cm_full = np.column_stack((cm_full, vv))
-                
+
 
                 if np.std(bkg) > 1e-10:
                     cm = np.column_stack((cm, bkg[qm][skip:]))
@@ -1014,6 +1037,7 @@ class TargetData(object):
             else:
                 cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((vv, np.ones_like(t[mask])))
+
 
             x = xhat(cm, norm_l[skip:])
             fmod = fhat(x, cm_full)
@@ -1091,9 +1115,9 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='URL', value=self.source_info.ELEANORURL,
                                      comment='URL eleanor files are located at'))
 
-        if self.modes is not None:
-            self.header.append(fits.Card(keyword='MODES', value=self.modes,
-                                         comment='Number of modes used in PCA analysis'))
+        #if self.modes is not None:
+        #    self.header.append(fits.Card(keyword='MODES', value=self.modes,
+        #                                 comment='Number of modes used in PCA analysis'))
 
 
     def save(self, output_fn=None, directory=None):

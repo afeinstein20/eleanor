@@ -25,15 +25,18 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
 
     Parameters
     ----------
+    sectors : list or str
+        The list of sectors for which data should be returned, or `all` to return all sectors
+        for which there are data.
     tic : int, optional
         The TIC ID of the source.
     gaia : int, optional
         The Gaia DR2 source_id.
     coords : tuple, optional
         The (RA, Dec) coords of the object in degrees.
-    sectors : list or str
-        The list of sectors for which data should be returned, or `all` to return all sectors
-        for which there are data.
+    tc : bool, optional
+        If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
+        postcard data products.
     """
     objs = []
 
@@ -104,6 +107,9 @@ class Source(object):
     sector : int or str
         The sector for which data should be returned, or `recent` to
         obtain data for the most recent sector which contains this target.
+    tc : bool, optional
+        If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
+        postcard data products.
 
     Attributes
     ----------

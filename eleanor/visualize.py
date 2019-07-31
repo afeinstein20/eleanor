@@ -4,6 +4,7 @@ import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
 import warnings
+import lightkurve as lk
 
 from .ffi import use_pointing_model, load_pointing_model
 from .mast import *
@@ -42,21 +43,21 @@ class Visualize(object):
 
 
     def pixel_by_pixel(self, colrange=None, rowrange=None,
-                       flux_type="corrected", mask=None):
+                       data_type="corrected", mask=None):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
-        
+
         Parameters
-        ---------- 
+        ----------
         colrange : np.array, optional
-             A list of start column and end column you're interested in 
+             A list of start column and end column you're interested in
              zooming in on.
         rowrange : np.array, optional
              A list of start row and end row you're interested in zooming
              in on.
-        flux_type : str, optional
-             The type of flux used. Either: 'raw' or 'corrected'. If not,
-             default set to 'corrected'.
+        data_type : str, optional
+             The type of flux used. Either: 'raw', 'corrected' or 'amplitude'.
+             If not, default set to 'corrected'.
         mask : np.array, optional
              Specifies the cadences used in the light curve. If not, default
              set to good quality cadences.
@@ -73,7 +74,7 @@ class Visualize(object):
 
         if (colrange[1] > self.dimensions[1]) or (rowrange[1] > self.dimensions[0]):
             raise ValueError("Asking for more pixels than available in the TPF.")
-        
+
 
         figure = plt.figure(figsize=(20,8))
         outer = gridspec.GridSpec(1,2, width_ratios=[1,4])
@@ -92,32 +93,53 @@ class Visualize(object):
             ax = plt.Subplot(figure, inner[ind])
 
             flux = self.flux[:,i,j]
+            time = self.obj.time
+            corr_flux = self.obj.corrected_flux(flux=flux)
 
-            if flux_type.lower() == 'corrected':
-                flux = self.obj.corrected_flux(flux=flux)
+            if data_type.lower() == 'corrected':
+                y = corr_flux[q]/np.nanmedian(corr_flux[q])
+                x = time[q]
 
-            flux = flux[q]/np.nanmedian(flux[q])
-            ax.plot(self.obj.time[q], flux, 'k')
+            elif data_type.lower() == 'amplitude':
+                lc = lk.LightCurve(time=time, flux=corr_flux)
+                pg = lc.normalize().to_periodogram()
+                x = pg.frequency.value
+                y = pg.power.value
+
+            elif data_type.lower() == 'raw':
+                y = flux[q]/np.nanmedian(flux[q])
+                x = time[q]
+
+            ax.plot(x, y, 'k')
 
             j += 1
             if j == colrange[1]:
                 i += 1
                 j  = colrange[0]
 
-            ax.set_ylim(np.percentile(flux, 1), np.percentile(flux, 99))
+            ax.set_ylim(np.percentile(y, 1), np.percentile(y, 99))
 
-            ax.set_xlim(np.min(self.obj.time[q])-0.1,
-                        np.max(self.obj.time[q])+0.1)
+            ax.set_xlim(np.min(x)-0.1,
+                        np.max(x)+0.1)
 
+            if data_type.lower() == 'amplitude':
+                ax.set_yscale('log')
+                ax.set_xscale('log')
+                ax.set_ylim(y.min(), y.max())
+                ax.set_xlim(np.min(x),
+                            np.max(x))
+                ax.set_xticks([])
+                ax.set_yticks([])
             ax.set_xticks([])
             ax.set_yticks([])
 
             figure.add_subplot(ax)
 
         ax = plt.subplot(outer[0])
+
         c = ax.imshow( np.flip( self.flux[0, colrange[0]:colrange[1],
                                           rowrange[0]:rowrange[1]], axis=1 ), 
-                      vmax=np.percentile(self.flux[0], 95))
+                       vmax=np.percentile(self.flux[0], 95))
         ax.set_xticks([])
         ax.set_yticks([])
         divider = make_axes_locatable(ax)
