@@ -41,11 +41,44 @@ class Visualize(object):
             self.dimensions = self.obj.dimensions
 
 
+    def aperture_contour(self, aperture=None, color="r"):
+        """
+        Overplots the countour of an aperture on a target pixel file.
+        Contribution from Gijs Mulders. 
+
+        Parameters
+        ---------- 
+        aperture : np.2darray, optional
+            A 2D mask the same size as the target pixel file. Default
+            is the eleanor default aperture.
+        color : str, optional
+            The color of the aperture contour. Takes a matplotlib color.
+            Default is red.
+        """
+        if aperture is None:
+            aperture = self.obj.aperture
+
+        plt.plot(self.obj.tpf[0])
+
+        f = lambda x,y: aperture[int(y),int(x) ]
+        g = np.vectorize(f)
+        
+        x = np.linspace(0,aperture.shape[1], aperture.shape[1]*100)
+        y = np.linspace(0,aperture.shape[0], aperture.shape[0]*100)
+        X, Y= np.meshgrid(x[:-1],y[:-1])
+        Z = g(X[:-1],Y[:-1])
+        
+        plt.contour(Z[::-1], [0.5], colors=color, linewidths=[4],
+                    extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5]) 
+        plt.show()
+
+
 
     def pixel_by_pixel(self, colrange=None, rowrange=None,
                        data_type="corrected", mask=None):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
+        Contribution from Oliver Hall.
 
         Parameters
         ----------
