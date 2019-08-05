@@ -354,8 +354,8 @@ class Source(object):
     def search_tesscut(self, download_dir, coords):
         """Searches to see if the TESSCut cutout has already been downloaded.
         """
-        ra  = np.round(coords.ra.deg,  6)
-        dec = np.round(coords.dec.deg, 6)
+        ra =  format(coords.ra.deg, '.6f')
+        dec = format(coords.dec.deg, '.6f')
 
         tesscut_fn = "tess-s{0:04d}-{1}-{2}_{3}_{4}_{5}x{5}_astrocut.fits".format(self.sector,
                                                                                   self.camera,
