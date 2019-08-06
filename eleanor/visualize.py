@@ -170,8 +170,8 @@ class Visualize(object):
 
         ax = plt.subplot(outer[0])
 
-        c = ax.imshow( np.flip( self.flux[0, colrange[0]:colrange[1],
-                                          rowrange[0]:rowrange[1]], axis=1 ), 
+        c = ax.imshow(self.flux[0, colrange[0]:colrange[1],
+                                          rowrange[0]:rowrange[1]], 
                        vmax=np.percentile(self.flux[0], 95))
         ax.set_xticks([])
         ax.set_yticks([])
