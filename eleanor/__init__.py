@@ -6,3 +6,4 @@ from .eleanor import *
 from .targetdata import *
 from .postcard import *
 from .source import *
+from .crossmatch import *
