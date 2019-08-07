@@ -3,12 +3,13 @@
 
 from __future__ import division, print_function
 
-import os
 import sys
+
+import setuptools
 from setuptools import setup
 
 sys.path.insert(0, "eleanor")
-from version import __version__
+from version import __version__  
 
 
 long_description = \
@@ -20,7 +21,13 @@ takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
 observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
+
+Changes to v0.2.4 (2019-07-25):
+
+* Fixed bug in postcard background estimation
+* Included a pixel_by_pixel visualization tool in .visualize
 """
+
 
 
 setup(
@@ -43,8 +50,6 @@ setup(
         'astroquery', 'bokeh', 'muchbettermoments', 'fitsio',
         'setuptools>=41.0.0',
         'tensorflow', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point'],
-
-
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',

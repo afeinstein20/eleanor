@@ -25,15 +25,18 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
 
     Parameters
     ----------
+    sectors : list or str
+        The list of sectors for which data should be returned, or `all` to return all sectors
+        for which there are data.
     tic : int, optional
         The TIC ID of the source.
     gaia : int, optional
         The Gaia DR2 source_id.
     coords : tuple, optional
         The (RA, Dec) coords of the object in degrees.
-    sectors : list or str
-        The list of sectors for which data should be returned, or `all` to return all sectors
-        for which there are data.
+    tc : bool, optional
+        If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
+        postcard data products.
     """
     objs = []
 
@@ -48,7 +51,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
             if type(coords) is SkyCoord:
                 coords = (coords.ra.degree, coords.dec.degree)
             result = tess_stars2px(8675309, coords[0], coords[1])
-            sector = result[3][result[3] < 11.5]
+            sector = result[3][result[3] < 12.5]
             sectors = sector.tolist()
         print('Found star in Sector(s) ' +" ".join(str(x) for x in sectors))
     if type(sectors) == list:
@@ -104,6 +107,9 @@ class Source(object):
     sector : int or str
         The sector for which data should be returned, or `recent` to
         obtain data for the most recent sector which contains this target.
+    tc : bool, optional
+        If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
+        postcard data products.
 
     Attributes
     ----------
@@ -132,7 +138,7 @@ class Source(object):
         self.fn      = fn
         self.premade = False
         self.usr_sec = sector
-        self.tc      = False
+        self.tc      = tc
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
@@ -154,13 +160,13 @@ class Source(object):
             self.camera   = hdr['CAMERA']
             self.chip     = hdr['CHIP']
             self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
-            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
+#            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
 
         else:
             if self.coords is not None:
                 if type(self.coords) is SkyCoord:
                     self.coords = (self.coords.ra.degree, self.coords.dec.degree)
-                elif (len(self.coords) == 2) & all(isinstance(c, float) for c in self.coords):
+                elif (len(self.coords) == 2) & (all(isinstance(c, float) for c in self.coords) | all(isinstance(c, int) for c in self.coords) ):
                     self.coords  = coords
                 else:
                     assert False, ("Source: invalid coords. Valid input types are: "
@@ -321,6 +327,7 @@ class Source(object):
         
         sector_table = Tesscut.get_sectors(coord)
         self.sector = self.usr_sec
+
         self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0]
         self.chip = sector_table[sector_table['sector'] == self.sector]['ccd'].quantity[0]
 
@@ -347,8 +354,8 @@ class Source(object):
     def search_tesscut(self, download_dir, coords):
         """Searches to see if the TESSCut cutout has already been downloaded.
         """
-        ra  = np.round(coords.ra.deg,  6)
-        dec = np.round(coords.dec.deg, 6)
+        ra =  format(coords.ra.deg, '.6f')
+        dec = format(coords.dec.deg, '.6f')
 
         tesscut_fn = "tess-s{0:04d}-{1}-{2}_{3}_{4}_{5}x{5}_astrocut.fits".format(self.sector,
                                                                                   self.camera,
