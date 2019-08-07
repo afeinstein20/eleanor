@@ -3,8 +3,10 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
-import warnings
+import warnings, os, requests
 import lightkurve as lk
+from bs4 import BeautifulSoup
+
 
 from .ffi import use_pointing_model, load_pointing_model
 from .mast import *
@@ -29,6 +31,7 @@ class Visualize(object):
     def __init__(self, object, obj_type="tpf"):
         self.obj      = object
         self.obj_type = obj_type.lower()
+        self.get_youtube_links()
 
         if self.obj_type == "tpf":
             self.flux   = self.obj.tpf
@@ -39,6 +42,29 @@ class Visualize(object):
             self.flux   = self.obj.flux
             self.center = self.obj.center_xy
             self.dimensions = self.obj.dimensions
+
+
+    def get_youtube_links(self):
+        """
+        Scrapes the YouTube links to Ethan Kruse's TESS: The Movie videos.
+
+        Parameters
+        ---------- 
+
+        """
+        url = "https://www.youtube.com/user/ethank18/videos"
+        paths = BeautifulSoup(requests.get(url).text, "lxml").find_all('a')
+
+        videos = {}
+
+        for direct in paths:
+            name = str(direct.get('title'))
+            if 'TESS: The Movie.' in name:
+                sector = int(name.split(',')[0].split('.')[-1].split(' ')[-1])
+                link = direct.get('href')
+                link_path = "https://www.youtube.com/" + link
+                videos[sector] = link_path
+        self.youtube = videos
 
 
     def aperture_contour(self, aperture=None, color="r"):
@@ -180,3 +206,17 @@ class Visualize(object):
         plt.colorbar(c, cax=cax, orientation='vertical')
 
         figure.show()
+
+
+    def tess_the_movie(self):
+        """
+        Opens the link to Ethan Kruse's TESS: The Movie YouTube videos for
+        the sector your target is observed in.
+
+        Parameters
+        ---------- 
+        
+        """
+        sector = self.obj.source_info.sector
+        self.movie_url = self.youtube[sector]
+        os.system('python -m webbrowser -t "{0}"'.format(self.movie_url))
