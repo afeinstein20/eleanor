@@ -48,7 +48,7 @@ class TargetData(object):
         Size of box to use for background estimation. If not set, will default to the width of the 
         target pixel file.
     crowded_field : bool, optional
-        If true, will return a light curve built using a small aperture (not more than 9 pixels in size).
+        If true, will return a light curve built using a small aperture (not more than 8 pixels in size).
     do_pca : bool, optional
         If true, will return a PCA-corrected light curve.
     do_psf : bool, optional
@@ -504,8 +504,8 @@ class TargetData(object):
             self.all_corr_lc = np.array(all_corr_lc_pc_sub)
             
             if self.crowded_field == True:
-                tpf_stds[ap_size > 9] = 1.0
-                pc_stds[ap_size > 9] = 1.0
+                tpf_stds[ap_size > 8] = 1.0
+                pc_stds[ap_size > 8] = 1.0
 
             best_ind_tpf = np.where(tpf_stds == np.min(tpf_stds))[0][0]
             best_ind_pc  = np.where(pc_stds == np.min(pc_stds))[0][0]
@@ -678,7 +678,7 @@ class TargetData(object):
         from .models import Gaussian, Moffat
         from tqdm import tqdm
         
-        tf.compat.v1.logging.set_verbosity(tf.logging.ERROR)
+        tf.logging.set_verbosity(tf.logging.ERROR)
         
         if yc is None:
             yc = 0.5*np.ones(nstars)*np.shape(self.tpf[0])[1]
