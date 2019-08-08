@@ -3,6 +3,10 @@ import urllib
 import os
 import socket
 import pandas as pd
+from astroquery.mast import Observations
+from astropy.io import fits
+
+from .utils import *
 
 __all__ = ['Crossmatch']
 
@@ -27,20 +31,51 @@ class Crossmatch(object):
         self.download_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
 
 
-    def tasoc_lc(self, sectors=None):
+    def tasoc_lc(self):
         """
         Grabs the T'DA available light curves for your target.
         
         Parameters
         ----------
-        sectors : list, optional
-            Input the sectors you want to grab for a given light curve.
-            Default is the assigned sector in your eleanor.TargetData object.
+
         """
-        return
+        products = Observations.query_object(objectname="TIC"+str(self.tic))
+
+        column = np.where( (products['provenance_name'] == 'TASOC') &
+                           (products['target_name'] == str(self.tic)) & 
+                           (products['sequence_number'] == self.sector) )[0]
+
+        if len(column) > 0:
+            download = Observations.get_product_list(products[column])
+            manifest = Observations.download_products(download, download_dir=self.download_dir)
+            self.tasoc_path = manifest["Local Path"].data[0]
+
+            hdu = fits.open(self.tasoc_path)
+
+            self.tasoc_header   = hdu[0].header
+            self.tasoc_tpf      = hdu[2].data
+            self.tasoc_aperture = hdu[3].data
+            self.tasoc_time      = hdu[1].data['TIME']
+            self.tasoc_quality   = hdu[1].data['QUALITY']
+            self.tasoc_timecorr  = hdu[1].data['TIMECORR']
+            self.tasoc_cadenceno = hdu[1].data['CADENCENO']
+            self.tasoc_flux_raw  = hdu[1].data['FLUX_RAW']
+            self.tasoc_flux_bkg  = hdu[1].data['FLUX_BKG']
+            self.tasoc_flux_corr = hdu[1].data['FLUX_CORR']
+            self.tasoc_pos_corr1 = hdu[1].data['POS_CORR1']
+            self.tasoc_pos_corr2 = hdu[1].data['POS_CORR2']
+            self.tasoc_mom_centr1 = hdu[1].data['MOM_CENTR1']
+            self.tasoc_mom_centr2 = hdu[1].data['MOM_CENTR2']
+            self.tasoc_pixel_quality = hdu[1].data['PIXEL_QUALITY']
+            self.tasoc_flux_raw_err  = hdu[1].data['FLUX_RAW_ERR']
+            self.tasoc_flux_corr_err = hdu[1].data['FLUX_CORR_ERR']
+
+        else:
+            raise SearchError("No TASOC light curve found.")
 
 
-    def oelkers_lc(self, sectors=None):
+
+    def oelkers_lc(self):
         """
         Grabs the Oelkers & Stassun (2019) associated light curve.
 
@@ -58,7 +93,7 @@ class Crossmatch(object):
             urllib.request.urlopen(oelkers_url, timeout=3)
             dne = False
         except socket.timeout:
-            print("There is no Oelkers & Stassun light curve for this target/sector.")
+            print("There is no Oelkers & Stassun light curve found.")
             return
 
         if dne is False:
