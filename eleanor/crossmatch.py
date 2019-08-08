@@ -1,5 +1,7 @@
 import numpy as np
-import urllib, os
+import urllib
+import os
+import socket
 import pandas as pd
 
 __all__ = ['Crossmatch']
@@ -38,7 +40,7 @@ class Crossmatch(object):
         return
 
 
-    def oelkers_ls(self, sectors=None):
+    def oelkers_lc(self, sectors=None):
         """
         Grabs the Oelkers & Stassun (2019) associated light curve.
 
@@ -50,12 +52,18 @@ class Crossmatch(object):
                                                    self.camera, self.chip)
         oelkers_url = "http://astro.phy.vanderbilt.edu/~oelkerrj/tess_ffi/sector{0:02d}/clean/{1}".format(self.sector,
                                                                                                           fn)
-        print(fn)
-        print(oelkers_url)
+        
+        dne = True # Does Not Exist
         try:
+            urllib.request.urlopen(oelkers_url, timeout=3)
+            dne = False
+        except socket.timeout:
+            print("There is no Oelkers & Stassun light curve for this target/sector.")
+            return
+
+        if dne is False:
             tab = pd.read_csv(oelkers_url, delimiter=' ', header=None)
             self.os_time    = tab[0].values
             self.os_mag     = tab[1].values
             self.os_mag_err = tab[2].values
-        except:
-            raise ValueError("There is no Oelkers & Stassun light curve for this target/sector.")
+
