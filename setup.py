@@ -22,10 +22,11 @@ observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
 
-Changes to v0.2.4 (2019-07-25):
+Changes to v0.2.4 (2019-08-07):
 
-* Fixed bug in postcard background estimation
-* Included a pixel_by_pixel visualization tool in .visualize
+* eleanor.Visualize.tess_the_movie()
+* eleanor.Crossmatch() for getting both TASOC and Oelkers & Stassun (2019) light curves
+* Flipped axis in eleanor.Visualize.pixel_by_pixel() to match properly
 """
 
 
