@@ -165,7 +165,6 @@ class TargetData(object):
                 self.flux_bkg = self.post_obj.bkg 
                 self.get_time(source.coords)
 
-            
                 if bkg_size is None:
                     bkg_size = width
 
@@ -556,8 +555,7 @@ class TargetData(object):
             Number of cotrending basis vectors to apply. Default is 8.
         """
         if flux is None:
-#            flux = self.corr_flux
-            flux = self.raw_flux - self.flux_bkg
+            flux = self.raw_flux - (self.flux_bkg * np.sum(self.aperture))
 
         matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/tpfs/pca_components_s{0:04d}_{1}.txt'.format(self.source_info.sector,
                                                                                                                             self.source_info.camera))
