@@ -51,6 +51,10 @@ class Visualize(object):
         Parameters
         ---------- 
 
+        Attributes
+        ----------
+        youtube : dict
+
         """
         url = "https://www.youtube.com/user/ethank18/videos"
         paths = BeautifulSoup(requests.get(url).text, "lxml").find_all('a')
@@ -215,8 +219,33 @@ class Visualize(object):
 
         Parameters
         ---------- 
-        
+
+        Attributes
+        ----------
+        movie_url : str
+
         """
+        def type_of_script():
+            try:
+                ipy_str = str(type(get_ipython()))
+                if 'zmqshell' in ipy_str:
+                    return 'jupyter'
+                if 'terminal' in ipy_str:
+                    return 'ipython'
+            except:
+                return 'terminal'
+
         sector = self.obj.source_info.sector
         self.movie_url = self.youtube[sector]
-        os.system('python -m webbrowser -t "{0}"'.format(self.movie_url))
+
+        call_location = type_of_script()
+
+        if (call_location == 'terminal') or (call_location == 'ipython'):
+            os.system('python -m webbrowser -t "{0}"'.format(self.movie_url))
+
+        elif (call_location == 'jupyter'):
+            from IPython.display import YouTubeVideo
+            id = self.movie_url.split('=')[-1]
+            return YouTubeVideo(id=id, width=900, height=500)
+
+            

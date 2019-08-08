@@ -54,7 +54,7 @@ class Crossmatch(object):
         tasoc_flux_corr_err : np.array
         tasoc_flux_bkg : np.array
         tasoc_pixel_quality : np.array
-             Quality flags for the data; use these not tasoc_quality
+             Quality flags for the data; use these not `tasoc_quality`.
         tasoc_pos_corr1 : np.array
         tasoc_pos_corr2 : np.array
         tasoc_mom_centr1 : np.array
