@@ -312,10 +312,20 @@ class Source(object):
         
 
     def locate_with_tesscut(self):
-        """Finds the best TESS postcard(s) and the position of the source on postcard.
-        Sets attributes postcard, position_on_postcard, all_postcards.
-         sector, camera, chip, position_on_chip.
-        
+        """
+        Finds the best TESS postcard(s) and the position of the source on postcard.
+
+        Attributes
+        ----------
+        postcard : list
+        postcard_path : str
+        position_on_postcard : list 
+        all_postcards : list
+        sector : int
+        camera : int
+        chip : int
+        position_on_chip : np.array
+
         """
         self.postcard = []
         self.position_on_postcard = []

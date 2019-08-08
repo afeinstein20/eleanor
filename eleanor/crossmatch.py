@@ -34,7 +34,7 @@ class Crossmatch(object):
     def tasoc_lc(self):
         """
         Grabs the T'DA available light curves for your target.
-        For more information, see .. _TDA-documentation:https://tasoc.dk/code/
+        For more information, see the TASOC light curve documentation: https://tasoc.dk/code/.
 
         Parameters
         ----------
