@@ -34,10 +34,31 @@ class Crossmatch(object):
     def tasoc_lc(self):
         """
         Grabs the T'DA available light curves for your target.
-        
+        For more information, see .. _TDA-documentation:https://tasoc.dk/code/
+
         Parameters
         ----------
 
+        Attributes
+        ----------
+        tasoc_header : 
+        tasoc_tpf : np.2darray
+        tasoc_aperture : np.2darray
+        tasoc_time : np.array
+        tasoc_quality : np.array
+        tasoc_timecorr : np.array
+        tasoc_cadenceno : np.array
+        tasoc_flux_raw : np.array
+        tasoc_flux_raw_err : np.array
+        tasoc_flux_corr : np.array
+        tasoc_flux_corr_err : np.array
+        tasoc_flux_bkg : np.array
+        tasoc_pixel_quality : np.array
+             Quality flags for the data; use these not tasoc_quality
+        tasoc_pos_corr1 : np.array
+        tasoc_pos_corr2 : np.array
+        tasoc_mom_centr1 : np.array
+        tasoc_mom_centr2 : np.array
         """
         products = Observations.query_object(objectname="TIC"+str(self.tic))
 
@@ -81,6 +102,12 @@ class Crossmatch(object):
 
         Parameters
         ----------
+        
+        Attributes
+        ----------
+        time : np.array
+        mag  : np.array
+        mag_err : np.array
 
         """
         fn = "{1}_sector{0:02d}_{2}_{3}.lc".format(self.sector, self.tic,
