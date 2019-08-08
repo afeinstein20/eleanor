@@ -16,3 +16,6 @@ API
 
 .. autoclass:: Visualize
     :members:
+
+.. autoclass:: Crossmatch
+    :members:
