@@ -861,7 +861,7 @@ class TargetData(object):
 
 
 
-    def custom_aperture(self, shape=None, r=0.0, l=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
+    def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """
         Creates a custom circular or rectangular aperture of arbitrary size.
 
@@ -871,7 +871,7 @@ class TargetData(object):
             The shape of the aperture to be used. Must be either `circle` or `rectangle.`
         r: float, optional
             If shape is `circle` the radius of the circular aperture to be used.
-        l: float, optional
+        h: float, optional
             If shape is `rectangle` the length of the rectangular aperture to be used.
         w: float, optional
             If shape is `rectangle` the width of the rectangular aperture to be used.
@@ -903,9 +903,9 @@ class TargetData(object):
 
         elif shape == 'rectangle':
             if l==0.0 or w==0.0:
-                raise Exception("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', l=#, w=#)")
+                raise Exception("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', h=#, w=#, theta=#)")
             else:
-                aperture = RectangularAperture(pos, l=l, w=w, t=theta)
+                aperture = RectangularAperture(pos, h=l, w=w, theta=theta)
                 self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
                             np.shape(self.tpf[0]))))
         else:
