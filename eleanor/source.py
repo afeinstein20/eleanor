@@ -54,7 +54,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
             sector = result[3][result[3] < 12.5]
             sectors = sector.tolist()
         print('Found star in Sector(s) ' +" ".join(str(x) for x in sectors))
-    if type(sectors) == list:
+    else:
         for s in sectors:
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc)
             if star.sector is not None:
@@ -64,8 +64,6 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
                           'target may not have been observed yet in these sectors.'
                           ''.format(len(objs), len(sectors)))
         return objs
-    else:
-        raise TypeError("Sectors needs to be either 'all' or a type(list) to work.")
 
 
 def load_postcard_guide(sector):
