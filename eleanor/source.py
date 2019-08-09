@@ -26,7 +26,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
     Parameters
     ----------
     sectors : list or str
-        The list of sectors for which data should be returned, or `all` to return all sectors
+        The list of sectors for which data should be returned, or `'all'` to return all sectors
         for which there are data.
     tic : int, optional
         The TIC ID of the source.

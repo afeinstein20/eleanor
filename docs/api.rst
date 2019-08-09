@@ -5,6 +5,8 @@ API
 .. automodule:: eleanor
     :members:
 
+.. autofunction:: multi_sectors
+
 .. autoclass:: Source
     :members:
 
