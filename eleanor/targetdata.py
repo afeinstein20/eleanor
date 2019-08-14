@@ -677,21 +677,21 @@ class TargetData(object):
         from tqdm import tqdm
         
         tf.logging.set_verbosity(tf.logging.ERROR)
-        
-        if yc is None:
-            yc = 0.5*np.ones(nstars)*np.shape(self.tpf[0])[1]
-        if xc is None:
-            xc = 0.5*np.ones(nstars)*np.shape(self.tpf[0])[0]
 
         if data_arr is None:
             data_arr = self.tpf + 0.0
         if err_arr is None:
             if err_method == True:
-                err_arr = (self.tpf_err + 0.0)**2
+                err_arr = (self.tpf_err + 0.0) ** 2
             else:
                 err_arr = np.ones_like(data_arr)
         if bkg_arr is None:
             bkg_arr = self.flux_bkg + 0.0
+
+        if yc is None:
+            yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
+        if xc is None:
+            xc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[0]
 
         dsum = np.sum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
@@ -700,6 +700,7 @@ class TargetData(object):
                 err_arr[i][modepix] = np.inf
 
         if ignore_pixels is not None:
+            tpfsum = np.sum(data_arr, axis=(0))
             percentile = 100-ignore_pixels
             tpfsum[int(xc[0]-1.5):int(xc[0]+2.5),int(yc[0]-1.5):int(yc[0]+2.5)] = 0.0
             err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf

@@ -149,7 +149,7 @@ def coords_from_tic(tic):
     """
 
     ticData = Catalogs.query_object('tic'+str(tic), radius=.0001, catalog="TIC")
-    return [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data[0], int(ticData['version'].data[0])
+    return [ticData['ra'].data[0], ticData['dec'].data[0]], [ticData['Tmag'].data[0]], int(ticData['version'].data[0])
 
 def coords_from_gaia(gaia_id):
     """Returns table of Gaia DR2 data given a source_id."""
