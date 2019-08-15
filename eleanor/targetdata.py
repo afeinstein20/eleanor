@@ -619,6 +619,10 @@ class TargetData(object):
             c_frame = [cen[0]+c_0[0], cen[1]+c_0[1]]
             self.x_com.append(c_frame[0])
             self.y_com.append(c_frame[1])
+            
+        self.x_com = np.array(self.x_com)
+        self.y_com = np.array(self.y_com)
+
         return
 
 
