@@ -51,7 +51,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
             if type(coords) is SkyCoord:
                 coords = (coords.ra.degree, coords.dec.degree)
             result = tess_stars2px(8675309, coords[0], coords[1])
-            sector = result[3][result[3] < 12.5]
+            sector = result[3][result[3] < 13.5]
             sectors = sector.tolist()
         print('Found star in Sector(s) ' +" ".join(str(x) for x in sectors))
     else:
