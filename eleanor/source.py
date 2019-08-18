@@ -54,7 +54,8 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
             sector = result[3][result[3] < 13.5]
             sectors = sector.tolist()
         print('Found star in Sector(s) ' +" ".join(str(x) for x in sectors))
-    else:
+
+    if (type(sectors) == list) or (type(sectors) == np.ndarray):
         for s in sectors:
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc)
             if star.sector is not None:
