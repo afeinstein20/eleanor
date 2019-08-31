@@ -5,7 +5,7 @@ import socket
 import pandas as pd
 from astroquery.mast import Observations
 from astropy.io import fits
-from lightkurve import search_targetpixelfile
+from lightkurve.search import search_targetpixelfile
 
 from .utils import *
 
