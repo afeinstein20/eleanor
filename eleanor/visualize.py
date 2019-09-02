@@ -277,43 +277,17 @@ class Visualize(object):
                 mywcs[newkey] = self.obj.header[oldkey]
         return WCS(mywcs)
     
-    def show_target_on_sky(self, targetra, targetdec):
-        
-        import astropy.units as u
 
+    def show_target_on_sky(self, targetra, targetdec):
+                
         w = self.lightkurve_wcs()
         
         fig = plt.figure(figsize=(12,12))
         fig.add_subplot(111, projection=w)
         plt.imshow(np.log(vis.obj.tpf[0]),cmap='gray',origin='lower')
         ax = fig.gca()
-        ax.coords.grid(True, color='green', ls='solid')
-
-        lon = ax.coords[0]
-        lat = ax.coords[1]
-
-        lon.set_ticklabel(rotation=90)
-
-        lon.set_major_formatter('dd:mm:ss')
-        lat.set_major_formatter('dd:mm:ss')
-
-        lon.set_ticks(spacing=120 * u.arcsec,exclude_overlapping=False)
-        lat.set_ticks(spacing=60 * u.arcsec,exclude_overlapping=True)
-
-        lon.set_ticklabel(color='black', size=20)
-        lat.set_ticklabel(color='black', size=20)
-
-        lon.set_ticklabel_position('l')
-        lat.set_ticklabel_position('b')
-
-        lon.set_axislabel('DEC',fontsize=20)
-        lon.set_axislabel_position('b')
-
-        lat.set_axislabel_position('l')
-        lat.set_axislabel('RA',fontsize=20,rotation=90)
-
+        
         stars_pix_cord = w.wcs_world2pix([[targetra,targetdec]],0)
         ax.scatter(stars_pix_cord[0][0],stars_pix_cord[0][1],marker='+',c='r',s=1000)
 
         ax.scatter(targetra,targetdec,transform=ax.get_transform('world'),marker='.',c='b',s=1000)
-        
