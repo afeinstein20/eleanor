@@ -279,6 +279,8 @@ class Visualize(object):
     
     def show_target_on_sky(self, targetra, targetdec):
         
+        import astropy.units as u
+
         w = self.lightkurve_wcs()
         
         fig = plt.figure(figsize=(12,12))
