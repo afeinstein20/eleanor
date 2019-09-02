@@ -5,6 +5,7 @@ import socket
 import pandas as pd
 from astroquery.mast import Observations
 from astropy.io import fits
+from lightkurve.search import search_targetpixelfile
 
 from .utils import *
 
@@ -30,6 +31,34 @@ class Crossmatch(object):
         self.tic    = object.source_info.tic
         self.download_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
 
+
+    def two_minute(self, download=False, sectors=None):
+        """
+        Checks to see if short cadence data is available for your target.
+        
+        Parameters
+        ---------- 
+        download : str, optional
+             Allows the user to download the short cadence target pixel files.
+             By default, downloads all sectors that are available.
+        Returns
+        ---------- 
+        sc : np.ndarray
+             If download == True : Returns a list of lightkurve.lightcurve.TessLightCurve object(s).
+             If download == False : Returns a lightkurve.search.SearchResult object.
+        """
+        stpf = search_targetpixelfile(self.tic, mission='TESS')
+        if len(stpf) == 0:
+            return
+        else:
+            if download is True:
+                tpf = stpf.download_all()
+                lcs = []
+                for d in tpf.data:
+                    lcs.append(d.to_lightcurve())
+                return np.array(lcs)
+            else:
+                return stpf
 
     def tasoc_lc(self):
         """

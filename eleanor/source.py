@@ -43,7 +43,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
     if sectors == 'all':
         if coords is None:
             if tic is not None:
-                coords, _, _ = coords_from_tic(tic)
+                coords, _, _, _ = coords_from_tic(tic)
             elif gaia is not None:
                 coords = coords_from_gaia(gaia)
 
@@ -131,13 +131,14 @@ class Source(object):
         Names of all postcards where the source appears.
     """
     def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None, tc=False):
-        self.tic     = tic
-        self.gaia    = gaia
-        self.coords  = coords
-        self.fn      = fn
-        self.premade = False
-        self.usr_sec = sector
-        self.tc      = tc
+        self.tic       = tic
+        self.gaia      = gaia
+        self.coords    = coords
+        self.fn        = fn
+        self.premade   = False
+        self.usr_sec   = sector
+        self.tc        = tc
+        self.contratio = None
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
@@ -171,15 +172,15 @@ class Source(object):
                     assert False, ("Source: invalid coords. Valid input types are: "
                                    "(RA [deg], Dec [deg]) tuple or astropy.coordinates.SkyCoord object.")
 
-                self.tic, self.tess_mag, sep, self.tic_version = tic_from_coords(self.coords)
+                self.tic, self.tess_mag, sep, self.tic_version, self.contratio = tic_from_coords(self.coords)
                 self.gaia = gaia_from_coords(self.coords)
 
             elif self.gaia is not None:
                 self.coords = coords_from_gaia(self.gaia)
-                self.tic, self.tess_mag, sep, self.tic_version = tic_from_coords(self.coords)
+                self.tic, self.tess_mag, sep, self.tic_version, self.contratio = tic_from_coords(self.coords)
 
             elif self.tic is not None:
-                self.coords, self.tess_mag, self.tic_version = coords_from_tic(self.tic)
+                self.coords, self.tess_mag, self.tic_version, self.contratio = coords_from_tic(self.tic)
                 self.gaia = gaia_from_coords(self.coords)
 
             else:

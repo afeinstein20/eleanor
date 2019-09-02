@@ -149,7 +149,7 @@ def coords_from_tic(tic):
     """
 
     ticData = Catalogs.query_object('tic'+str(tic), radius=.0001, catalog="TIC")
-    return [ticData['ra'].data[0], ticData['dec'].data[0]], [ticData['Tmag'].data[0]], int(ticData['version'].data[0])
+    return [ticData['ra'].data[0], ticData['dec'].data[0]], [ticData['Tmag'].data[0]], int(ticData['version'].data[0]), ticData['contratio'].data[0]
 
 def coords_from_gaia(gaia_id):
     """Returns table of Gaia DR2 data given a source_id."""
@@ -167,7 +167,8 @@ def tic_from_coords(coords):
     tess = crossmatch_by_position(coords, 0.01, 'Mast.Tic.Crossmatch')
     tessPos = [tess['MatchRa'], tess['MatchDEC']]
     sepTess = crossmatch_distance(coords, tessPos)
-    return int(tess[sepTess==np.min(sepTess)]['MatchID'].data[0]), [tess[sepTess==np.min(sepTess)]['Tmag'].data[0]], sepTess[sepTess==np.min(sepTess)]/u.arcsec, int(tess['version'][0])
+    subTess = tess[sepTess==np.min(sepTess)]
+    return int(subTess['MatchID'].data[0]), [subTess['Tmag'].data[0]], sepTess[sepTess==np.min(sepTess)]/u.arcsec, int(subTess['version'][0]), subTess['contratio'].data[0]
 
 def gaia_from_coords(coords):
     """Returns Gaia ID of best match(es) to input coords."""

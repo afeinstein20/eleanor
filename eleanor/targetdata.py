@@ -168,7 +168,16 @@ class TargetData(object):
                 if bkg_size is None:
                     bkg_size = width
 
-                self.crowded_field = crowded_field
+                # Uses the contamination ratio for crowded field if available and 
+                # not already set by the user   
+                if crowded_field is True:
+                    self.crowded_field = 1
+                else:
+                    if self.source_info.contratio is not None:
+                        self.crowded_field = self.source_info.contratio
+                    else:
+                        self.crowded_field = 0
+
 
                 if cal_cadences is None:
                     self.cal_cadences = (0, len(self.post_obj.time))
@@ -322,9 +331,9 @@ class TargetData(object):
         summed_tpf = np.sum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
         if np.abs(mpix[0] - x_length) > 1:
-            self.crowded_field = True
+            self.crowded_field = 1
         if np.abs(mpix[1] - y_length) > 1:
-            self.crowded_field = True
+            self.crowded_field = 1
             
 
         self.bkg_subtraction()
@@ -502,7 +511,7 @@ class TargetData(object):
             self.all_lc_err  = np.array(all_lc_err)
             self.all_corr_lc = np.array(all_corr_lc_pc_sub)
             
-            if self.crowded_field == True:
+            if self.crowded_field > 0.15:
                 tpf_stds[ap_size > 8] = 1.0
                 pc_stds[ap_size > 8] = 1.0
 
