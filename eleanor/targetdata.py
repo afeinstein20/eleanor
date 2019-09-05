@@ -1289,16 +1289,17 @@ class TargetData(object):
         self.aperture_names = np.unique(names)
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
 
-        if os.path.isfile(self.source_info.postcard_path) == True:
-            post_fn = self.source_info.postcard_path.split('/')[-1]
-            post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
 
-            if self.source_info.tc == False:
+        if self.source_info.tc == False:
+
+            if os.path.isfile(self.source_info.postcard_path) == True:
+                post_fn = self.source_info.postcard_path.split('/')[-1]
+                post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
                 self.post_obj = Postcard(filename=post_fn, ELEANORURL=self.source_info.ELEANORURL,
                                          location=post_path)
-            else:
-                self.post_obj =Postcard_tesscut(self.source_info.cutout,
-                                                location=post_path)
+        else:
+            self.post_obj =Postcard_tesscut(self.source_info.cutout,
+                                            location=post_path)
 
                 
         self.get_cbvs()
