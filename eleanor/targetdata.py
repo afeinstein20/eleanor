@@ -589,12 +589,17 @@ class TargetData(object):
         Parameters
         ----------
         """
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
-                                                                                                                                                     self.source_info.camera,
-                                                                                                                                                     self.source_info.chip))
-        A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
-        cbvs = np.asarray(A)
-        self.cbvs = np.reshape(cbvs, (len(self.time), 16))
+        
+        try:
+            matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
+                                                                                                                                                         self.source_info.camera,
+                                                                                                                                                         self.source_info.chip))
+            A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
+            cbvs = np.asarray(A)
+            self.cbvs = np.reshape(cbvs, (len(self.time), 16))
+            
+        else:
+            self.cbvs = np.zeros((len(self.time), 16))
         return
 
 
@@ -1025,17 +1030,18 @@ class TargetData(object):
 
             bkg = self.flux_bkg[mask]
             bkg -= np.min(bkg)
-
-            vv = self.cbvs[mask][:,0:modes]
             
-                        
+            vv = self.cbvs[mask][:,0:modes]
+                
+        
+                   
             if pca == False:
                 cm = np.column_stack((t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((t[mask], np.ones_like(t[mask])))
                 
-
-                cm = np.column_stack((cm, vv[qm][skip:]))
-                cm_full = np.column_stack((cm_full, vv))
+                if np.std(vv) > 1e-10:
+                    cm = np.column_stack((cm, vv[qm][skip:]))
+                    cm_full = np.column_stack((cm_full, vv))
 
 
                 if np.std(bkg) > 1e-10:
