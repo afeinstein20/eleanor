@@ -49,7 +49,7 @@ setup(
         'mplcursors', 'photutils', 'tqdm', 'lightkurve>=1.1.0', 'astropy',
         'astroquery', 'bokeh', 'muchbettermoments', 'fitsio', 'pandas',
         'setuptools>=41.0.0', 
-        'tensorflow<=1.14.0', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point'],
+        'tensorflow<=1.14.0', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point<=0.3.3'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',
