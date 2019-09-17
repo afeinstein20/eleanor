@@ -598,7 +598,7 @@ class TargetData(object):
             cbvs = np.asarray(A)
             self.cbvs = np.reshape(cbvs, (len(self.time), 16))
             
-        else:
+        except:
             self.cbvs = np.zeros((len(self.time), 16))
         return
 
@@ -980,6 +980,9 @@ class TargetData(object):
 
         if flux is None:
             flux = self.raw_flux
+            
+        if pca == True:
+            flux = self.raw_flux - self.flux_bkg*np.sum(self.aperture)
 
         flux = np.array(flux)
         
@@ -1053,6 +1056,7 @@ class TargetData(object):
                     cm_full = np.column_stack((cm_full, cx, cy, cx**2, cy**2))
                 
             else:
+                
                 cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((vv, np.ones_like(t[mask])))
 
