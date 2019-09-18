@@ -22,9 +22,10 @@ observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
 
-Changes to v0.2.7 (2019-08-15):
+Changes to v0.2.8 (2019-08-15):
 
-* eleanor.multi_sectors() works again...
+* Fixed PCA flux bug
+* Updated to include Sector 14
 * Other bug fixes
 """
 

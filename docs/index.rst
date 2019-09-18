@@ -19,6 +19,7 @@ eleanor is an open-source python framework for downloading, analyzing, and visua
    getting_started/about
    getting_started/installation
    getting_started/tutorial
+   getting_started/vis_crossmatch
    getting_started/faq
 
 .. toctree::

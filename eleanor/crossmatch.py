@@ -47,7 +47,11 @@ class Crossmatch(object):
              If download == True : Returns a list of lightkurve.lightcurve.TessLightCurve object(s).
              If download == False : Returns a lightkurve.search.SearchResult object.
         """
-        stpf = search_targetpixelfile(self.tic, mission='TESS')
+        if sectors is None:
+            sectors = self.sector
+
+        stpf = search_targetpixelfile('tic'+str(self.tic), mission='TESS', 
+                                      sectors=sectors)
         if len(stpf) == 0:
             return
         else:
