@@ -917,16 +917,17 @@ class TargetData(object):
                 raise Exception("Please set a radius (in pixels) for your aperture")
             else:
                 aperture = CircularAperture(pos, r=r)
-                self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
+                self.aperture = aperture.to_mask(method=method).to_image(shape=((
                             np.shape(self.tpf[0]))))
 
         elif shape == 'rectangle':
-            if l==0.0 or w==0.0:
+            if h==0.0 or w==0.0:
                 raise Exception("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', h=#, w=#, theta=#)")
             else:
-                aperture = RectangularAperture(pos, h=l, w=w, theta=theta)
-                self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
+                aperture = RectangularAperture(pos, h=h, w=w, theta=theta)
+                self.aperture = aperture.to_mask(method=method).to_image(shape=((
                             np.shape(self.tpf[0]))))
+
         else:
             raise ValueError("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
 
