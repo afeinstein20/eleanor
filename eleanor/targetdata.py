@@ -137,6 +137,9 @@ class TargetData(object):
 
         self.source_info = source 
 
+        self.pca_flux = None
+        self.psf_flux = None
+
         if self.source_info.premade is True:
             self.load(directory=self.source_info.fn_dir)
 
@@ -1108,14 +1111,16 @@ class TargetData(object):
                                      comment='Associated Gaia ID'))
         self.header.append(fits.Card(keyword='SECTOR', value=self.source_info.sector,
                                      comment='Sector'))
-        self.header.append(fits.Card(keyword='CHIP', value=self.source_info.chip.value,
+        self.header.append(fits.Card(keyword='CAMERA', value=self.source_info.camera,
+                                     comment='Camera'))
+        self.header.append(fits.Card(keyword='CCD', value=self.source_info.chip,
                                      comment='CCD'))
         self.header.append(fits.Card(keyword='CHIPPOS1', value=self.source_info.position_on_chip[0],
                                      comment='central x pixel of TPF in FFI chip'))
         self.header.append(fits.Card(keyword='CHIPPOS2', value=self.source_info.position_on_chip[1],
                                      comment='central y pixel of TPF in FFI'))
-#        self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
-#                                     comment=''))
+        self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
+                                     comment=''))
 #        self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
 #                                     comment='predicted x pixel of source on postcard'))
 #        self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
@@ -1127,7 +1132,9 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='TPF_H', value=np.shape(self.tpf[0])[0],
                                      comment='Height of the TPF in pixels'))
         self.header.append(fits.Card(keyword='TPF_W', value=np.shape(self.tpf[0])[1],
-                                           comment='Width of the TPF in pixels'))
+                                     comment='Width of the TPF in pixels'))
+        self.header.append(fits.Card(keyword='TESSCUT', value=self.source_info.tc,
+                                     comment='If TessCut was used to make this TPF'))
 
         if self.source_info.tc == False:
             self.header.append(fits.Card(keyword='BKG_SIZE', value=np.shape(self.bkg_tpf[0])[1],
@@ -1310,7 +1317,7 @@ class TargetData(object):
                                          location=post_path)
         else:
             self.post_obj =Postcard_tesscut(self.source_info.cutout,
-                                            location=post_path)
+                                            location=self.source_info.postcard_path)
 
                 
         self.get_cbvs()
