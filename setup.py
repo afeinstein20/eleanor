@@ -24,8 +24,7 @@ Read the documentation at https://adina.feinste.in/eleanor
 
 Changes to v0.2.8 (2019-08-15):
 
-* Fixed PCA flux bug
-* Updated to include Sector 14
+* Updated to include Sector 15
 * Other bug fixes
 """
 
