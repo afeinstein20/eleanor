@@ -133,10 +133,10 @@ class TargetData(object):
     """
 
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, 
-                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True):
+                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True, language='English'):
 
         self.source_info = source 
-
+        self.language = language
         self.pca_flux = None
         self.psf_flux = None
 
@@ -459,6 +459,9 @@ class TargetData(object):
 
         self.flux_err = None
 
+        if self.language == 'Australian':
+            print("G'day Mate! ʕ •ᴥ•ʔ Your light curves are being translated ...")
+
         if (self.aperture is None):
 
             self.all_lc_err  = None
@@ -514,6 +517,15 @@ class TargetData(object):
             self.all_lc_err  = np.array(all_lc_err)
             self.all_corr_lc = np.array(all_corr_lc_pc_sub)
             
+            if self.language == 'Australian':
+                for i in range(len(self.all_raw_lc)):
+                    med = np.nanmedian(self.all_raw_lc[i])
+                    self.all_raw_lc[i] = (med-self.all_raw_lc[i]) + med
+
+                    med = np.nanmedian(self.all_corr_lc[i])
+                    self.all_corr_lc[i] = (med-self.all_corr_lc[i]) + med
+
+
             if self.crowded_field > 0.15:
                 tpf_stds[ap_size > 8] = 1.0
                 pc_stds[ap_size > 8] = 1.0
@@ -586,6 +598,9 @@ class TargetData(object):
 
         self.modes    = modes
         self.pca_flux = flux - np.dot(A[:,0:modes], matrix(flux)[0:modes])
+
+        if self.language == 'Australian':
+            self.pca_flux = (np.nanmedian(self.pca_flux) - self.pca_flux) + np.nanmedian(self.pca_flux)
 
     def get_cbvs(self):
         """ Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.
@@ -859,6 +874,10 @@ class TargetData(object):
         sess.close()
 
         self.psf_flux = fout[:,0]
+
+        if self.language == 'Australian':
+            self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
+
         self.psf_bkg = bkgout
         
         if verbose:
@@ -1160,6 +1179,8 @@ class TargetData(object):
         directory : str, optional
             Directory to save file into.
         """
+        if self.language == 'Australian':
+            raise ValueError("These light curves are upside down. Please don't save them ...")
         
         self.set_header()
 
