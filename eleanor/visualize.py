@@ -87,6 +87,9 @@ class Visualize(object):
         ap_linewidth : int, optional
             The linewidth of the aperture contour. Default is 4.
         """
+
+        fig = plt.figure()
+
         if aperture is None:
             aperture = self.obj.aperture
 
@@ -102,7 +105,8 @@ class Visualize(object):
         
         plt.contour(Z[::-1], [0.5], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
-        plt.show()
+        
+        return fig
 
 
 
