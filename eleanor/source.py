@@ -162,7 +162,16 @@ class Source(object):
             self.premade  = True
             self.sector   = hdr['SECTOR']
             self.camera   = hdr['CAMERA']
-            self.chip     = hdr['CHIP']
+            self.chip     = hdr['CCD']
+            self.tc       = hdr['TESSCUT']
+            self.tic_version = hdr['TIC_V']
+            self.postcard = hdr['POSTCARD']
+
+            if self.tc is True:
+                post_dir = self.tesscut_dir()
+                self.postcard_path = os.path.join(post_dir, self.postcard)
+                self.cutout = fits.open(self.postcard_path)
+
             self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
 #            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
 
@@ -342,8 +351,8 @@ class Source(object):
         sector_table = Tesscut.get_sectors(coord)
         self.sector = self.usr_sec
 
-        self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0]
-        self.chip = sector_table[sector_table['sector'] == self.sector]['ccd'].quantity[0]
+        self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0].value
+        self.chip = sector_table[sector_table['sector'] == self.sector]['ccd'].quantity[0].value
 
         download_dir = self.tesscut_dir()
 
@@ -357,8 +366,9 @@ class Source(object):
             self.postcard_path = fn_exists
             cutout = fits.open(fn_exists)
         
-        self.cutout = cutout
-        
+        self.cutout   = cutout
+        self.postcard = self.postcard_path.split('/')[-1]
+
         xcoord = cutout[1].header['1CRV4P']
         ycoord = cutout[1].header['2CRV4P']
         

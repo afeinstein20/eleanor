@@ -133,9 +133,12 @@ class TargetData(object):
     """
 
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, 
-                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True):
+                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True, language='English'):
 
         self.source_info = source 
+        self.language = language
+        self.pca_flux = None
+        self.psf_flux = None
 
         if self.source_info.premade is True:
             self.load(directory=self.source_info.fn_dir)
@@ -456,6 +459,9 @@ class TargetData(object):
 
         self.flux_err = None
 
+        if self.language == 'Australian':
+            print("G'day Mate! ʕ •ᴥ•ʔ Your light curves are being translated ...")
+
         if (self.aperture is None):
 
             self.all_lc_err  = None
@@ -511,6 +517,15 @@ class TargetData(object):
             self.all_lc_err  = np.array(all_lc_err)
             self.all_corr_lc = np.array(all_corr_lc_pc_sub)
             
+            if self.language == 'Australian':
+                for i in range(len(self.all_raw_lc)):
+                    med = np.nanmedian(self.all_raw_lc[i])
+                    self.all_raw_lc[i] = (med-self.all_raw_lc[i]) + med
+
+                    med = np.nanmedian(self.all_corr_lc[i])
+                    self.all_corr_lc[i] = (med-self.all_corr_lc[i]) + med
+
+
             if self.crowded_field > 0.15:
                 tpf_stds[ap_size > 8] = 1.0
                 pc_stds[ap_size > 8] = 1.0
@@ -550,39 +565,6 @@ class TargetData(object):
 
         return
     
-
-
-    def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=4):
-        """ Applies cotrending basis vectors, found through principal component analysis, to light curve to
-        remove systematics shared by nearby stars.
-
-        Parameters
-        ----------
-        flux : numpy.ndarray
-            Flux array to which cotrending basis vectors are applied. Default is `self.corr_flux`.
-        modes : int
-            Number of cotrending basis vectors to apply. Default is 8.
-        """
-        if flux is None:
-            flux = self.raw_flux - (self.flux_bkg * np.sum(self.aperture))
-
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/tpfs/pca_components_s{0:04d}_{1}.txt'.format(self.source_info.sector,
-                                                                                                                            self.source_info.camera))
-        A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
-        A = np.asarray(A)
-
-        la = len(A)
-        A  = A.reshape((int(la/16), 16))  # Hard coded 4 a reason -- fight me
-            
-        def matrix(f):
-            nonlocal A
-            ATA     = np.dot(A.T, A)
-            invATA  = np.linalg.inv(ATA)
-            A_coeff = np.dot(invATA, A.T)
-            return np.dot(A_coeff, f)
-
-        self.modes    = modes
-        self.pca_flux = flux - np.dot(A[:,0:modes], matrix(flux)[0:modes])
 
     def get_cbvs(self):
         """ Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.
@@ -856,6 +838,10 @@ class TargetData(object):
         sess.close()
 
         self.psf_flux = fout[:,0]
+
+        if self.language == 'Australian':
+            self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
+
         self.psf_bkg = bkgout
         
         if verbose:
@@ -917,16 +903,17 @@ class TargetData(object):
                 raise Exception("Please set a radius (in pixels) for your aperture")
             else:
                 aperture = CircularAperture(pos, r=r)
-                self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
+                self.aperture = aperture.to_mask(method=method).to_image(shape=((
                             np.shape(self.tpf[0]))))
 
         elif shape == 'rectangle':
-            if l==0.0 or w==0.0:
+            if h==0.0 or w==0.0:
                 raise Exception("For a rectangular aperture, please set both length and width: custom_aperture(shape='rectangle', h=#, w=#, theta=#)")
             else:
-                aperture = RectangularAperture(pos, h=l, w=w, theta=theta)
-                self.aperture = aperture.to_mask(method=method)[0].to_image(shape=((
+                aperture = RectangularAperture(pos, h=h, w=w, theta=theta)
+                self.aperture = aperture.to_mask(method=method).to_image(shape=((
                             np.shape(self.tpf[0]))))
+
         else:
             raise ValueError("Aperture shape not recognized. Please set shape == 'circle' or 'rectangle'")
 
@@ -1110,14 +1097,16 @@ class TargetData(object):
                                      comment='Associated Gaia ID'))
         self.header.append(fits.Card(keyword='SECTOR', value=self.source_info.sector,
                                      comment='Sector'))
-        self.header.append(fits.Card(keyword='CHIP', value=self.source_info.chip.value,
+        self.header.append(fits.Card(keyword='CAMERA', value=self.source_info.camera,
+                                     comment='Camera'))
+        self.header.append(fits.Card(keyword='CCD', value=self.source_info.chip,
                                      comment='CCD'))
         self.header.append(fits.Card(keyword='CHIPPOS1', value=self.source_info.position_on_chip[0],
                                      comment='central x pixel of TPF in FFI chip'))
         self.header.append(fits.Card(keyword='CHIPPOS2', value=self.source_info.position_on_chip[1],
                                      comment='central y pixel of TPF in FFI'))
-#        self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
-#                                     comment=''))
+        self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
+                                     comment=''))
 #        self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
 #                                     comment='predicted x pixel of source on postcard'))
 #        self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
@@ -1129,7 +1118,9 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='TPF_H', value=np.shape(self.tpf[0])[0],
                                      comment='Height of the TPF in pixels'))
         self.header.append(fits.Card(keyword='TPF_W', value=np.shape(self.tpf[0])[1],
-                                           comment='Width of the TPF in pixels'))
+                                     comment='Width of the TPF in pixels'))
+        self.header.append(fits.Card(keyword='TESSCUT', value=self.source_info.tc,
+                                     comment='If TessCut was used to make this TPF'))
 
         if self.source_info.tc == False:
             self.header.append(fits.Card(keyword='BKG_SIZE', value=np.shape(self.bkg_tpf[0])[1],
@@ -1155,6 +1146,8 @@ class TargetData(object):
         directory : str, optional
             Directory to save file into.
         """
+        if self.language == 'Australian':
+            raise ValueError("These light curves are upside down. Please don't save them ...")
         
         self.set_header()
 
@@ -1312,7 +1305,7 @@ class TargetData(object):
                                          location=post_path)
         else:
             self.post_obj =Postcard_tesscut(self.source_info.cutout,
-                                            location=post_path)
+                                            location=self.source_info.postcard_path)
 
                 
         self.get_cbvs()
