@@ -566,42 +566,6 @@ class TargetData(object):
         return
     
 
-
-    def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=4):
-        """ Applies cotrending basis vectors, found through principal component analysis, to light curve to
-        remove systematics shared by nearby stars.
-
-        Parameters
-        ----------
-        flux : numpy.ndarray
-            Flux array to which cotrending basis vectors are applied. Default is `self.corr_flux`.
-        modes : int
-            Number of cotrending basis vectors to apply. Default is 8.
-        """
-        if flux is None:
-            flux = self.raw_flux - (self.flux_bkg * np.sum(self.aperture))
-
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/tpfs/pca_components_s{0:04d}_{1}.txt'.format(self.source_info.sector,
-                                                                                                                            self.source_info.camera))
-        A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
-        A = np.asarray(A)
-
-        la = len(A)
-        A  = A.reshape((int(la/16), 16))  # Hard coded 4 a reason -- fight me
-            
-        def matrix(f):
-            nonlocal A
-            ATA     = np.dot(A.T, A)
-            invATA  = np.linalg.inv(ATA)
-            A_coeff = np.dot(invATA, A.T)
-            return np.dot(A_coeff, f)
-
-        self.modes    = modes
-        self.pca_flux = flux - np.dot(A[:,0:modes], matrix(flux)[0:modes])
-
-        if self.language == 'Australian':
-            self.pca_flux = (np.nanmedian(self.pca_flux) - self.pca_flux) + np.nanmedian(self.pca_flux)
-
     def get_cbvs(self):
         """ Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.
         Parameters
