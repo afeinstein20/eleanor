@@ -849,7 +849,7 @@ class TargetData(object):
                 cout[i] = sess.run(c)
                 xout[i] = sess.run(xshift)
                 yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_err[i], bkgval:bkg_arr[i]})
+                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
                 betaout[i] = sess.run(beta)
             
 
@@ -968,7 +968,7 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False):
+    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False, bkg=None):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         Parameters
@@ -981,8 +981,11 @@ class TargetData(object):
         if flux is None:
             flux = self.raw_flux
             
+        if bkg is None:
+            bkg = self.flux_bkg
+            
         if pca == True:
-            flux = self.raw_flux - self.flux_bkg*np.sum(self.aperture)
+            flux = self.raw_flux - bkg*np.sum(self.aperture)
 
         flux = np.array(flux)
         
@@ -1017,7 +1020,7 @@ class TargetData(object):
             return np.dot(eig_vecs, centroids)
 
         def calc_corr(mask, cx, cy, skip=50):
-            nonlocal quality, flux
+            nonlocal quality, flux, bkg
 
             qm = quality[mask] == 0
 
@@ -1031,8 +1034,8 @@ class TargetData(object):
             cy -= np.median(cy)
             
 
-            bkg = self.flux_bkg[mask]
-            bkg -= np.min(bkg)
+            bkg_use = bkg[mask]
+            bkg_use -= np.min(bkg_use)
             
             vv = self.cbvs[mask][:,0:modes]
                 
@@ -1048,8 +1051,8 @@ class TargetData(object):
 
 
                 if np.std(bkg) > 1e-10:
-                    cm = np.column_stack((cm, bkg[qm][skip:]))
-                    cm_full = np.column_stack((cm_full, bkg))
+                    cm = np.column_stack((cm, bkg_use[qm][skip:]))
+                    cm_full = np.column_stack((cm_full, bkg_use))
 
                 if np.std(cx) > 1e-10:
                     cm = np.column_stack((cm, cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2))
