@@ -389,9 +389,15 @@ class ffi:
         with open(pm_fn, 'w') as tf:
             tf.write('0 1 2 3 4 5 6 7 8\n')
 
-        hdu = fits.open(self.local_paths[0])
-        hdr = hdu[1].header
-        pos = [hdr['CRVAL1'], hdr['CRVAL2']]
+        pos = None
+        for fn in self.local_paths:
+            with fits.open(fn) as hdu:
+                hdr = hdu[1].header
+            if 'CRVAL1' not in hdr or 'CRVAL2' not in hdr:
+                continue
+            pos = [hdr['CRVAL1'], hdr['CRVAL2']]
+        if pos is None:
+            raise ValueError("no WCS")
 
         r = 6.0*np.sqrt(1.2)
         contam = [0.0, 0.5]
@@ -400,9 +406,10 @@ class ffi:
         t  = tic_by_contamination(pos, r, contam, tmag_lim).group_by('contratio')
 
         for i, fn in enumerate(self.local_paths):
-            hdu = fits.open(fn)
-            hdr = hdu[1].header
-            
+            with fits.open(fn) as hdu:
+                hdr = hdu[1].header
+                data = hdu[1].data
+
             try:
                 xy = WCS(hdr).all_world2pix(t['ra'], t['dec'], 1)
 
@@ -412,15 +419,15 @@ class ffi:
                 iso = find_isolated(xy[0], xy[1])
                 if len(iso) > 0:
                     xy  = np.array([xy[0][iso], xy[1][iso]])
-                    cenx, ceny, good = isolated_center(xy[0], xy[1], hdu[1].data)
-                    
+                    cenx, ceny, good = isolated_center(xy[0], xy[1], data)
+
                     # Triple checks there are no nans; Nans make people sad
                     no_nans = np.where( (np.isnan(cenx)==False) & (np.isnan(ceny)==False))
                     pos_inferred = np.array( [cenx[no_nans], ceny[no_nans]] )
                     xy = np.array( [xy[0][no_nans], xy[1][no_nans]] )
 
                     solution = self.build_pointing_model(xy.T, pos_inferred.T)
-                    
+
                     xy = apply_pointing_model(xy.T, solution)
                     matrix = self.build_pointing_model(xy, pos_inferred.T, outlier_removal=True)
 
@@ -436,7 +443,7 @@ class ffi:
                     a   = np.zeros((3, 3), int)
                     np.fill_diagonal(a, 1)
                     sol = np.reshape(a, (9,))
-                    
+
             with open(pm_fn, 'a') as tf:
                 tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
 
