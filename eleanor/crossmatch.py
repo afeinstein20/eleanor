@@ -51,7 +51,7 @@ class Crossmatch(object):
             sectors = self.sector
 
         stpf = search_targetpixelfile('tic'+str(self.tic), mission='TESS', 
-                                      sectors=sectors)
+                                      sector=sectors)
         if len(stpf) == 0:
             return
         else:

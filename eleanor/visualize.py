@@ -87,6 +87,9 @@ class Visualize(object):
         ap_linewidth : int, optional
             The linewidth of the aperture contour. Default is 4.
         """
+
+        fig = plt.figure()
+
         if aperture is None:
             aperture = self.obj.aperture
 
@@ -102,12 +105,14 @@ class Visualize(object):
         
         plt.contour(Z[::-1], [0.5], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
-        plt.show()
+        
+        return fig
 
 
 
     def pixel_by_pixel(self, colrange=None, rowrange=None,
-                       data_type="corrected", mask=None):
+                       data_type="corrected", mask=None, xlim=None,
+                       ylim=None):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
         Contribution from Oliver Hall.
@@ -126,13 +131,18 @@ class Visualize(object):
         mask : np.array, optional
              Specifies the cadences used in the light curve. If not, default
              set to good quality cadences.
+        xlim : np.array, optional
+             Specifies the xlim on the subplots. If not, default is set to 
+             the entire light curve.
+        ylim : np.array, optional
+             Specifies the ylim on the subplots, If not, default is set to 
+             the entire light curve flux range.
         """
         if colrange is None:
             colrange = [0, self.dimensions[0]]
 
         if rowrange is None:
             rowrange = [0, self.dimensions[1]]
-
 
         nrows = int(np.round(colrange[1]-colrange[0]))
         ncols = int(np.round(rowrange[1]-rowrange[0]))
@@ -182,10 +192,15 @@ class Visualize(object):
                 i += 1
                 j  = colrange[0]
 
-            ax.set_ylim(np.percentile(y, 1), np.percentile(y, 99))
+            if ylim is None:
+                ax.set_ylim(np.percentile(y, 1), np.percentile(y, 99))
+            else:
+                ax.set_ylim(ylim[0], ylim[1])
 
-            ax.set_xlim(np.min(x)-0.1,
-                        np.max(x)+0.1)
+            if xlim is None:
+                ax.set_xlim(np.min(x)-0.1, np.max(x)+0.1)
+            else:
+                ax.set_xlim(xlim[0], xlim[1])
 
             if data_type.lower() == 'amplitude':
                 ax.set_yscale('log')
@@ -195,6 +210,7 @@ class Visualize(object):
                             np.max(x))
                 ax.set_xticks([])
                 ax.set_yticks([])
+
             ax.set_xticks([])
             ax.set_yticks([])
 
@@ -205,13 +221,11 @@ class Visualize(object):
         c = ax.imshow(self.flux[0, colrange[0]:colrange[1],
                                           rowrange[0]:rowrange[1]], 
                        vmax=np.percentile(self.flux[0], 95))
-        ax.set_xticks([])
-        ax.set_yticks([])
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.15)
         plt.colorbar(c, cax=cax, orientation='vertical')
 
-        figure.show()
+        return figure
 
 
     def tess_the_movie(self):

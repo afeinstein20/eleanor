@@ -566,42 +566,6 @@ class TargetData(object):
         return
     
 
-
-    def pca(self, matrix_fn = 'a_matrix.txt', flux=None, modes=4):
-        """ Applies cotrending basis vectors, found through principal component analysis, to light curve to
-        remove systematics shared by nearby stars.
-
-        Parameters
-        ----------
-        flux : numpy.ndarray
-            Flux array to which cotrending basis vectors are applied. Default is `self.corr_flux`.
-        modes : int
-            Number of cotrending basis vectors to apply. Default is 8.
-        """
-        if flux is None:
-            flux = self.raw_flux - (self.flux_bkg * np.sum(self.aperture))
-
-        matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/tpfs/pca_components_s{0:04d}_{1}.txt'.format(self.source_info.sector,
-                                                                                                                            self.source_info.camera))
-        A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
-        A = np.asarray(A)
-
-        la = len(A)
-        A  = A.reshape((int(la/16), 16))  # Hard coded 4 a reason -- fight me
-            
-        def matrix(f):
-            nonlocal A
-            ATA     = np.dot(A.T, A)
-            invATA  = np.linalg.inv(ATA)
-            A_coeff = np.dot(invATA, A.T)
-            return np.dot(A_coeff, f)
-
-        self.modes    = modes
-        self.pca_flux = flux - np.dot(A[:,0:modes], matrix(flux)[0:modes])
-
-        if self.language == 'Australian':
-            self.pca_flux = (np.nanmedian(self.pca_flux) - self.pca_flux) + np.nanmedian(self.pca_flux)
-
     def get_cbvs(self):
         """ Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.
         Parameters
@@ -867,7 +831,7 @@ class TargetData(object):
                 cout[i] = sess.run(c)
                 xout[i] = sess.run(xshift)
                 yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_err[i], bkgval:bkg_arr[i]})
+                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
                 betaout[i] = sess.run(beta)
             
 
@@ -991,7 +955,7 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False):
+    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False, bkg=None):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         Parameters
@@ -1004,8 +968,11 @@ class TargetData(object):
         if flux is None:
             flux = self.raw_flux
             
+        if bkg is None:
+            bkg = self.flux_bkg
+            
         if pca == True:
-            flux = self.raw_flux - self.flux_bkg*np.sum(self.aperture)
+            flux = self.raw_flux - bkg*np.sum(self.aperture)
 
         flux = np.array(flux)
         
@@ -1040,7 +1007,7 @@ class TargetData(object):
             return np.dot(eig_vecs, centroids)
 
         def calc_corr(mask, cx, cy, skip=50):
-            nonlocal quality, flux
+            nonlocal quality, flux, bkg
 
             qm = quality[mask] == 0
 
@@ -1054,8 +1021,8 @@ class TargetData(object):
             cy -= np.median(cy)
             
 
-            bkg = self.flux_bkg[mask]
-            bkg -= np.min(bkg)
+            bkg_use = bkg[mask]
+            bkg_use -= np.min(bkg_use)
             
             vv = self.cbvs[mask][:,0:modes]
                 
@@ -1071,8 +1038,8 @@ class TargetData(object):
 
 
                 if np.std(bkg) > 1e-10:
-                    cm = np.column_stack((cm, bkg[qm][skip:]))
-                    cm_full = np.column_stack((cm_full, bkg))
+                    cm = np.column_stack((cm, bkg_use[qm][skip:]))
+                    cm_full = np.column_stack((cm_full, bkg_use))
 
                 if np.std(cx) > 1e-10:
                     cm = np.column_stack((cm, cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2))
