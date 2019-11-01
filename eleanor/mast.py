@@ -204,9 +204,9 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
     table : astropy.table.Table
         A table of source(s) in radius
     """
-    request = {'service':'Mast.Catalogs.Filtered.Tic.Position',
+    request = {'service':'Mast.Catalogs.Filtered.Tic.Position.Rows',
                'format':'json',
-               'params': {'columns':'c.*',
+               'params': {'columns':'r.*',
                           'filters': [{'paramName':'contratio',
                                        'values':[{'min':contam[0], 'max':contam[1]}]},
                                       {'paramName':'Tmag',
@@ -217,6 +217,7 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
                           'timeout':600,
                           'radius':r
                           }}
+    print(request)
     blob = {}
     while 'fields' not in blob:
         headers, outString = mastQuery(request)
