@@ -331,7 +331,7 @@ class TargetData(object):
         self.dimensions = np.shape(self.tpf)
         
         
-        summed_tpf = np.sum(self.tpf, axis=0)
+        summed_tpf = np.nansum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
         if np.abs(mpix[0] - x_length) > 1:
             self.crowded_field = 1
@@ -450,8 +450,8 @@ class TargetData(object):
             lc     = np.zeros(len(self.tpf))
             lc_err = np.zeros(len(self.tpf))
             for cad in range(len(self.tpf)):
-                lc[cad]     = np.sum( self.tpf[cad] * mask)
-                lc_err[cad] = np.sqrt( np.sum( self.tpf_err[cad]**2 * mask))
+                lc[cad]     = np.nansum( self.tpf[cad] * mask)
+                lc_err[cad] = np.sqrt( np.nansum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc) 
             self.corr_flux  = self.corrected_flux(flux=lc, skip=50)
             self.flux_err   = np.array(lc_err)
@@ -478,15 +478,15 @@ class TargetData(object):
             pc_stds = np.ones(len(self.all_apertures)) 
             tpf_stds = np.ones(len(self.all_apertures)) 
             
-            ap_size = np.sum(self.all_apertures, axis=(1,2))
+            ap_size = np.nansum(self.all_apertures, axis=(1,2))
             
 
             for a in range(len(self.all_apertures)):       
                 for cad in range(len(self.tpf)):
                     try:
-                        all_lc_err[a, cad]   = np.sqrt( np.sum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
-                        all_raw_lc_tpf_sub[a, cad]   = np.sum( (self.tpf[cad]) * self.all_apertures[a] )
-                        all_raw_lc_pc_sub[a, cad]  = np.sum( (self.tpf[cad] + self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
+                        all_lc_err[a, cad]   = np.sqrt( np.nansum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
+                        all_raw_lc_tpf_sub[a, cad]   = np.nansum( (self.tpf[cad]) * self.all_apertures[a] )
+                        all_raw_lc_pc_sub[a, cad]  = np.nansum( (self.tpf[cad] + self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
                         
                     except ValueError:
                         continue
@@ -551,7 +551,7 @@ class TargetData(object):
             self.raw_flux = self.all_raw_lc[best_ind]
             self.aperture = self.all_apertures[best_ind]
             self.flux_err = self.all_lc_err[best_ind]
-            self.aperture_size = np.sum(self.aperture)
+            self.aperture_size = np.nansum(self.aperture)
             self.best_ind = best_ind
         else:
             if np.shape(aperture) == np.shape(self.tpf[0]):
@@ -596,7 +596,7 @@ class TargetData(object):
         self.x_com = []
         self.y_com = []
 
-        summed_pixels = np.sum(self.aperture * self.tpf, axis=0)
+        summed_pixels = np.nansum(self.aperture * self.tpf, axis=0)
         brightest = np.where(summed_pixels == np.max(summed_pixels))
         cen = [brightest[0][0], brightest[1][0]]
 
@@ -693,14 +693,14 @@ class TargetData(object):
         if xc is None:
             xc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[0]
 
-        dsum = np.sum(data_arr, axis=(0))
+        dsum = np.nansum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
         if len(modepix[0]) > 2.5:
             for i in range(len(bkg_arr)):
                 err_arr[i][modepix] = np.inf
 
         if ignore_pixels is not None:
-            tpfsum = np.sum(data_arr, axis=(0))
+            tpfsum = np.nansum(data_arr, axis=(0))
             percentile = 100-ignore_pixels
             tpfsum[int(xc[0]-1.5):int(xc[0]+2.5),int(yc[0]-1.5):int(yc[0]+2.5)] = 0.0
             err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf
