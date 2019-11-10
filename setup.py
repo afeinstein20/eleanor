@@ -22,9 +22,10 @@ observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
 
-Changes to v0.2.8 (2019-08-15):
+Changes to v0.2.10 (2019-11-07):
 
-* Updated to include Sector 15
+* Updated to include Sector 16
+* Handling edge cases with TessCut
 * Other bug fixes
 """
 
