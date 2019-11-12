@@ -15,24 +15,32 @@ import urllib
 from .mast import tic_by_contamination
 
 
-def load_pointing_model(sector, camera, chip):
+def load_pointing_model(sector, camera, chip, localdir=None):
     """ Loads in pointing model from website.
     """
-    user_agent = 'eleanor 0.1.6'
-    values = {'name': 'eleanor',
-              'language': 'Python' }
-    headers = {'User-Agent': user_agent}
+    if localdir is not None:
 
-    data = urllib.parse.urlencode(values)
-    data = data.encode('ascii')
+        guide = 'pointingModel_{0:04d}_{1}-{2}.txt'.format(sector, camera,
+                                                           chip)
+        guide = os.path.join(localdir, guide)
+        with open(guide, 'r') as ff:
+            pointing = ff.read()
+    else:
+        user_agent = 'eleanor 0.1.6'
+        values = {'name': 'eleanor',
+                  'language': 'Python' }
+        headers = {'User-Agent': user_agent}
 
-    guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/pointing_model/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector, camera, chip)
+        data = urllib.parse.urlencode(values)
+        data = data.encode('ascii')
 
-    req = urllib.request.Request(guide_link, data, headers)
-    with urllib.request.urlopen(req) as response:
-        pointing = response.read().decode('utf-8')
+        guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/pointing_model/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector, camera, chip)
 
-    pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
+        req = urllib.request.Request(guide_link, data, headers)
+        with urllib.request.urlopen(req) as response:
+            pointing = response.read().decode('utf-8')
+
+        pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
     return pointing
 
 
