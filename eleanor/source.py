@@ -122,6 +122,9 @@ class Source(object):
     tc : bool, optional
         If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
         postcard data products.
+    localdir: str, optional
+        Only used when running a complete eleanor pipeline completely locally.
+        Path to the full local set of postcards.
 
     Attributes
     ----------
