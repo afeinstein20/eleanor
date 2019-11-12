@@ -220,10 +220,13 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
     print(request)
     blob = {}
     while 'fields' not in blob:
-        headers, outString = mastQuery(request)
-        blob = json.loads(outString)
-        if 'fields' not in blob:
-            print(blob)
-            print("retrying...")
-            time.sleep(30)
+        try:
+            headers, outString = mastQuery(request)
+            blob = json.loads(outString)
+            if 'fields' not in blob:
+                print(blob)
+                print("retrying...")
+                time.sleep(30)
+        except:
+            blob = {}
     return jsonTable(blob)
