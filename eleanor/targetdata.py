@@ -160,7 +160,8 @@ class TargetData(object):
                 self.aperture = None
                 
                 if source.tc == False:
-                    self.post_obj = Postcard(source.postcard, source.ELEANORURL)
+                    self.post_obj = Postcard(source.postcard, source.postcard_bkg,
+                                             source.postcard_path)
                 else:
                     self.post_obj = Postcard_tesscut(source.cutout)
                 
