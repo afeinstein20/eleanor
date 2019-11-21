@@ -49,31 +49,14 @@ class Postcard(object):
     origin_xy : tuple
         (`x`, `y`) coordinates corresponding to the location of 
         the postcard's (0,0) pixel on the FFI.
+    background2d : np.ndarray
+        The 2D modeled background array.
     """
-    def __init__(self, filename, ELEANORURL, location=None):
-        if location is not None:
-            self.filename = os.path.join(location, filename)
-            self.local_path = copy.copy(self.filename)
-            self.hdu = fits.open(self.local_path)
-        else:
-            self.post_dir = os.path.join(os.path.expanduser('~'), '.eleanor/postcards')
-            if os.path.isdir(self.post_dir) == False:
-                try:
-                    os.mkdir(self.post_dir)
-                except OSError:
-                    self.post_dir = '.'
-                    warnings.warn('Warning: unable to create {}. '
-                                  'Downloading postcard to the current '
-                                  'working directory instead.'.format(self.post_dir))
-
-            self.filename = '{}{}'.format(ELEANORURL, filename)
-            self.local_path = os.path.join(self.post_dir, filename)
-
-            if os.path.isfile(self.local_path) == False:
-                print("Downloading {}".format(self.filename))
-                os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.filename))
-
-            self.hdu = fits.open(self.local_path)
+    def __init__(self, filename, background, filepath):
+        self.filename = os.path.join(filepath, filename)
+        self.local_path = copy.copy(self.filename)
+        self.hdu = fits.open(self.local_path)
+        self.background2d = fits.open(os.path.join(filepath, background))[1].data
 
     def __repr__(self):
         return "eleanor postcard ({})".format(self.filename)
