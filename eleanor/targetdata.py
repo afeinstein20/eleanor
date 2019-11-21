@@ -532,7 +532,7 @@ class TargetData(object):
                 if self.source_info.tc == False:
                     lc_2d_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
                                                       flux = all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                    flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, windown_length=51)
+                    flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51)
                     stds_2d[a] = np.std(flat_lc_2d.flux)
 
                     all_corr_lc_tpf_2d_sub[a] = all_corr_lc_tpf_2d_sub[a] * np.nanmedian(all_raw_lc_tpf_2d_sub[a])
@@ -564,24 +564,44 @@ class TargetData(object):
 
             if self.source_info.tc == False:
                 best_ind_2d = np.where(stds_2d == np.nanmin(stds_2d))[0][0]
-
+            else:
+                best_ind_2d = None
 
             ################################################### 
             ## ADD IN CHECKING IF 2D BACKGROUND STD IS LOWER ##
             ###################################################
 
+            if best_ind_2d is not None:
+                stds = np.array([pc_stds[best_ind_pc],
+                                 tpf_stds[best_ind_tpf],
+                                 stds_2d[best_ind_2d]])
+                std_inds = np.array([best_ind_pc, best_ind_tpf, best_ind_2d])
+                types = np.array(['PC_LEVEL', 'TPF_LEVEL', 'TPF_2D_LEVEL'])
+
+            else:
+                stds = np.array([pc_stds[best_ind_pc],
+                                 tpf_stds[best_ind_tpf]])
+                std_inds = np.array([best_ind_pc, best_ind_tpf])
+                types =np.array(['PC_LEVEL', 'TPF_LEVEL'])
+
+            best_ind = std_inds[np.argmin(stds)]
+            self.bkg_type = types[np.argmin(stds)]
+
             ## Checks if postcard or tpf level bkg subtraction is better ##
             ## Prints bkg_type to TPF header ##
-            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
-                best_ind = best_ind_pc
-                self.bkg_type = 'PC_LEVEL'
+#            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
+#                best_ind = best_ind_pc
+            if self.bkg_type == 'PC_LEVEL':
                 for epoch in range(len(self.time)):
                     self.tpf[epoch] += self.tpf_flux_bkg[epoch]
-            else:
-                best_ind = best_ind_tpf
-                self.bkg_type = 'TPF_LEVEL'
+
+            elif self.bkg_type == 'TPF_LEVEL':
                 self.all_raw_lc  = np.array(all_raw_lc_tpf_sub)
                 self.all_corr_lc = np.array(all_corr_lc_tpf_sub)
+            
+            elif self.bkg_type == 'TPF_2D_LEVEL':
+                self.all_raw_lc  = np.array(all_raw_lc_tpf_2d_sub)
+                self.all_corr_lc = np.array(all_corr_lc_tpf_2d_sub)
 
             self.corr_flux= self.all_corr_lc[best_ind]
             self.raw_flux = self.all_raw_lc[best_ind]
