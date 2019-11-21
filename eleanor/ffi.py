@@ -26,13 +26,12 @@ def load_pointing_model(sector, camera, chip):
     data = urllib.parse.urlencode(values)
     data = data.encode('ascii')
 
-    guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/pointing_model/pointingModel_{0:04d}_{1}-{2}.txt'.format(sector, camera, chip)
+    pm_format = "hlsp_eleanor_tess_ffi_postcard-s{0:04d}-{1}-{2}_tess_v2_pm.txt".format(sector,
+                                                                                        camera,
+                                                                                        chip)
+    pm_link = "https://archipelago.uchicago.edu/tess_postcards/metadata/pointing_models/"
 
-    req = urllib.request.Request(guide_link, data, headers)
-    with urllib.request.urlopen(req) as response:
-        pointing = response.read().decode('utf-8')
-
-    pointing = Table.read(pointing, format='ascii.basic') # guide to postcard locations
+    pointing = Table.read(os.path.join(pm_link, pm_format), format="ascii.basic")
     return pointing
 
 
