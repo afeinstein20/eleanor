@@ -10,6 +10,12 @@ from os.path import join, abspath
 from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
 import warnings
 from astroquery.mast import Tesscut
+from astroquery.mast import Observations
+
+server = "https://masttest.stsci.edu"
+Observations._MAST_REQUEST_URL = server + "/portal_eleanor/Mashup/MashupQuery.asmx/invoke"
+Observations._COLUMNS_CONFIG_URL = server + "/portal_eleanor/Mashup/Mashup.asmx/columnsconfig"
+Observations._MAST_DOWNLOAD_URL = server + "/api/v0.1/download/file"
 
 from . import PACKAGEDIR
 
@@ -69,29 +75,6 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
                           'target may not have been observed yet in these sectors.'
                           ''.format(len(objs), len(sectors)))
         return objs
-
-
-def load_postcard_guide(sector):
-    """Load and return the postcard coordinates guide."""
-    try:
-        user_agent = 'eleanor 0.1.6'
-        values = {'name': 'eleanor',
-                  'language': 'Python' }
-        headers = {'User-Agent': user_agent}
-        
-        data = urllib.parse.urlencode(values)
-        data = data.encode('ascii')
-        
-        guide_link = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/postcard.guide'.format(sector)
-        
-        req = urllib.request.Request(guide_link, data, headers)
-        with urllib.request.urlopen(req) as response:
-            guide = response.read().decode('utf-8')
-        
-        guide = Table.read(guide, format='ascii.basic') # guide to postcard locations
-    except urllib.error.HTTPError:
-        return None
-    return guide
 
 
 class Source(object):
@@ -216,113 +199,95 @@ class Source(object):
                                                                                                                                  self.chip)
 
 
-    def locate_on_chip(self):#, guide):
+    def locate_on_tess(self):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
         Sets attributes sector, camera, chip, position_on_chip.
         """
-        def cam_chip_loop(sec):
-            for cam in np.unique(guide['CAMERA']):
-                for chip in np.unique(guide['CCD']):
-                    mask = ((guide['SECTOR'] == sec) & (guide['CAMERA'] == cam)
-                            & (guide['CCD'] == chip))
-                    if np.sum(mask) == 0:
-                        continue # this camera-chip combo is not in the postcard database yet
-                    else:
-                        random_postcard = guide[mask][0]
-                    d = {}
-                    for j,col in enumerate(random_postcard.colnames):
-                        d[col] = random_postcard[j]
-
-                    hdr = fits.Header(cards=d) # make WCS info from one postcard header
-                    xy = WCS(hdr).all_world2pix(self.coords[0], self.coords[1], 1, quiet=True) # position in pixels in FFI dims
-                    x_zero, y_zero = hdr['POSTPIX1'], hdr['POSTPIX2']
-#                    xy = np.array([xy[0]+x_zero, xy[1]+y_zero])
-                    if (44 <= xy[0] < 2092) & (0 <= xy[1] < 2048):
-                        self.sector = sec
-                        self.camera = cam
-                        self.chip = chip
-                        self.position_on_chip = np.ravel(xy)
-                        self.position_on_chip[0] += 44
-
-        self.sector=None
+        sector = None
 
         if self.usr_sec is None:
             self.usr_sec = 'recent'
 
-        if self.usr_sec is not None:
+        result = tess_stars2px(6789998212, coords[0], coords[1])
+        sectors = result[3]
+        cameras = result[4]
+        chips   = result[5]
+        cols    = result[6]
+        rows    = result[7]
+
+        # tess_stars2px returns array [-1] when star not observed yet
+        if len(sectors[3]) == 1 and sectors[3][0] == np.array([-1]):
+            raise SearchError("Tess has not (yet) observed your target.")
+
+        else:
+            # Handles cases where users can pass in their sector
             if type(self.usr_sec) == int:
-                guide = load_postcard_guide(self.usr_sec)
-                if guide is None:
-                    raise SearchError("Sorry, this sector isn't available yet. We're working on it!")
-                else:
-                    cam_chip_loop(self.usr_sec)
+                arg = np.argwhere(sectors == self.usr_sec)
+                if len(arg) > 0:
+                    self.sector = sectors[arg]
+                    camera = cameras[arg]
+                    chip   = chips[arg]
+                    position_on_chip = np.array([rows[arg], cols[arg]])
 
-            # Searches for the most recent sector the object was observed in
+            # Handles cases where the user does not pass in a sector
             elif self.usr_sec.lower() == 'recent':
-                for s in np.arange(15,0,-1):
-                    guide = load_postcard_guide(s)
-                    if guide is not None:
-                        cam_chip_loop(s)
-                        if self.sector is not None:
-                            break
-            if self.sector is None:
-                raise SearchError("TESS has not (yet) observed your target.")
-
-        return guide
-
-
-    def locate_on_tess(self):
-        """Finds the best TESS postcard(s) and the position of the source on postcard.
-        Sets attributes postcard, position_on_postcard, all_postcards.
-        """
-        self.locate_on_chip()
-        guide = load_postcard_guide(self.sector)
+                self.sector = sectors[-1]
+                camera = cameras[-1]
+                chip   = chips[-1]
+                position_on_chip = np.array([rows[-1], cols[-1]])
+    
 
         if self.sector is None:
-            return
-
-        # Searches through postcards for the given sector, camera, chip
-        in_file, dists=[], []
-
-        # Searches through rows of the table
-        for i in range(len(guide)):
-            postcard_inds = np.arange(len(guide))[(guide['SECTOR'] == self.sector) & (guide['CAMERA'] == self.camera)
-                                                  & (guide['CCD'] == self.chip)]
-        xy = self.position_on_chip
-
-        # Finds postcards containing the source
-        for i in postcard_inds: # loop rows
-
-            x_cen, y_cen= guide['CEN_X'][i], guide['CEN_Y'][i]
-            l, w = guide['POST_H'][i]/2., guide['POST_W'][i]/2.
-
-            # Checks to see if xy coordinates of source falls within postcard
-            if (xy[0] >= x_cen-l) & (xy[0] <= x_cen+l) & (xy[1] >= y_cen-w) & (xy[1] <= y_cen+w):
-                in_file.append(i)
-                dists.append(np.min([xy[0]-(x_cen-l), (x_cen+l)-xy[0], xy[1]-(y_cen-w), (y_cen+w)-xy[1]]))
-
-
-        # If more than one postcard is found for a single source, choose the postcard where the
-        # source is closer to the center
-        if in_file == []:
-            raise SearchError("Sorry! We don't have a postcard for you at the moment.")
-        elif len(in_file) > 1:
-            best_ind = np.argmax(dists)
+            raise SearchError("TESS has not (yet) observed your target.")
         else:
-            best_ind = 0
+            self.camera = camera
+            self.chip   = chip
+            self.position_on_chip = position_on_chip
 
-        self.all_postcards = guide['POSTNAME'][in_file]
-        self.postcard = guide['POSTNAME'][in_file[best_ind]]
 
-        self.sector = guide['SECTOR'][in_file[best_ind]] # WILL BREAK FOR MULTI-SECTOR TARGETS
-        self.camera = guide['CAMERA'][in_file[best_ind]]
-        self.chip = guide['CCD'][in_file[best_ind]]
-
-        i = in_file[best_ind]
-        postcard_pos_on_ffi = (guide['CEN_X'][i] - guide['POST_H'][i]/2.,
-                                guide['CEN_Y'][i] - guide['POST_W'][i]/2.)
-        self.position_on_postcard = xy - postcard_pos_on_ffi # as accurate as FFI WCS
+    def locate_mast_postcard(self):
+        """ Finds the eleanor postcard, if available, this star falls on.
         
+        Attributes
+        ---------- 
+        postcard : str
+        postcard_path : str
+        position_on_postcard : list
+        all_postcards : list
+        mast_list : astropy.table.Table
+        """
+        info_str = "{0}-{1}-{2}-{3}".format(self.sector, self.camera, self.chip, "cal")
+        postcard_fmt = "hlsp_eleanor_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}"
+        postcard_fmt = postcard_fmt.format(info_str)
+
+        guide_url = "https://archipelago.uchicago.edu/tess_postcards/metadata/postcard_centers.txt"
+        guide     = Table.read(guide_url, format="ascii")
+        
+        post_args = np.where( (np.abs(guide['x'].data - self.position_on_chip[0]) <= 100) &
+                              (np.abs(guide['y'].data - self.position_on_chip[1]) <= 100) )
+        post_cens = guide[post_args]
+
+        # Finds the mostest closest postcard
+        closest_x, closest_y = np.argmin(np.abs(post_cens['x'] - col)), np.argmin(np.abs(post_cens['y'] - row))
+        self.postcard = postcard_fmt.format(post_cens['x'].data[closest_x],
+                                            post_cens['y'].data[closest_y])
+        
+        # Keeps track of all postcards that the star falls on
+        all_postcards = []
+        for i in range(len(post_cens)):
+            name = postcard_fmt.format(post_cens['x'].data[i],
+                                       post_cens['y'].data[i])
+            all_postcards.append(name)
+        self.all_postcards = np.array(all_postcards)
+
+        try:
+            postcard_obs = Observations.query_criteria(provenance_name="ELEANOR",
+                                                       target_name=self.postcard)
+            product_list = Observations.get_product_list(postcard_obs)
+            self.mast_list = product_list
+        except:
+            print("No eleanor postcard has been made for your target (yet). Using TessCut instead.")
+
 
     def locate_with_tesscut(self):
         """
