@@ -185,23 +185,29 @@ class Source(object):
                 
 
             self.tess_mag = self.tess_mag[0]            
+            self.locate_on_tess()
+            self.tesscut_size = 31
+
             if tc == False:
-                self.locate_on_tess() # sets sector, camera, chip, postcard,
-                                  # position_on_chip, position_on_postcard
+                self.locate_mast_postcard()
             if tc == True:
-                self.tesscut_size = 31
                 self.locate_with_tesscut() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
             
-                
+        ## STILL NEEDS TO BE UPDATED ##
         self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
                                                                                                                                  self.camera,
                                                                                                                                  self.chip)
 
-
     def locate_on_tess(self):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
-        Sets attributes sector, camera, chip, position_on_chip.
+
+        Attributes
+        ----------
+        sector : int
+        camera : int
+        chip : int
+        position_on_chip : np.array
         """
         sector = None
 
@@ -222,19 +228,19 @@ class Source(object):
         else:
             # Handles cases where users can pass in their sector
             if type(self.usr_sec) == int:
-                arg = np.argwhere(sectors == self.usr_sec)
+                arg = np.argwhere(sectors == self.usr_sec)[0]
                 if len(arg) > 0:
-                    self.sector = sectors[arg]
-                    camera = cameras[arg]
-                    chip   = chips[arg]
-                    position_on_chip = np.array([rows[arg], cols[arg]])
+                    self.sector = sectors[arg][0]
+                    camera = cameras[arg][0]
+                    chip   = chips[arg][0]
+                    position_on_chip = np.array([cols[arg][0], rows[arg][0]])
 
             # Handles cases where the user does not pass in a sector
             elif self.usr_sec.lower() == 'recent':
                 self.sector = sectors[-1]
                 camera = cameras[-1]
                 chip   = chips[-1]
-                position_on_chip = np.array([rows[-1], cols[-1]])
+                position_on_chip = np.array([cols[-1], rows[-1]])
     
 
         if self.sector is None:
@@ -243,7 +249,6 @@ class Source(object):
             self.camera = camera
             self.chip   = chip
             self.position_on_chip = position_on_chip
-
 
     def locate_mast_postcard(self):
         """ Finds the eleanor postcard, if available, this star falls on.
@@ -256,15 +261,20 @@ class Source(object):
         all_postcards : list
         mast_list : astropy.table.Table
         """
-        info_str = "{0}-{1}-{2}-{3}".format(self.sector, self.camera, self.chip, "cal")
-        postcard_fmt = "hlsp_eleanor_tess_ffi_postcard-{0}-{{0:04d}}-{{1:04d}}"
+        self.mast_list = None
+
+        info_str = "{0:04d}-{1}-{2}-{3}".format(self.sector, self.camera, self.chip, "cal")
+        postcard_fmt = "postcard-s{0}-{{0:04d}}-{{1:04d}}"
         postcard_fmt = postcard_fmt.format(info_str)
 
         guide_url = "https://archipelago.uchicago.edu/tess_postcards/metadata/postcard_centers.txt"
         guide     = Table.read(guide_url, format="ascii")
         
-        post_args = np.where( (np.abs(guide['x'].data - self.position_on_chip[0]) <= 100) &
-                              (np.abs(guide['y'].data - self.position_on_chip[1]) <= 100) )
+        col, row = self.position_on_chip[0], self.position_on_chip[1]
+
+        post_args = np.where( (np.abs(guide['x'].data - col) <= 100) &
+                              (np.abs(guide['y'].data - row) <= 100) )
+
         post_cens = guide[post_args]
 
         # Finds the mostest closest postcard
@@ -280,15 +290,22 @@ class Source(object):
             all_postcards.append(name)
         self.all_postcards = np.array(all_postcards)
 
-        try:
-            postcard_obs = Observations.query_criteria(provenance_name="ELEANOR",
-                                                       target_name=self.postcard)
+        postcard_obs = Observations.query_criteria(provenance_name="ELEANOR",
+                                                   target_name=self.postcard,
+                                                   obs_collection="HLSP")
+        if len(postcard_obs) > 0:
             product_list = Observations.get_product_list(postcard_obs)
             self.mast_list = product_list
-        except:
+
+            results = Observations.download_products(product_list, extension=["pc.fits", "bkg.fits"],
+                                                     download_dir=self.fn_dir)
+            
+            self.cutout    = None  # Attribute for TessCut only
+        else:
             print("No eleanor postcard has been made for your target (yet). Using TessCut instead.")
+            self.locate_with_tesscut()
 
-
+            
     def locate_with_tesscut(self):
         """
         Finds the best TESS postcard(s) and the position of the source on postcard.
@@ -305,26 +322,21 @@ class Source(object):
         position_on_chip : np.array
 
         """
-        self.postcard = []
-        self.position_on_postcard = []
-        self.all_postcards = []
-        
+        # Attributes only when using postcards
+        self.all_postcards = None
+
+        # Attribute for TessCut
         self.tc = True
         
-        coord = SkyCoord(self.coords[0], self.coords[1], unit="deg")
-        
-        sector_table = Tesscut.get_sectors(coord)
-        self.sector = self.usr_sec
-
-        self.camera = sector_table[sector_table['sector'] == self.sector]['camera'].quantity[0].value
-        self.chip = sector_table[sector_table['sector'] == self.sector]['ccd'].quantity[0].value
-
         download_dir = self.tesscut_dir()
 
-        fn_exists = self.search_tesscut(download_dir, coord)
+        coords = SkyCoord(self.coords[0], self.coords[1],
+                          unit=(u.deg, u.deg))
+
+        fn_exists = self.search_tesscut(download_dir, coords)
 
         if fn_exists is None:
-            manifest = Tesscut.download_cutouts(coord, self.tesscut_size, sector=self.usr_sec, path=download_dir)
+            manifest = Tesscut.download_cutouts(coords, self.tesscut_size, sector=self.sector, path=download_dir)
             cutout = fits.open(manifest['Local Path'][0])
             self.postcard_path = manifest['Local Path'][0]
         else:
