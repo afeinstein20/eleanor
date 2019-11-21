@@ -67,6 +67,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
 
     if (type(sectors) == list) or (type(sectors) == np.ndarray):
         for s in sectors:
+            print(tic, gaia, coords, int(s), tc)
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc)
             if star.sector is not None:
                 objs.append(star)
@@ -208,7 +209,7 @@ class Source(object):
         if self.usr_sec is None:
             self.usr_sec = 'recent'
 
-        result = tess_stars2px(6789998212, coords[0], coords[1])
+        result = tess_stars2px(6789998212, self.coords[0], self.coords[1])
         sectors = result[3]
         cameras = result[4]
         chips   = result[5]
@@ -216,7 +217,7 @@ class Source(object):
         rows    = result[7]
 
         # tess_stars2px returns array [-1] when star not observed yet
-        if len(sectors[3]) == 1 and sectors[3][0] == np.array([-1]):
+        if len(sectors) == 1 and sectors[0] == np.array([-1]):
             raise SearchError("Tess has not (yet) observed your target.")
 
         else:
