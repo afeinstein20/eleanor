@@ -67,7 +67,6 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
 
     if (type(sectors) == list) or (type(sectors) == np.ndarray):
         for s in sectors:
-            print(tic, gaia, coords, int(s), tc)
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc)
             if star.sector is not None:
                 objs.append(star)
