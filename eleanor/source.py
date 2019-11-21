@@ -256,6 +256,7 @@ class Source(object):
         Attributes
         ---------- 
         postcard : str
+        postcard_bkg : str
         postcard_path : str
         position_on_postcard : list
         all_postcards : list
@@ -295,11 +296,13 @@ class Source(object):
                                                    obs_collection="HLSP")
         if len(postcard_obs) > 0:
             product_list = Observations.get_product_list(postcard_obs)
-            self.mast_list = product_list
-
             results = Observations.download_products(product_list, extension=["pc.fits", "bkg.fits"],
                                                      download_dir=self.fn_dir)
-            
+            postcard_path = results['Local Path'][0]
+            self.postcard_path = '/'.join(e for e in postcard_path.split('/')[:-1])
+            self.postcard  = results['Local Path'][1].split('/')[-1]
+            self.postcard_bkg = results['Local Path'][0].split('/')[-1]
+            self.mast_results = results
             self.cutout    = None  # Attribute for TessCut only
         else:
             print("No eleanor postcard has been made for your target (yet). Using TessCut instead.")
