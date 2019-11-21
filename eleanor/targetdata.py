@@ -241,7 +241,6 @@ class TargetData(object):
         self.centroid_ys = None
 
         xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
-        
         # Apply the pointing model to each cadence to find the centroids
         
         if self.pointing_model is None:
@@ -262,16 +261,17 @@ class TargetData(object):
         med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
         
         if source.tc == False:
-
-            post_flux = np.transpose(self.post_obj.flux, (2,0,1))
-            post_err  = np.transpose(self.post_obj.flux_err, (2,0,1))
+            post_flux = self.post_obj.flux
+            post_err  = self.post_obj.flux_err
+            post_bkg2d = self.post_obj.background2d
+            post_bkg   = self.post_obj.bkg
         else:
             post_flux = self.post_obj.flux + 0.0
-            post_err = self.post_obj.flux_err + 0.0
+            post_err  = self.post_obj.flux_err + 0.0
 
 
         self.cen_x, self.cen_y = med_x, med_y
-        
+
         y_length, x_length = int(np.floor(height/2.)), int(np.floor(width/2.))
         y_bkg_len, x_bkg_len = int(np.floor(bkg_size/2.)), int(np.floor(bkg_size/2.))
 
@@ -285,11 +285,10 @@ class TargetData(object):
         x_low_bkg = med_x-x_bkg_len
         x_upp_bkg = med_x+x_bkg_len + 1
     
-
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
 
-        post_y_upp, post_x_upp = self.post_obj.dimensions[0], self.post_obj.dimensions[1]
+        post_y_upp, post_x_upp = self.post_obj.dimensions[1], self.post_obj.dimensions[2]
 
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
@@ -318,7 +317,8 @@ class TargetData(object):
                 warnings.warn("WARNING: Your postage stamp may not be centered.")
 
             self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-            self.bkg_tpf = post_flux[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
+            self.bkg_tpf = post_bkg2d[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
+            self.tpf_flux_bkg = post_bkg
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             
         else:            
@@ -328,7 +328,8 @@ class TargetData(object):
             self.tpf     = post_flux[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
             self.bkg_tpf = post_flux
             self.tpf_err = post_err[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]           
-            
+            self.bkg_subtraction()
+
         self.dimensions = np.shape(self.tpf)
         
         
@@ -339,8 +340,6 @@ class TargetData(object):
         if np.abs(mpix[1] - y_length) > 1:
             self.crowded_field = 1
             
-
-        self.bkg_subtraction()
 
         self.tpf = self.tpf
 
@@ -418,12 +417,12 @@ class TargetData(object):
         """
         time = self.time
         flux = self.bkg_tpf
-
+        
         self.tpf_flux_bkg = []
-
+        
         sigma_clip = SigmaClip(sigma=sigma)
         bkg = MMMBackground(sigma_clip=sigma_clip)
-
+        
         for i in range(len(time)):
             bkg_value = bkg.calc_background(flux[i])
             self.tpf_flux_bkg.append(bkg_value)
@@ -481,14 +480,13 @@ class TargetData(object):
             
             ap_size = np.nansum(self.all_apertures, axis=(1,2))
             
-
             for a in range(len(self.all_apertures)):       
                 for cad in range(len(self.tpf)):
                     try:
                         all_lc_err[a, cad]   = np.sqrt( np.nansum( self.tpf_err[cad]**2 * self.all_apertures[a] ))
                         all_raw_lc_tpf_sub[a, cad]   = np.nansum( (self.tpf[cad]) * self.all_apertures[a] )
                         all_raw_lc_pc_sub[a, cad]  = np.nansum( (self.tpf[cad] + self.tpf_flux_bkg[cad]) * self.all_apertures[a] )
-                        
+
                     except ValueError:
                         continue
 
@@ -503,6 +501,7 @@ class TargetData(object):
 
                 lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
                                        flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
                 
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
