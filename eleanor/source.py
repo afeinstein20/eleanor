@@ -117,15 +117,16 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None, tc=False):
-        self.tic       = tic
-        self.gaia      = gaia
-        self.coords    = coords
-        self.fn        = fn
-        self.premade   = False
-        self.usr_sec   = sector
-        self.tc        = tc
-        self.contratio = None
+    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None, tc=False, download_dir=None):
+        self.tic          = tic
+        self.gaia         = gaia
+        self.coords       = coords
+        self.fn           = fn
+        self.premade      = False
+        self.usr_sec      = sector
+        self.tc           = tc
+        self.contratio    = None
+        self.download_dir = download_dir
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
@@ -182,9 +183,9 @@ class Source(object):
             else:
                 assert False, ("Source: one of the following keywords must be given: "
                                "tic, gaia, coords, fn.")
-                
 
-            self.tess_mag = self.tess_mag[0]            
+
+            self.tess_mag = self.tess_mag[0]
             self.locate_on_tess()
             self.tesscut_size = 31
 
@@ -193,7 +194,7 @@ class Source(object):
             if tc == True:
                 self.locate_with_tesscut() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
-            
+
         ## STILL NEEDS TO BE UPDATED ##
         self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
                                                                                                                                  self.camera,
@@ -241,7 +242,7 @@ class Source(object):
                 camera = cameras[-1]
                 chip   = chips[-1]
                 position_on_chip = np.array([cols[-1], rows[-1]])
-    
+
 
         if self.sector is None:
             raise SearchError("TESS has not (yet) observed your target.")
@@ -252,9 +253,9 @@ class Source(object):
 
     def locate_mast_postcard(self):
         """ Finds the eleanor postcard, if available, this star falls on.
-        
+
         Attributes
-        ---------- 
+        ----------
         postcard : str
         postcard_bkg : str
         postcard_path : str
@@ -270,7 +271,7 @@ class Source(object):
 
         guide_url = "https://archipelago.uchicago.edu/tess_postcards/metadata/postcard_centers.txt"
         guide     = Table.read(guide_url, format="ascii")
-        
+
         col, row = self.position_on_chip[0], self.position_on_chip[1]
 
         post_args = np.where( (np.abs(guide['x'].data - col) <= 100) &
@@ -282,7 +283,7 @@ class Source(object):
         closest_x, closest_y = np.argmin(np.abs(post_cens['x'] - col)), np.argmin(np.abs(post_cens['y'] - row))
         self.postcard = postcard_fmt.format(post_cens['x'].data[closest_x],
                                             post_cens['y'].data[closest_y])
-        
+
         # Keeps track of all postcards that the star falls on
         all_postcards = []
         for i in range(len(post_cens)):
@@ -308,7 +309,7 @@ class Source(object):
             print("No eleanor postcard has been made for your target (yet). Using TessCut instead.")
             self.locate_with_tesscut()
 
-            
+
     def locate_with_tesscut(self):
         """
         Finds the best TESS postcard(s) and the position of the source on postcard.
@@ -317,7 +318,7 @@ class Source(object):
         ----------
         postcard : list
         postcard_path : str
-        position_on_postcard : list 
+        position_on_postcard : list
         all_postcards : list
         sector : int
         camera : int
@@ -330,8 +331,11 @@ class Source(object):
 
         # Attribute for TessCut
         self.tc = True
-        
-        download_dir = self.tesscut_dir()
+
+        if self.download_dir is None:
+            download_dir = self.tesscut_dir()
+        else:
+            download_dir = self.download_dir
 
         coords = SkyCoord(self.coords[0], self.coords[1],
                           unit=(u.deg, u.deg))
@@ -345,13 +349,13 @@ class Source(object):
         else:
             self.postcard_path = fn_exists
             cutout = fits.open(fn_exists)
-        
+
         self.cutout   = cutout
         self.postcard = self.postcard_path.split('/')[-1]
 
         xcoord = cutout[1].header['1CRV4P']
         ycoord = cutout[1].header['2CRV4P']
-        
+
         self.position_on_chip = np.array([xcoord, ycoord])
 
 
@@ -375,13 +379,16 @@ class Source(object):
     def tesscut_dir(self):
         """Creates a TESSCut directory in the hidden eleanor directory.
         """
-        download_dir = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
-        if os.path.isdir(download_dir) is False:
-            try:
-                os.mkdir(download_dir)
-            except OSError:
-                download_dir = '.'
-                warnings.warn('Warning: unable to create {}. '
-                              'Downloading TessCut to the current '
-                              'working directory instead.'.format(download_dir))
+        if self.download_dir is None:
+            download_dir = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
+            if os.path.isdir(download_dir) is False:
+                try:
+                    os.mkdir(download_dir)
+                except OSError:
+                    download_dir = '.'
+                    warnings.warn('Warning: unable to create {}. '
+                                  'Downloading TessCut to the current '
+                                  'working directory instead.'.format(download_dir))
+        else:
+            download_dir = self.download_dir
         return download_dir
