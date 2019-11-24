@@ -1397,3 +1397,47 @@ class TargetData(object):
                               'working directory instead.'.format(download_dir))
 
         return download_dir
+
+
+    def lightkurve(self, flux=None, quality_mask=None):
+        """
+        Creates a lightkurve.lightcurve.LightCurve() object with eleanor
+        attributes. All inputs have been quality masked.
+
+        Parameters
+        ----------
+        flux : np.ndarray, optional
+             An array of flux. Default is 
+             eleanor.TargetData.corr_flux.
+
+        quality_mask : np.ndarray, optional
+             An array of quality flags. Default is
+             eleanor.TargetData.quality.
+
+        Returns
+        -------
+        lightkurve.lightcurve.TessLightCurve object
+        """
+        from lightkurve.lightcurve import TessLightCurve
+        
+        if flux is None:
+            flux = self.corr_flux
+        if quality_mask is None:
+            quality_mask = self.quality
+
+        lk = TessLightCurve(time=self.time[quality_mask == 0],
+                            flux=flux[quality_mask == 0],
+                            flux_err=self.flux_err[quality_mask == 0],
+                            cadenceno=self.ffiindex[quality_mask == 0],
+                            time_format='btjd',
+                            time_scale='tdb',
+                            targetid='TIC'+str(self.source_info.tic),
+                            sector=self.source_info.sector,
+                            camera=self.source_info.camera,
+                            ccd=self.source_info.chip,
+                            ra=self.source_info.coords[0],
+                            dec=self.source_info.coords[1],
+                            centroid_col=self.centroid_ys[quality_mask == 0],
+                            centroid_row=self.centroid_xs[quality_mask == 0])
+
+        return lk
