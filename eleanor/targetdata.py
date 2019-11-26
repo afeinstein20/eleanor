@@ -320,14 +320,17 @@ class TargetData(object):
             self.bkg_tpf = post_bkg2d[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
             self.tpf_flux_bkg = post_bkg
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-            
+            self.tpf_err[np.isnan(self.tpf_err)] = np.inf
+
+
         else:            
             if (height > 31) or (width > 31):
                 raise ValueError("Maximum allowed TPF size is 31 x 31 pixels.")
 
             self.tpf     = post_flux[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
             self.bkg_tpf = post_flux
-            self.tpf_err = post_err[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]           
+            self.tpf_err = post_err[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
+            self.tpf_err[np.isnan(self.tpf_err)] = np.inf
             self.bkg_subtraction()
 
         self.dimensions = np.shape(self.tpf)
@@ -736,6 +739,7 @@ class TargetData(object):
 
         if data_arr is None:
             data_arr = self.tpf + 0.0
+            data_arr[np.isnan(data_arr)] = 0.0
         if err_arr is None:
             if err_method == True:
                 err_arr = (self.tpf_err + 0.0) ** 2
