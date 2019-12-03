@@ -197,8 +197,7 @@ class TargetData(object):
                 self.set_quality()
                 self.get_cbvs()
             
-
-                self.create_apertures(height, width)
+                self.create_apertures(self.tpf.shape[1], self.tpf.shape[2])
             
                 self.get_lightcurve()
 
@@ -240,7 +239,7 @@ class TargetData(object):
         self.centroid_xs = None
         self.centroid_ys = None
 
-        xy = WCS(self.post_obj.header).all_world2pix(pos[0], pos[1], 1)
+        xy = WCS(self.post_obj.header, naxis=2).all_world2pix(pos[0], pos[1], 1)
         # Apply the pointing model to each cadence to find the centroids
         
         if self.pointing_model is None:
@@ -317,6 +316,7 @@ class TargetData(object):
                 warnings.warn("WARNING: Your postage stamp may not be centered.")
 
             self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            
             self.bkg_tpf = post_bkg2d[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
             self.tpf_flux_bkg = post_bkg
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
