@@ -14,26 +14,52 @@ import urllib
 
 from .mast import tic_by_contamination
 
+def make_pm_dir():
+    """ Creates a directory for pointing models.
+    """
+    pm_dir = os.path.join(os.path.expanduser('~'), '.eleanor/pointing_models')
+    if os.path.isdir(pm_dir) is False:
+        try:
+            os.mkdir(pm_dir)
+            return pm_dir
+        except OSError:
+            return '.'
+    else:
+        return pm_dir
 
-def load_pointing_model(sector, camera, chip):
+
+def check_pointing(sector, camera, chip):
+    """ Checks to see if a pointing model exists locally already.
+    """
+    # Tries to create a pointing model directory
+    pm_dir = make_pm_dir()
+
+    search = 's{0:04d}-{1}-{2}'.format(sector, camera, chip)
+    
+    # Checks a directory of pointing models, if it exists
+    # Returns the pointing model if it's in the pointing model directory
+    if os.path.isdir(pm_dir) is True:
+        pm_downloaded = os.listdir(pm_dir)
+        pm = [i for i in pm_downloaded if search in i]
+        if len(pm) > 0:
+            return Table.read(os.path.join(pm_dir, pm[0]), format="ascii.basic")
+    else:
+        return None
+
+
+def load_pointing_model(postcard_dir):
     """ Loads in pointing model from website.
     """
-    user_agent = 'eleanor 0.1.6'
-    values = {'name': 'eleanor',
-              'language': 'Python' }
-    headers = {'User-Agent': user_agent}
+    files = os.listdir(postcard_dir)
+    pm    = [i for i in files if i.endswith('.txt')]
+    pointing = Table.read(os.path.join(postcard_dir, pm[0]), format="ascii.basic")
 
-    data = urllib.parse.urlencode(values)
-    data = data.encode('ascii')
-
-    pm_format = "hlsp_eleanor_tess_ffi_postcard-s{0:04d}-{1}-{2}_tess_v2_pm.txt".format(sector,
-                                                                                        camera,
-                                                                                        chip)
-    pm_link = "https://archipelago.uchicago.edu/tess_postcards/metadata/pointing_models/"
-
-    pointing = Table.read(os.path.join(pm_link, pm_format), format="ascii.basic")
+    pm_dir = make_pm_dir()
+    os.system('mv {0} {1}'.format(os.path.join(postcard_dir, pm[0]),
+                                  os.path.join(pm_dir, pm[0])))
+    
     return pointing
-
+                
 
 def use_pointing_model(coords, pointing_model):
     """Applies pointing model to correct the position of star(s) on postcard.
