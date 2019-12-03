@@ -286,8 +286,6 @@ class TargetData(object):
         y_upp_bkg = med_y+y_bkg_len + 1
         x_low_bkg = med_x-x_bkg_len
         x_upp_bkg = med_x+x_bkg_len + 1
-
-        print(x_low_lim, x_upp_lim, y_low_lim, y_upp_lim)
     
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
