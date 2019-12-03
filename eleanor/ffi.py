@@ -14,7 +14,7 @@ import urllib
 
 from .mast import tic_by_contamination
 
-def make_pm_dir():
+def make_pm_dir(postcard_dir=None):
     """ Creates a directory for pointing models.
     """
     pm_dir = os.path.join(os.path.expanduser('~'), '.eleanor/pointing_models')
@@ -23,7 +23,10 @@ def make_pm_dir():
             os.mkdir(pm_dir)
             return pm_dir
         except OSError:
-            return '.'
+            if postcard_dir is None:
+                return '.'
+            else:
+                return postcard_dir
     else:
         return pm_dir
 
@@ -54,7 +57,7 @@ def load_pointing_model(postcard_dir):
     pm    = [i for i in files if i.endswith('.txt')]
     pointing = Table.read(os.path.join(postcard_dir, pm[0]), format="ascii.basic")
 
-    pm_dir = make_pm_dir()
+    pm_dir = make_pm_dir(postcard_dir=postcard_dir)
     os.system('mv {0} {1}'.format(os.path.join(postcard_dir, pm[0]),
                                   os.path.join(pm_dir, pm[0])))
     
