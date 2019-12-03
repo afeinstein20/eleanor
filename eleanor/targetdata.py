@@ -189,7 +189,10 @@ class TargetData(object):
                     self.cal_cadences = cal_cadences
             
                 try:
-                    self.pointing_model = load_pointing_model(source.sector, source.camera, source.chip)
+                    if source.pointing is not None:
+                        self.pointing_model = source.pointing
+                    else:
+                        self.pointing_model = load_pointing_model(source.postcard_path)
                 except:
                     self.pointing_model = None
                     
@@ -283,6 +286,8 @@ class TargetData(object):
         y_upp_bkg = med_y+y_bkg_len + 1
         x_low_bkg = med_x-x_bkg_len
         x_upp_bkg = med_x+x_bkg_len + 1
+
+        print(x_low_lim, x_upp_lim, y_low_lim, y_upp_lim)
     
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
@@ -310,7 +315,7 @@ class TargetData(object):
 
             
         if source.tc == False:
-            
+            print(post_x_upp, post_y_upp)
             if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
                 warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
                 warnings.warn("WARNING: Your postage stamp may not be centered.")
