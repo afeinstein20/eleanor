@@ -290,10 +290,11 @@ class Source(object):
                                        post_cens['y'].data[i])
             all_postcards.append(name)
         self.all_postcards = np.array(all_postcards)
-
+        
         postcard_obs = Observations.query_criteria(provenance_name="ELEANOR",
                                                    target_name=self.postcard,
                                                    obs_collection="HLSP")
+        
         if len(postcard_obs) > 0:
             product_list = Observations.get_product_list(postcard_obs)
             results = Observations.download_products(product_list, extension=["pc.fits", "bkg.fits"],

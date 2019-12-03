@@ -1039,7 +1039,8 @@ class TargetData(object):
             bkg = self.flux_bkg
             
         if pca == True:
-            flux = self.raw_flux - bkg*np.sum(self.aperture)
+            if self.source_info.tc == True:
+                flux = self.raw_flux - bkg*np.sum(self.aperture)
 
         flux = np.array(flux)
         
