@@ -313,7 +313,6 @@ class TargetData(object):
 
             
         if source.tc == False:
-            print(post_x_upp, post_y_upp)
             if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
                 warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
                 warnings.warn("WARNING: Your postage stamp may not be centered.")
