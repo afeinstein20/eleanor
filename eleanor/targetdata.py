@@ -90,6 +90,12 @@ class TargetData(object):
     cen_y : int
         Median `y` position of the source.
         Position is relative to the pixel coordinate system of the postcard.
+    tpf_star_x : int
+        `x` position of the star on the TPF.
+        Position is relative to the size of the TPF.
+    tpf_star_y : int
+        `y` position of the star on the TPF.
+        Position is relative to the size of the TPF.
     dimensions : tuple
         Shape of `tpf`. Should be (`time`, `height`, `width`).
     all_apertures : list
@@ -295,21 +301,32 @@ class TargetData(object):
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
             y_low_lim = 0
+            y_upp_lim = med_y + width + y_low_lim
         if x_low_lim <= 0:
             x_low_lim = 0
+            x_upp_lim = med_x + height + x_low_lim
         if y_upp_lim  > post_y_upp:
             y_upp_lim = post_y_upp+1
+            y_low_lim = med_y - width + (post_y_upp-med_y)
         if x_upp_lim >  post_x_upp:
             x_upp_lim = post_x_upp+1
+            x_low_lim = med_x - height + (post_x_upp-med_x)
             
+        self.tpf_star_y = width  + (med_y - y_upp_lim)
+        self.tpf_star_x = height + (med_x - x_upp_lim)
+
         if y_low_bkg <= 0:
             y_low_bkg = 0
+            y_upp_bkg = med_y + width + y_low_bkg
         if x_low_bkg <= 0:
             x_low_bkg = 0
+            x_upp_bkg = med_x + height + x_low_bkg
         if y_upp_bkg  > post_y_upp:
             y_upp_bkg = post_y_upp+1
+            y_low_bkg = med_y - width + (post_y_upp - med_y)
         if x_upp_bkg >  post_x_upp:
             x_upp_bkg = post_x_upp+1
+            x_low_bkg = med_x - height + (post_x_upp - med_x)
 
             
         if source.tc == False:
@@ -336,7 +353,6 @@ class TargetData(object):
             self.bkg_subtraction()
 
         self.dimensions = np.shape(self.tpf)
-        
         
         summed_tpf = np.nansum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
@@ -370,13 +386,57 @@ class TargetData(object):
         pickle_dict = pickle.load(pickle_in)
         self.aperture_names = np.array(list(pickle_dict.keys()))
         all_apertures  = np.array(list(pickle_dict.values()))
-        
 
         default = 13
 
         # Creates aperture based on the requested size of TPF
         if (height, width) == (default, default):
-            self.all_apertures = all_apertures
+            if (self.tpf_star_y == 6) and (self.tpf_star_x == 6):
+                self.all_apertures = all_apertures
+            # handles offset apertures for stars on the edge of the postcard
+            else:
+                x, y = self.tpf_star_x, self.tpf_star_y
+
+                if x == int(width/2):
+                    xpadding = (0,0)
+                    xaxis    = None
+                else:
+                    xaxis = 1
+                    if x > width/2 and x < width-1:
+                        xpadding = (int(x-width/2)+1, 0)
+                        xdel     = np.arange(width, width + int(x-width/2)+1, 1, dtype=int)
+                    elif x < width/2:
+                        xpadding = (0, int(width/2-x))
+                        xdel     = np.arange(0, int(width/2-x), 1, dtype=int)
+                    else:
+                        xpadding = (int(x-width/2)+1, 0)
+                        xdel     = np.arange(width, width + int(x-width/2) + 1, 1, dtype=int)        
+        
+                if y == height/2:
+                    ypadding = (0,0)
+                    yaxis    = None
+                else:
+                    yaxis = 0
+                    if y > height/2 and y < height-1:
+                        ypadding = (int(y-height/2)+1, 0)
+                        ydel     = np.arange(height, height + int(y-height/2)+1, 1, dtype=int)
+                    elif y < height/2:
+                        ypadding = (0, int(height/2-y))
+                        ydel     = np.arange(0, int(height/2-y), 1, dtype=int)
+                    else:
+                        ypadding = (int(y-height/2)+1, 0)
+                        ydel     = np.arange(height, height + int(y-height/2) + 1, 1, dtype=int)
+
+                new_aps = []
+                for a in all_apertures:
+                    na = np.pad(a, (ypadding, xpadding), 'constant', constant_values=(0))
+                    if yaxis is not None:
+                        na = np.delete(na, ydel, axis=yaxis)
+                    if xaxis is not None:
+                        na = np.delete(na, xdel, axis=xaxis)
+                    new_aps.append(na)
+                self.all_apertures = np.array(new_aps)
+                
 
         else:
             new_aps = []
@@ -388,8 +448,9 @@ class TargetData(object):
             if h_diff > 0:
                 h_pad = (half_h, half_h)
             elif h_diff < 0:
-                warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
+                warnings.warn('WARNING: Making a TPF smaller than (13,13) may provide inadequate results.')
                 h_pad = (0,0)
+                print(half_h, len(all_apertures[0][:,0]))
                 all_apertures = all_apertures[:, half_h:int(len(all_apertures[0][:,0])-half_h), :]
             else:
                 h_pad = (0,0)
@@ -398,11 +459,13 @@ class TargetData(object):
             if w_diff > 0:
                 w_pad = (half_w, half_w)
             elif w_diff < 0:
-                warnings.warn('WARNING: Making a TPF smaller than (9,9) may provide inadequate results.')
+                warnings.warn('WARNING: Making a TPF smaller than (13,13) may provide inadequate results.')
                 w_pad = (0,0)
                 all_apertures = all_apertures[:, :, half_w:int(len(all_apertures[0][0])-half_w)]
             else:
                 w_pad=(0,0)
+
+            print(h_pad, w_pad)
 
             for a in range(len(all_apertures)):
                 new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
@@ -496,22 +559,23 @@ class TargetData(object):
                 try:
                     all_lc_err[a] = np.sqrt( np.nansum(self.tpf_err**2 * self.all_apertures[a]) )
                     all_raw_lc_tpf_sub[a] = np.nansum( (self.tpf * self.all_apertures[a]), axis=(1,2) )
-                    
+
                     oned_bkg = np.zeros(self.tpf.shape)
                     for c in range(len(self.time)):
                         oned_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.tpf_flux_bkg[c])
+
                     all_raw_lc_pc_sub[a]  = np.nansum( ((self.tpf + oned_bkg) * self.all_apertures[a]), axis=(1,2) )
 
                     if self.source_info.tc == False:
                         all_raw_lc_tpf_2d_sub[a] = np.nansum( ((self.tpf+oned_bkg) - self.bkg_tpf) * self.all_apertures[a],
                                                               axis=(1,2))
-
                 except ValueError:
                     continue
 
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
                 try:
                     all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
+
                     all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
 
                     if self.source_info.tc == False:
@@ -578,10 +642,6 @@ class TargetData(object):
                 best_ind_2d = np.where(stds_2d == np.nanmin(stds_2d))[0][0]
             else:
                 best_ind_2d = None
-
-            ################################################### 
-            ## ADD IN CHECKING IF 2D BACKGROUND STD IS LOWER ##
-            ###################################################
 
             if best_ind_2d is not None:
                 stds = np.array([pc_stds[best_ind_pc],
@@ -1095,8 +1155,6 @@ class TargetData(object):
             bkg_use -= np.min(bkg_use)
             
             vv = self.cbvs[mask][:,0:modes]
-                
-        
                    
             if pca == False:
                 cm = np.column_stack((t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
