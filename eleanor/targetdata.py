@@ -315,6 +315,11 @@ class TargetData(object):
         self.tpf_star_y = width  + (med_y - y_upp_lim)
         self.tpf_star_x = height + (med_x - x_upp_lim)
 
+        if self.tpf_star_y == 0:
+            self.tpf_star_y = int(width/2)
+        if self.tpf_star_x == 0:
+            self.tpf_star_x = int(height/2)
+
         if y_low_bkg <= 0:
             y_low_bkg = 0
             y_upp_bkg = med_y + width + y_low_bkg
@@ -377,99 +382,89 @@ class TargetData(object):
 
     def create_apertures(self, height, width):
         """Creates a range of sizes and shapes of apertures to test."""
-        import eleanor
-        self.all_apertures = None
-
-        # Saves some time by pre-loading apertures for 9x9 TPFs
-        ap_path = eleanor.__path__[0]+'/default_apertures.pickle'
-        pickle_in = open(ap_path, "rb")
-        pickle_dict = pickle.load(pickle_in)
-        self.aperture_names = np.array(list(pickle_dict.keys()))
-        all_apertures  = np.array(list(pickle_dict.values()))
-
         default = 13
+            
+        def circle_aperture(pos,r):
+            return CircularAperture(pos,r)
+        def square_aperture(pos, l, w, t):
+            return RectangularAperture(pos, l, w, t)
 
-        # Creates aperture based on the requested size of TPF
-        if (height, width) == (default, default):
-            if (self.tpf_star_y == 6) and (self.tpf_star_x == 6):
-                self.all_apertures = all_apertures
-            # handles offset apertures for stars on the edge of the postcard
-            else:
-                x, y = self.tpf_star_x, self.tpf_star_y
-
-                if x == int(width/2):
-                    xpadding = (0,0)
-                    xaxis    = None
-                else:
-                    xaxis = 1
-                    if x > width/2 and x < width-1:
-                        xpadding = (int(x-width/2)+1, 0)
-                        xdel     = np.arange(width, width + int(x-width/2)+1, 1, dtype=int)
-                    elif x < width/2:
-                        xpadding = (0, int(width/2-x))
-                        xdel     = np.arange(0, int(width/2-x), 1, dtype=int)
-                    else:
-                        xpadding = (int(x-width/2)+1, 0)
-                        xdel     = np.arange(width, width + int(x-width/2) + 1, 1, dtype=int)        
-        
-                if y == height/2:
-                    ypadding = (0,0)
-                    yaxis    = None
-                else:
-                    yaxis = 0
-                    if y > height/2 and y < height-1:
-                        ypadding = (int(y-height/2)+1, 0)
-                        ydel     = np.arange(height, height + int(y-height/2)+1, 1, dtype=int)
-                    elif y < height/2:
-                        ypadding = (0, int(height/2-y))
-                        ydel     = np.arange(0, int(height/2-y), 1, dtype=int)
-                    else:
-                        ypadding = (int(y-height/2)+1, 0)
-                        ydel     = np.arange(height, height + int(y-height/2) + 1, 1, dtype=int)
-
-                new_aps = []
-                for a in all_apertures:
-                    na = np.pad(a, (ypadding, xpadding), 'constant', constant_values=(0))
-                    if yaxis is not None:
-                        na = np.delete(na, ydel, axis=yaxis)
-                    if xaxis is not None:
-                        na = np.delete(na, xdel, axis=xaxis)
-                    new_aps.append(na)
-                self.all_apertures = np.array(new_aps)
-                
-
+        if self.source_info.tc == True:
+            center = (self.tpf_star_y, self.tpf_star_x)
         else:
-            new_aps = []
+            center = (self.tpf_star_x, self.tpf_star_y)
+        
+        shape  = (height, width)
+        
+        clist = [1.25, 2.5, 3.5, 4]
+        rlist = [3, 3, 5, 4.1]
+        theta = [np.pi/4., 0, np.pi/4., 0]
 
-            h_diff = height-default; w_diff = width-default
-            half_h = int(np.ceil(np.abs(h_diff/2))) ; half_w = int(np.ceil(np.abs(w_diff/2)))
+        # Creates 2 and 3 pixel apertures
+        lines = [ ((center[0], center[1]-0.5), 1, 2, 0),
+                  ((center[0]+0.5, center[1]), 2, 1, 0),
+                  ((center[0], center[1]+0.5), 1, 2, 0),
+                  ((center[0]-0.5, center[1]), 2, 1, 0) ]
+        delta = 0.48
+        t_w = 1.6; t_l = np.sqrt(2)
+        tris  = [ ((center[0]+delta, center[1]-delta), t_w, t_l, np.pi/4),
+                  ((center[0]+delta, center[1]+delta), t_l, t_w, np.pi/4),
+                  ((center[0]-delta, center[1]+delta), t_w, t_l, np.pi/4),
+                  ((center[0]-delta, center[1]-delta), t_l, t_w, np.pi/4) ]
 
-            # HEIGHT PADDING
-            if h_diff > 0:
-                h_pad = (half_h, half_h)
-            elif h_diff < 0:
-                warnings.warn('WARNING: Making a TPF smaller than (13,13) may provide inadequate results.')
-                h_pad = (0,0)
-                print(half_h, len(all_apertures[0][:,0]))
-                all_apertures = all_apertures[:, half_h:int(len(all_apertures[0][:,0])-half_h), :]
-            else:
-                h_pad = (0,0)
+        deg = 0
 
-            # WIDTH PADDING
-            if w_diff > 0:
-                w_pad = (half_w, half_w)
-            elif w_diff < 0:
-                warnings.warn('WARNING: Making a TPF smaller than (13,13) may provide inadequate results.')
-                w_pad = (0,0)
-                all_apertures = all_apertures[:, :, half_w:int(len(all_apertures[0][0])-half_w)]
-            else:
-                w_pad=(0,0)
+        all_apertures  = []
+        aperture_names = []
 
-            print(h_pad, w_pad)
+        for i in range(len(tris)):
+            lap = square_aperture(lines[i][0], lines[i][1], lines[i][2], lines[i][3])
+            tap = square_aperture(tris[i][0] , tris[i][1] , tris[i][2] , tris[i][3])
 
-            for a in range(len(all_apertures)):
-                new_aps.append(np.pad(all_apertures[a], (h_pad, w_pad), 'constant', constant_values=(0)))
-            self.all_apertures = np.array(new_aps)
+            lmask, lname = lap.to_mask(method='center').to_image(shape=shape), 'rectangle_{}'.format(int(deg))
+            tmask, tname = tap.to_mask(method='center').to_image(shape=shape), 'L_{}'.format(int(deg))
+
+            all_apertures.append(lmask)
+            aperture_names.append(lname)
+
+            all_apertures.append(tmask)
+            aperture_names.append(tname)
+
+            cap = circle_aperture(center, clist[i])
+            rap = square_aperture(center, rlist[i], rlist[i], theta[i])
+
+            for method in ['center', 'exact']:
+                cmask, cname = cap.to_mask(method=method).to_image(shape=shape), '{}_circle_{}'.format(clist[i], method)
+                rmask, rname = rap.to_mask(method=method).to_image(shape=shape), '{}_square_{}'.format(rlist[i], method)
+
+                all_apertures.append(cmask)
+                aperture_names.append(cname)
+                
+                all_apertures.append(tmask)
+                aperture_names.append(tname)
+            
+        
+            deg += 90
+
+            
+        if self.source_info.tc == True:
+            ## Checks to see if there are empty rows/columns ##
+            ## Sets those locations to 0 in the aperture mask ##
+            rows = np.unique(np.where(self.tpf[0] == 0)[0])
+            cols = np.unique(np.where(self.tpf[0] == 0)[1])
+            if len(rows) > 0 and len(cols) > 0:
+                if np.array_equal(cols, np.arange(0,height,1)):
+                    for i in range(len(all_apertures)):
+                        all_apertures[i][rows,:] = 0
+                if np.array_equal(rows, np.arange(0,width,1)):
+                    for i in range(len(all_apertures)):
+                        all_apertures[i][:,cols] = 0
+
+        self.all_apertures = np.array(all_apertures)
+        self.aperture_names = np.array(aperture_names)
+    
+        if height < default or width < default:
+            warnings.warn('WARNING: Making a TPF smaller than (13,13) may provide inadequate results.')
 
 
     def bkg_subtraction(self, scope="tpf", sigma=2.5):
