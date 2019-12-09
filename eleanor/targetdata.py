@@ -1139,6 +1139,12 @@ class TargetData(object):
         def calc_corr(mask, cx, cy, skip=50):
             nonlocal quality, flux, bkg
 
+            badx = np.where(np.abs(cx - np.nanmedian(cx)) > 3*np.std(cx))[0]
+            bady = np.where(np.abs(cy - np.nanmedian(cy)) > 3*np.std(cy))[0]
+
+            quality[badx] = -999
+            quality[bady] = -999
+
             qm = quality[mask] == 0
 
             medval = np.nanmedian(flux[mask][qm])
