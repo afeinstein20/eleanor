@@ -55,18 +55,6 @@ for i in range(len(r_list)):
         types.append('{}_circle_{}'.format(c_list[i], method))
         types.append('{}_square_{}'.format(r_list[i], method))
 
-#types = np.array(types)
-
-#fig, axes = plt.subplots(ncols=6, nrows=4, sharex=True, sharey=True,
-#                         figsize=(12,10))
-
-#i = 0
-#for ax in axes.reshape(-1):
-#    ax.imshow(all_apertures[i])
-#    ax.set_title('{}'.format(types[i]))
-#    i += 1
-#plt.subplots_adjust(hspace=0.3, wspace=0.3)
-#plt.tight_layout()
 
 dict = {}
 for a in range(len(types)):
@@ -78,25 +66,3 @@ pickle_out = open(fn, "wb")
 pickle.dump(dict, pickle_out)
 pickle_out.close()
 
-"""
-pickle_in = open(fn, "rb")
-test = pickle.load(pickle_in)
-aps = np.array(list(test.values()))
-
-example = aps
-#new = np.pad(example, ((1, 1), (0, 0)), 'constant', constant_values=(0), axis=2)
-
-new = example[:, 1:len(aps[0])-1, 1:len(aps[0])-3]
-new = example[:, 1:len(aps[0])-2, :]
-print(np.shape(new))
-print(example[0])
-print('SLICED')
-print(new[0])
-print('PADDED')
-print( np.pad(new[0], ((0,0), (2,2)), 'constant', constant_values=(0)))
-#for i in range(len(all_apertures)):
-#    new = np.reshape(all_apertures[i], (len(all_apertures[i])*len(all_apertures[i][0]),) )
-#    str_new = ' '.join(str(e) for e in new)
-#    with open('default_apertures.txt', 'a') as tf:
-#        tf.write('{}\n'.format(types[i], str_new))
-"""
