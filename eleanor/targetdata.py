@@ -1472,7 +1472,7 @@ class TargetData(object):
         return download_dir
 
 
-    def lightkurve(self, flux=None, quality_mask=None):
+    def to_lightkurve(self, flux=None, quality_mask=None):
         """
         Creates a lightkurve.lightcurve.LightCurve() object with eleanor
         attributes. All inputs have been quality masked.
@@ -1501,10 +1501,10 @@ class TargetData(object):
         lk = TessLightCurve(time=self.time[quality_mask == 0],
                             flux=flux[quality_mask == 0],
                             flux_err=self.flux_err[quality_mask == 0],
-                            cadenceno=self.ffiindex[quality_mask == 0],
+                            cadenceno=np.asarray(self.ffiindex[quality_mask == 0]),
                             time_format='btjd',
                             time_scale='tdb',
-                            targetid='TIC'+str(self.source_info.tic),
+                            targetid=str(self.source_info.tic),
                             sector=self.source_info.sector,
                             camera=self.source_info.camera,
                             ccd=self.source_info.chip,
