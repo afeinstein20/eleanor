@@ -47,7 +47,7 @@ setup(
     long_description_content_type="text/markdown",
     package_data={'': ['README.md', 'LICENSE']},
     install_requires=[
-        'mplcursors', 'photutils', 'tqdm', 'lightkurve>=1.1.0', 'astropy>=3.2.3',
+        'mplcursors', 'photutils>=0.7', 'tqdm', 'lightkurve>=1.1.0', 'astropy>=3.2.3',
         'astroquery', 'bokeh', 'muchbettermoments', 'fitsio', 'pandas',
         'setuptools>=41.0.0', 
         'tensorflow<=1.14.0', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point'],
