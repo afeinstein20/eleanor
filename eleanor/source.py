@@ -12,11 +12,6 @@ import warnings
 from astroquery.mast import Tesscut
 from astroquery.mast import Observations
 
-#server = "https://masttest.stsci.edu"
-#Observations._MAST_REQUEST_URL = server + "/portal_eleanor/Mashup/MashupQuery.asmx/invoke"
-#Observations._COLUMNS_CONFIG_URL = server + "/portal_eleanor/Mashup/Mashup.asmx/columnsconfig"
-#Observations._MAST_DOWNLOAD_URL = server + "/api/v0.1/download/file"
-
 from . import PACKAGEDIR
 
 import urllib
