@@ -348,10 +348,13 @@ class TargetData(object):
                 self.tpf_star_y = int(height/2)
 
             self.bkg_tpf = post_bkg2d[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-            self.tpf_flux_bkg = post_bkg
+            self.tpf_flux_bkg = self.bkg_subtraction() + post_bkg
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
 
+            import matplotlib.pyplot as plt
+            plt.plot(self.time, post_bkg - self.tpf_flux_bkg)
+            plt.show()
 
         else:            
             if (height > 31) or (width > 31):
@@ -485,19 +488,25 @@ class TargetData(object):
             The standard deviation cut used to determine which pixels are representative of the background in each cadence.
         """
         time = self.time
-        flux = self.bkg_tpf
+
+        if self.source_info.tc == True:
+            flux = self.bkg_tpf
+        else:
+            flux = self.tpf
         
-        self.tpf_flux_bkg = []
+        tpf_flux_bkg = []
         
         sigma_clip = SigmaClip(sigma=sigma)
         bkg = MMMBackground(sigma_clip=sigma_clip)
         
         for i in range(len(time)):
             bkg_value = bkg.calc_background(flux[i])
-            self.tpf_flux_bkg.append(bkg_value)
+            tpf_flux_bkg.append(bkg_value)
 
-        self.tpf_flux_bkg = np.array(self.tpf_flux_bkg)
-        
+        if self.source_info.tc == True:
+            self.tpf_flux_bkg = np.array(tpf_flux_bkg)
+        else:
+            return np.array(tpf_flux_bkg)
 
 
     def get_lightcurve(self, aperture=None):
