@@ -174,6 +174,88 @@ def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip,
 
     return flags+pm_flags
 
+def centroid_quadratic(data, mask=None):
+    """Computes the quadratic estimate of the centroid in a 2d-array.
+
+    This method will fit a simple 2D second-order polynomial
+    $P(x, y) = a + bx + cy + dx^2 + exy + fy^2$
+    to the 3x3 patch of pixels centered on the brightest pixel within
+    the image.  This function approximates the core of the Point
+    Spread Function (PSF) using a bivariate quadratic function, and returns
+    the maximum (x, y) coordinate of the function using linear algebra.
+
+    For the motivation and the details around this technique, please refer
+    to Vakili, M., & Hogg, D. W. 2016, ArXiv, 1610.05873.
+
+    Caveat: if the brightest pixel falls on the edge of the data array, the fit
+    will tend to fail or be inaccurate. 
+
+    As used in the Lightkurve package of Barentsen et al.
+
+    Parameters
+    ----------
+    data : 2D array
+        The 2D input array representing the pixel values of the image.
+    mask : array_like (bool), optional
+        A boolean mask, with the same shape as `data`, where a **True** value
+        indicates the corresponding element of data is masked.
+
+    Returns
+    -------
+    column, row : tuple
+        The coordinates of the centroid in column and row.  If the fit failed,
+        then (NaN, NaN) will be returned.
+    """
+    # Step 1: identify the patch of 3x3 pixels (z_)
+    # that is centered on the brightest pixel (xx, yy)
+    if mask is not None:
+        data = data * mask
+    arg_data_max = np.nanargmax(data)
+    yy, xx = np.unravel_index(arg_data_max, data.shape)
+    # Make sure the 3x3 patch does not leave the TPF bounds
+    if yy < 1:
+        yy = 1
+    if xx < 1:
+        xx = 1
+    if yy > (data.shape[0] - 2):
+        yy = data.shape[0] - 2
+    if xx > (data.shape[1] - 2):
+        xx = data.shape[1] - 2
+
+    z_ = data[yy-1:yy+2, xx-1:xx+2]
+
+    # Next, we will fit the coefficients of the bivariate quadratic with the
+    # help of a design matrix (A) as defined by Eqn 20 in Vakili & Hogg
+    # (arxiv:1610.05873). The design matrix contains a
+    # column of ones followed by pixel coordinates: x, y, x**2, xy, y**2.
+    A = np.array([[1, -1, -1, 1,  1, 1],
+                  [1,  0, -1, 0,  0, 1],
+                  [1,  1, -1, 1, -1, 1],
+                  [1, -1,  0, 1,  0, 0],
+                  [1,  0,  0, 0,  0, 0],
+                  [1,  1,  0, 1,  0, 0],
+                  [1, -1,  1, 1, -1, 1],
+                  [1,  0,  1, 0,  0, 1],
+                  [1,  1,  1, 1,  1, 1]])
+    # We also pre-compute $(A^t A)^-1 A^t$, cf. Eqn 21 in Vakili & Hogg.
+    At = A.transpose()
+    # In Python 3 this can become `Aprime = np.linalg.inv(At @ A) @ At`
+    Aprime = np.matmul(np.linalg.inv(np.matmul(At, A)), At)
+
+    # Step 2: fit the polynomial $P = a + bx + cy + dx^2 + exy + fy^2$
+    # following Equation 21 in Vakili & Hogg.
+    # In Python 3 this can become `Aprime @ z_.flatten()`
+    a, b, c, d, e, f = np.matmul(Aprime, z_.flatten())
+
+    # Step 3: analytically find the function maximum,
+    # following https://en.wikipedia.org/wiki/Quadratic_function
+    det = 4 * d * f - e ** 2
+    if abs(det) < 1e-6:
+        return np.nan, np.nan  # No solution
+    xm = - (2 * f * b - c * e) / det
+    ym = - (2 * d * c - b * e) / det
+    return xx + xm, yy + ym
+
 
 class ffi:
     """This class allows the user to download all full-frame images for a given sector,
@@ -367,7 +449,7 @@ class ffi:
 
 
         def isolated_center(x, y, image):
-            """Finds the centroid of each isolated source with quadratic_2d.
+            """Finds the centroid of each isolated source with centroid_quadratic.
 
             Parameters
             ----------
@@ -393,7 +475,7 @@ class ffi:
                  if x[i] > 0. and y[i] > 0.:
                      tpf = Cutout2D(image, position=(x[i], y[i]), size=(7,7), mode='partial')
                      origin = tpf.origin_original
-                     cen = quadratic_2d(tpf.data - np.nanmedian(tpf.data))
+                     cen = centroid_quadratic(tpf.data - np.nanmedian(tpf.data))
                      cenx.append(cen[0]+origin[0]); ceny.append(cen[1]+origin[1])
                      good.append(i)
             cenx, ceny = np.array(cenx), np.array(ceny)

@@ -12,7 +12,6 @@ from astropy.wcs import WCS
 from astropy.stats import SigmaClip
 from time import strftime
 from astropy.io import fits
-from muchbettermoments import quadratic_2d
 from scipy.stats import mode
 from urllib.request import urlopen
 import os, sys, copy
@@ -21,7 +20,7 @@ import warnings
 import pickle
 import eleanor
 
-from .ffi import use_pointing_model, load_pointing_model
+from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
 
 
@@ -190,7 +189,7 @@ class TargetData(object):
 
 
                 if cal_cadences is None:
-                    self.cal_cadences = (20, len(self.post_obj.time)-20)
+                    self.cal_cadences = (0, len(self.post_obj.time)-0)
                 else:
                     self.cal_cadences = cal_cadences
             
@@ -587,12 +586,12 @@ class TargetData(object):
                 lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
                                        flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
-                flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=5)
+                flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
                 lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
                                                    flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=5)
+                flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
                 pc_stds[a] = np.std(flat_lc_pc.flux)
 
 
@@ -737,7 +736,7 @@ class TargetData(object):
 
         for a in range(len(self.tpf)):
             data = self.tpf[a, cen[0]-3:cen[0]+2, cen[1]-3:cen[1]+2]
-            c_0  = quadratic_2d(data)
+            c_0  = centroid_quadratic(data)
             c_frame = [cen[0]+c_0[0], cen[1]+c_0[1]]
             self.x_com.append(c_frame[0])
             self.y_com.append(c_frame[1])
@@ -1517,3 +1516,4 @@ class TargetData(object):
                             centroid_row=self.centroid_xs[quality_mask == 0])
 
         return lk
+
