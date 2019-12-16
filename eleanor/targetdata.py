@@ -352,10 +352,6 @@ class TargetData(object):
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
 
-            import matplotlib.pyplot as plt
-            plt.plot(self.time, post_bkg - self.tpf_flux_bkg)
-            plt.show()
-
         else:            
             if (height > 31) or (width > 31):
                 raise ValueError("Maximum allowed TPF size is 31 x 31 pixels.")
