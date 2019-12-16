@@ -2,7 +2,6 @@ import os, tqdm
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.io import fits
-from muchbettermoments import quadratic_2d
 from astropy.wcs import WCS, NoConvergence
 from astropy.table import Table
 from astropy.nddata import Cutout2D
