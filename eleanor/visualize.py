@@ -139,10 +139,10 @@ class Visualize(object):
              the entire light curve flux range.
         """
         if colrange is None:
-            colrange = [0, self.dimensions[0]]
+            colrange = [0, self.dimensions[1]]
 
         if rowrange is None:
-            rowrange = [0, self.dimensions[1]]
+            rowrange = [0, self.dimensions[0]]
 
         nrows = int(np.round(colrange[1]-colrange[0]))
         ncols = int(np.round(rowrange[1]-rowrange[0]))
@@ -218,9 +218,9 @@ class Visualize(object):
 
         ax = plt.subplot(outer[0])
 
-        c = ax.imshow(self.flux[0, colrange[0]:colrange[1],
-                                          rowrange[0]:rowrange[1]], 
-                       vmax=np.percentile(self.flux[0], 95))
+        c = ax.imshow(self.flux[0, rowrange[0]:rowrange[1],
+                                colrange[0]:colrange[1]],
+                      vmax=np.percentile(self.flux[0], 95))
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.15)
         plt.colorbar(c, cax=cax, orientation='vertical')
