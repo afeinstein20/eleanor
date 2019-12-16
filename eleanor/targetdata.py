@@ -267,7 +267,7 @@ class TargetData(object):
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
 
         med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
-        
+
         if source.tc == False:
             post_flux = self.post_obj.flux
             post_err  = self.post_obj.flux_err
@@ -276,7 +276,6 @@ class TargetData(object):
         else:
             post_flux = self.post_obj.flux + 0.0
             post_err  = self.post_obj.flux_err + 0.0
-
 
         self.cen_x, self.cen_y = med_x, med_y
 
@@ -343,6 +342,11 @@ class TargetData(object):
             h, w = self.tpf.shape[1], self.tpf.shape[2]
             self.tpf_star_y = w + (med_y - y_upp_lim)
             self.tpf_star_x = h + (med_x - x_upp_lim)
+
+            if med_x == int((x_upp_lim - x_low_lim)/2 + x_low_lim):
+                self.tpf_star_x = int(width/2)
+            if med_y == int((y_upp_lim - y_low_lim)/2 + y_low_lim):
+                self.tpf_star_y = int(height/2)
 
             self.bkg_tpf = post_bkg2d[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
             self.tpf_flux_bkg = post_bkg
@@ -585,13 +589,13 @@ class TargetData(object):
                 q = self.quality == 0
 
                 lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                       flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+                                                   flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=5)
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
                 lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                                   flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+                                                  flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
                 flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=5)
                 pc_stds[a] = np.std(flat_lc_pc.flux)
 
