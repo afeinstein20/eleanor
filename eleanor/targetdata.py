@@ -190,7 +190,7 @@ class TargetData(object):
 
 
                 if cal_cadences is None:
-                    self.cal_cadences = (0, len(self.post_obj.time))
+                    self.cal_cadences = (20, len(self.post_obj.time)-20)
                 else:
                     self.cal_cadences = cal_cadences
             
@@ -587,12 +587,12 @@ class TargetData(object):
                 lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
                                        flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
-                flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51)
+                flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=5)
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
                 lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
                                                    flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51)
+                flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=5)
                 pc_stds[a] = np.std(flat_lc_pc.flux)
 
 
