@@ -552,8 +552,9 @@ class TargetData(object):
             all_raw_lc_tpf_2d_sub = np.copy(all_raw_lc_tpf_sub)
             all_corr_lc_tpf_2d_sub = np.copy(all_raw_lc_tpf_sub)
 
-            for epoch in range(len(self.time)):
-                self.tpf[epoch] -= self.tpf_flux_bkg[epoch]
+            if self.source_info.tc == True:
+                for epoch in range(len(self.time)):
+                    self.tpf[epoch] -= self.tpf_flux_bkg[epoch]
 
             pc_stds  = np.ones(len(self.all_apertures)) 
             tpf_stds = np.ones(len(self.all_apertures)) 
@@ -564,27 +565,35 @@ class TargetData(object):
             for a in range(len(self.all_apertures)):       
                 try:
                     all_lc_err[a] = np.sqrt( np.nansum(self.tpf_err**2 * self.all_apertures[a]) )
-                    all_raw_lc_tpf_sub[a] = np.nansum( (self.tpf * self.all_apertures[a]), axis=(1,2) )
+                    all_raw_lc_pc_sub[a] = np.nansum( (self.tpf * self.all_apertures[a]), axis=(1,2) )
                     
                     oned_bkg = np.zeros(self.tpf.shape)
                     for c in range(len(self.time)):
                         oned_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.tpf_flux_bkg[c])
+                        
+                    post_bkg = np.zeros(self.tpf.shape)
+                    for c in range(len(self.time)):
+                        post_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.flux_bkg[c])
 
-                    all_raw_lc_pc_sub[a]  = np.nansum( ((self.tpf + oned_bkg) * self.all_apertures[a]), axis=(1,2) )
+                    all_raw_lc_tpf_sub[a]  = np.nansum( ((self.tpf + post_bkg - oned_bkg) * self.all_apertures[a]), axis=(1,2) )
                     
                     if self.source_info.tc == False:
-                        all_raw_lc_tpf_2d_sub[a] = np.nansum( ((self.tpf+oned_bkg) - self.bkg_tpf) * self.all_apertures[a],
+                        all_raw_lc_tpf_2d_sub[a] = np.nansum( ((self.tpf) - self.bkg_tpf) * self.all_apertures[a],
                                                               axis=(1,2))
                 except ValueError:
                     continue
 
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
                 try:
-                    all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
-                    all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
+                    all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]),
+                                                               bkg=np.nansum(post_bkg*self.all_apertures[a], axis=(1,2)))
+                    all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]),
+                                                                bkg=np.nansum(oned_bkg*self.all_apertures[a], axis=(1,2)))
 
                     if self.source_info.tc == False:
-                        all_corr_lc_tpf_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_tpf_2d_sub[a]/np.nanmedian(all_raw_lc_tpf_2d_sub[a]))
+                        all_corr_lc_tpf_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_tpf_2d_sub[a]/np.nanmedian(all_raw_lc_tpf_2d_sub[a]),
+                                                                        bkg=np.nansum(self.bkg_tpf*self.all_apertures[a], axis=(1,2)))
+                        
 
                 except IndexError:
                     continue
@@ -595,6 +604,7 @@ class TargetData(object):
                                                    flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
                 flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
+                
                 tpf_stds[a] =  np.std(flat_lc_tpf.flux)
 
                 lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
@@ -606,25 +616,17 @@ class TargetData(object):
                 if self.source_info.tc == False:
                     lc_2d_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
                                                       flux = all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                    flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51)
+                    flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
+                    
                     stds_2d[a] = np.std(flat_lc_2d.flux)
 
                     all_corr_lc_tpf_2d_sub[a] = all_corr_lc_tpf_2d_sub[a] * np.nanmedian(all_raw_lc_tpf_2d_sub[a])
+                    
 
                 all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
                 all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
 
-            self.all_raw_flux  = np.array(all_raw_lc_pc_sub)
-            self.all_flux_err    = np.array(all_lc_err)
-            self.all_corr_flux = np.array(all_corr_lc_pc_sub)
             
-            if self.language == 'Australian':
-                for i in range(len(self.all_raw_flux)):
-                    med = np.nanmedian(self.all_raw_flux[i])
-                    self.all_raw_flux[i] = (med-self.all_raw_flux[i]) + med
-
-                    med = np.nanmedian(self.all_corr_flux[i])
-                    self.all_corr_flux[i] = (med-self.all_corr_flux[i]) + med
 
 
             if self.crowded_field > 0.15:
@@ -669,6 +671,8 @@ class TargetData(object):
 #            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
 #                best_ind = best_ind_pc
             if self.bkg_type == 'PC_LEVEL':
+                self.all_raw_flux  = np.array(all_raw_lc_pc_sub)
+                self.all_corr_flux = np.array(all_corr_lc_pc_sub)
                 for epoch in range(len(self.time)):
                     self.tpf[epoch] += self.tpf_flux_bkg[epoch]
 
@@ -679,6 +683,16 @@ class TargetData(object):
             elif self.bkg_type == 'TPF_2D_LEVEL':
                 self.all_raw_flux  = np.array(all_raw_lc_tpf_2d_sub)
                 self.all_corr_flux = np.array(all_corr_lc_tpf_2d_sub)
+                
+            if self.language == 'Australian':
+                for i in range(len(self.all_raw_flux)):
+                    med = np.nanmedian(self.all_raw_flux[i])
+                    self.all_raw_flux[i] = (med-self.all_raw_flux[i]) + med
+
+                    med = np.nanmedian(self.all_corr_flux[i])
+                    self.all_corr_flux[i] = (med-self.all_corr_flux[i]) + med
+
+            self.all_flux_err    = np.array(all_lc_err)
 
             self.corr_flux= self.all_corr_flux[best_ind]
             self.raw_flux = self.all_raw_flux[best_ind]
@@ -1116,6 +1130,8 @@ class TargetData(object):
         cx = self.centroid_xs 
         cy = self.centroid_ys
         t  = self.time-self.time[0]
+        
+
 
         # Inputs: light curve & quality flag
         def norm(l, q):
