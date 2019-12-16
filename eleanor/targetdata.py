@@ -347,7 +347,7 @@ class TargetData(object):
             if med_y == int((y_upp_lim - y_low_lim)/2 + y_low_lim):
                 self.tpf_star_y = int(height/2)
 
-            self.bkg_tpf = post_bkg2d[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
+            self.bkg_tpf = post_bkg2d[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_flux_bkg = post_bkg
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
@@ -560,13 +560,13 @@ class TargetData(object):
                 try:
                     all_lc_err[a] = np.sqrt( np.nansum(self.tpf_err**2 * self.all_apertures[a]) )
                     all_raw_lc_tpf_sub[a] = np.nansum( (self.tpf * self.all_apertures[a]), axis=(1,2) )
-
+                    
                     oned_bkg = np.zeros(self.tpf.shape)
                     for c in range(len(self.time)):
                         oned_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.tpf_flux_bkg[c])
 
                     all_raw_lc_pc_sub[a]  = np.nansum( ((self.tpf + oned_bkg) * self.all_apertures[a]), axis=(1,2) )
-
+                    
                     if self.source_info.tc == False:
                         all_raw_lc_tpf_2d_sub[a] = np.nansum( ((self.tpf+oned_bkg) - self.bkg_tpf) * self.all_apertures[a],
                                                               axis=(1,2))
@@ -576,7 +576,6 @@ class TargetData(object):
                 ## Remove something from all_raw_lc before passing into jitter_corr ##
                 try:
                     all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]))
-
                     all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]))
 
                     if self.source_info.tc == False:
@@ -1106,9 +1105,7 @@ class TargetData(object):
                 flux = self.raw_flux - bkg*np.sum(self.aperture)
 
         flux = np.array(flux)
-        
         med = np.nanmedian(flux)
-
         quality = self.quality
 
         cx = self.centroid_xs 
@@ -1196,6 +1193,7 @@ class TargetData(object):
         f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
 
         lc_pred = calc_corr(f, cx, cy, skip)
+
         corr_f = flux[f]/lc_pred * med
 
         lc_pred = calc_corr(s, cx, cy, skip)
