@@ -103,13 +103,13 @@ class TargetData(object):
     aperture : array-like
         Chosen aperture for producing `raw_flux` lightcurve. Format is array
         with shape (`height`, `width`). All entries are floats in range [0,1].
-    all_lc_err : np.ndarray
-        Estimated uncertainties on `all_raw_lc`.
-    all_raw_lc : np.ndarray
+    all_flux_err : np.ndarray
+        Estimated uncertainties on `all_raw_flux`.
+    all_raw_flux : np.ndarray
         All lightcurves extracted using `all_apertures`.
         Has shape (N_apertures, N_time).
-    all_corr_lc : np.ndarray
-        All systematics-corrected lightcurves. See `all_raw_lc`.
+    all_corr_flux : np.ndarray
+        All systematics-corrected lightcurves. See `all_raw_flux`.
     best_ind : int
         Index into `all_apertures` producing the best (least noisy) lightcurve.
     corr_flux : np.ndarray
@@ -530,7 +530,7 @@ class TargetData(object):
 
         if (self.aperture is None):
 
-            self.all_lc_err  = None
+            self.all_flux_err  = None
 
             all_raw_lc_pc_sub  = np.zeros((len(self.all_apertures), len(self.tpf)))
             all_lc_err  = np.zeros((len(self.all_apertures), len(self.tpf)))
@@ -607,17 +607,17 @@ class TargetData(object):
                 all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
                 all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
 
-            self.all_raw_lc  = np.array(all_raw_lc_pc_sub)
-            self.all_lc_err  = np.array(all_lc_err)
-            self.all_corr_lc = np.array(all_corr_lc_pc_sub)
+            self.all_raw_flux  = np.array(all_raw_lc_pc_sub)
+            self.all_flux_err    = np.array(all_lc_err)
+            self.all_corr_flux = np.array(all_corr_lc_pc_sub)
             
             if self.language == 'Australian':
-                for i in range(len(self.all_raw_lc)):
-                    med = np.nanmedian(self.all_raw_lc[i])
-                    self.all_raw_lc[i] = (med-self.all_raw_lc[i]) + med
+                for i in range(len(self.all_raw_flux)):
+                    med = np.nanmedian(self.all_raw_flux[i])
+                    self.all_raw_flux[i] = (med-self.all_raw_flux[i]) + med
 
-                    med = np.nanmedian(self.all_corr_lc[i])
-                    self.all_corr_lc[i] = (med-self.all_corr_lc[i]) + med
+                    med = np.nanmedian(self.all_corr_flux[i])
+                    self.all_corr_flux[i] = (med-self.all_corr_flux[i]) + med
 
 
             if self.crowded_field > 0.15:
@@ -666,17 +666,17 @@ class TargetData(object):
                     self.tpf[epoch] += self.tpf_flux_bkg[epoch]
 
             elif self.bkg_type == 'TPF_LEVEL':
-                self.all_raw_lc  = np.array(all_raw_lc_tpf_sub)
-                self.all_corr_lc = np.array(all_corr_lc_tpf_sub)
+                self.all_raw_flux  = np.array(all_raw_lc_tpf_sub)
+                self.all_corr_flux = np.array(all_corr_lc_tpf_sub)
             
             elif self.bkg_type == 'TPF_2D_LEVEL':
-                self.all_raw_lc  = np.array(all_raw_lc_tpf_2d_sub)
-                self.all_corr_lc = np.array(all_corr_lc_tpf_2d_sub)
+                self.all_raw_flux  = np.array(all_raw_lc_tpf_2d_sub)
+                self.all_corr_flux = np.array(all_corr_lc_tpf_2d_sub)
 
-            self.corr_flux= self.all_corr_lc[best_ind]
-            self.raw_flux = self.all_raw_lc[best_ind]
+            self.corr_flux= self.all_corr_flux[best_ind]
+            self.raw_flux = self.all_raw_flux[best_ind]
             self.aperture = self.all_apertures[best_ind]
-            self.flux_err = self.all_lc_err[best_ind]
+            self.flux_err = self.all_flux_err[best_ind]
             self.aperture_size = np.nansum(self.aperture)
             self.best_ind = best_ind
         else:
@@ -1327,9 +1327,9 @@ class TargetData(object):
         # Creates table for third extention (all raw & corrected fluxes and errors)
         ext3 = Table()
         for i in range(len(raw)):
-            ext3[raw[i]]       = self.all_raw_lc[i]
-            ext3[corrected[i]] = self.all_corr_lc[i]
-            ext3[errors[i]]    = self.all_lc_err[i]
+            ext3[raw[i]]       = self.all_raw_flux[i]
+            ext3[corrected[i]] = self.all_corr_flux[i]
+            ext3[errors[i]]    = self.all_flux_err[i]
 
         # Appends aperture to header
         self.header.append(fits.Card(keyword='APERTURE', value=self.aperture_names[self.best_ind],
@@ -1408,9 +1408,9 @@ class TargetData(object):
         # Loads in remaining light curves from third extension
         cols  = hdu[3].columns.names
         table = hdu[3].data
-        self.all_raw_lc  = []
-        self.all_corr_lc = []
-        self.all_lc_err  = []
+        self.all_raw_flux  = []
+        self.all_corr_flux = []
+        self.all_flux_err  = []
         
         names = []
         for i in cols:
@@ -1418,11 +1418,11 @@ class TargetData(object):
             names.append(name)
 
             if i[-4::] == 'corr':
-                self.all_corr_lc.append(table[i])
+                self.all_corr_flux.append(table[i])
             elif i[-3::] == 'err':
-                self.all_lc_err.append(table[i])
+                self.all_flux_err.append(table[i])
             else:
-                self.all_raw_lc.append(table[i])
+                self.all_raw_flux.append(table[i])
 
         self.aperture_names = np.unique(names)
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
