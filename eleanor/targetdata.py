@@ -292,7 +292,7 @@ class TargetData(object):
         y_upp_bkg = med_y+y_bkg_len + 1
         x_low_bkg = med_x-x_bkg_len
         x_upp_bkg = med_x+x_bkg_len + 1
-    
+
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
 
@@ -332,7 +332,6 @@ class TargetData(object):
         if x_upp_bkg >  post_x_upp:
             x_upp_bkg = post_x_upp+1
             x_low_bkg = med_x - height + (post_x_upp - med_x)
-
             
         if source.tc == False:
             if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
@@ -340,7 +339,11 @@ class TargetData(object):
                 warnings.warn("WARNING: Your postage stamp may not be centered.")
 
             self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-            
+
+            h, w = self.tpf.shape[1], self.tpf.shape[2]
+            self.tpf_star_y = w + (med_y - y_upp_lim)
+            self.tpf_star_x = h + (med_x - x_upp_lim)
+
             self.bkg_tpf = post_bkg2d[:, y_low_bkg:y_upp_bkg, x_low_bkg:x_upp_bkg]
             self.tpf_flux_bkg = post_bkg
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
