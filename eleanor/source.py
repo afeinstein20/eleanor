@@ -125,8 +125,18 @@ class Source(object):
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
+            if not os.path.exists(self.fn_dir):
+                try:
+                    os.mkdir(self.fn_dir)
+                except OSError:
+                    self.fn_dir = '.'
+                    warnings.warn('Warning: unable to create {}. '
+                                  'Downloading to the current '
+                                  'working directory instead.'.format(self.fn_dir))
+                    
         else:
             self.fn_dir  = fn_dir
+            
 
         if self.fn is not None:
             try:
