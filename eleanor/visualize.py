@@ -154,7 +154,7 @@ class Visualize(object):
         figure = plt.figure(figsize=(20,8))
         outer = gridspec.GridSpec(1,2, width_ratios=[1,4])
 
-        inner = gridspec.GridSpecFromSubplotSpec(nrows, ncols, hspace=0.1, wspace=0.1,
+        inner = gridspec.GridSpecFromSubplotSpec(ncols, nrows, hspace=0.1, wspace=0.1,
                                                  subplot_spec=outer[1])
 
         i, j = rowrange[0], colrange[0]
