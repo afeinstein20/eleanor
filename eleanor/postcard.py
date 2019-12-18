@@ -329,8 +329,9 @@ class Postcard_tesscut(object):
     @property
     def quality(self):
         sector = self.header['SECTOR']
-        array_obj = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
-        A = [int(x) for x in array_obj.read().decode('utf-8').split()]
+        eleanorpath = os.path.dirname(__file__).split('/')[0:-1]
+        eleanorpath = '/'.join(e for e in eleanorpath) 
+        A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
         return A
 
     @property
@@ -347,6 +348,8 @@ class Postcard_tesscut(object):
     @property
     def ffiindex(self):
         sector = self.header['SECTOR']
-        array_obj = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
-        A = [int(x) for x in array_obj.read().decode('utf-8').split()]
+        eleanorpath = os.path.dirname(__file__).split('/')[0:-1]
+        eleanorpath = '/'.join(e for e in eleanorpath) 
+        A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
         return A
+

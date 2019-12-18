@@ -197,7 +197,7 @@ class TargetData(object):
                     if source.pointing is not None:
                         self.pointing_model = source.pointing
                     else:
-                        self.pointing_model = load_pointing_model(source.postcard_path)
+                        self.pointing_model = load_pointing_model(source.pm_dir)
                 except:
                     self.pointing_model = None
                     
@@ -719,12 +719,14 @@ class TargetData(object):
         ----------
         """
         
+        eleanorpath = os.path.dirname(__file__).split('/')[0:-1]
+        eleanorpath = '/'.join(e for e in eleanorpath)
+
         try:
-            matrix_file = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
+            matrix_file = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
                                                                                                                                                          self.source_info.camera,
                                                                                                                                                          self.source_info.chip))
-            A = [float(x) for x in matrix_file.read().decode('utf-8').split()]
-            cbvs = np.asarray(A)
+            cbvs = np.asarray(matrix_file)
             self.cbvs = np.reshape(cbvs, (len(self.time), 16))
             
         except:

@@ -113,7 +113,7 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None, tc=False):
+    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None):
         self.tic       = tic
         self.gaia      = gaia
         self.coords    = coords
@@ -122,6 +122,11 @@ class Source(object):
         self.usr_sec   = sector
         self.tc        = tc
         self.contratio = None
+        self.post_dir  = post_dir
+        self.pm_dir   = None
+        
+        if self.pm_dir is None:
+            self.pm_dir = self.post_dir
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
@@ -195,7 +200,7 @@ class Source(object):
             self.tesscut_size = 31
 
             if tc == False:
-                self.locate_mast_postcard()
+                self.locate_postcard(local)
             if tc == True:
                 self.locate_with_tesscut() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
@@ -256,7 +261,7 @@ class Source(object):
             self.chip   = chip
             self.position_on_chip = position_on_chip
 
-    def locate_mast_postcard(self):
+    def locate_postcard(self, local):
         """ Finds the eleanor postcard, if available, this star falls on.
         
         Attributes
@@ -273,8 +278,13 @@ class Source(object):
         info_str = "{0:04d}-{1}-{2}-{3}".format(self.sector, self.camera, self.chip, "cal")
         postcard_fmt = "postcard-s{0}-{{0:04d}}-{{1:04d}}"
         postcard_fmt = postcard_fmt.format(info_str)
+        
 
-        guide_url = "https://archipelago.uchicago.edu/tess_postcards/metadata/postcard_centers.txt"
+        eleanorpath = os.path.dirname(__file__).split('/')[0:-1]
+        eleanorpath = '/'.join(e for e in eleanorpath)
+
+        guide_url = eleanorpath + '/metadata/postcard_centers.txt'
+        print(guide_url)
         guide     = Table.read(guide_url, format="ascii")
         
         col, row = self.position_on_chip[0], self.position_on_chip[1]
@@ -297,31 +307,46 @@ class Source(object):
             all_postcards.append(name)
         self.all_postcards = np.array(all_postcards)
         
-        postcard_obs = Observations.query_criteria(provenance_name="ELEANOR",
-                                                   target_name=self.postcard,
-                                                   obs_collection="HLSP")
+        print(self.postcard)
+        
+        if local == False:
+        
+            postcard_obs = Observations.query_criteria(provenance_name="ELEANOR",
+                                                       target_name=self.postcard,
+                                                       obs_collection="HLSP")
 
-        if len(postcard_obs) > 0:
-            product_list = Observations.get_product_list(postcard_obs)
+            if len(postcard_obs) > 0:
+                product_list = Observations.get_product_list(postcard_obs)
+                self.pointing = check_pointing(self.sector, self.camera, self.chip)
+
+                if self.pointing is None:
+                    extension = ["pc.fits", "bkg.fits", "pm.txt"]
+                else:
+                    extension = ["pc.fits", "bkg.fits"]
+
+                results = Observations.download_products(product_list, extension=extension,
+                                                         download_dir=self.fn_dir)
+                postcard_path = results['Local Path'][0]
+                self.postcard_path = '/'.join(e for e in postcard_path.split('/')[:-1])
+                self.postcard  = results['Local Path'][1].split('/')[-1]
+                self.postcard_bkg = results['Local Path'][0].split('/')[-1]
+                self.mast_results = results
+                self.cutout    = None  # Attribute for TessCut only
+
+            else:
+                print("No eleanor postcard has been made for your target (yet). Using TessCut instead.")
+                self.locate_with_tesscut()
+
+        else:
+            self.postcard_path = self.post_dir 
+            self.cutout = None #Attribute for TessCut only
+            self.postcard_bkg = 'hlsp_eleanor_tess_ffi_' + self.postcard + '_tess_v2_bkg.fits'
+            self.postcard = 'hlsp_eleanor_tess_ffi_' + self.postcard + '_tess_v2_pc.fits'
+
             self.pointing = check_pointing(self.sector, self.camera, self.chip)
 
-            if self.pointing is None:
-                extension = ["pc.fits", "bkg.fits", "pm.txt"]
-            else:
-                extension = ["pc.fits", "bkg.fits"]
-
-            results = Observations.download_products(product_list, extension=extension,
-                                                     download_dir=self.fn_dir)
-            postcard_path = results['Local Path'][0]
-            self.postcard_path = '/'.join(e for e in postcard_path.split('/')[:-1])
-            self.postcard  = results['Local Path'][1].split('/')[-1]
-            self.postcard_bkg = results['Local Path'][0].split('/')[-1]
-            self.mast_results = results
-            self.cutout    = None  # Attribute for TessCut only
-        else:
-            print("No eleanor postcard has been made for your target (yet). Using TessCut instead.")
-            self.locate_with_tesscut()
-
+            
+            
             
     def locate_with_tesscut(self):
         """

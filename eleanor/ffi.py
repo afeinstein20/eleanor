@@ -488,8 +488,11 @@ class ffi:
 
 
         pm_fn = 'pointingModel_{0:04d}_{1}-{2}.txt'.format(self.sector, self.camera, self.chip)
+        
+        eleanorpath = os.path.dirname(__file__).split('/')[0:-1]
+        eleanorpath = '/'.join(e for e in eleanorpath)
 
-        qf = np.loadtxt('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector,
+        qf = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector,
                                                                                                                         self.sector))
 
         if out_dir is not None:
