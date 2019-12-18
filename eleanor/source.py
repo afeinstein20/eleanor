@@ -284,7 +284,6 @@ class Source(object):
         eleanorpath = '/'.join(e for e in eleanorpath)
 
         guide_url = eleanorpath + '/metadata/postcard_centers.txt'
-        print(guide_url)
         guide     = Table.read(guide_url, format="ascii")
         
         col, row = self.position_on_chip[0], self.position_on_chip[1]
@@ -307,7 +306,6 @@ class Source(object):
             all_postcards.append(name)
         self.all_postcards = np.array(all_postcards)
         
-        print(self.postcard)
         
         if local == False:
         
