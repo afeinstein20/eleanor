@@ -22,7 +22,7 @@ from .utils import *
 __all__ = ['Source', 'multi_sectors']
 
 
-def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
+def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False, local=False, post_dir=None, pm_dir=None):
     """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
 
     Parameters
@@ -63,7 +63,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False):
 
     if (type(sectors) == list) or (type(sectors) == np.ndarray):
         for s in sectors:
-            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc)
+            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc, local=local, post_dir=post_dir, pm_dir=pm_dir)
             if star.sector is not None:
                 objs.append(star)
         if len(objs) < len(sectors):

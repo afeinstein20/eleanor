@@ -83,7 +83,8 @@ class Update(object):
             print('Cadences Calculated')
             self.get_quality()
             print('Quality Flags Assured')
-
+            print('Success!')
+            
 
     def get_target(self):
         tpf = search_targetpixelfile('tic %s'%str(self.tic), mission='TESS', sector=self.sector).download()
