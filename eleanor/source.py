@@ -18,6 +18,7 @@ import urllib
 from .ffi import check_pointing
 from .mast import *
 from .utils import *
+from .maxsector import maxsector
 
 __all__ = ['Source', 'multi_sectors']
 
@@ -53,7 +54,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False, local=Fal
             if type(coords) is SkyCoord:
                 coords = (coords.ra.degree, coords.dec.degree)
             result = tess_stars2px(8675309, coords[0], coords[1])
-            sector = result[3][result[3] < 16.5]
+            sector = result[3][result[3] < maxsector + 0.5]
             sectors = sector.tolist()
 
         if sectors[0] < 0:
