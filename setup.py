@@ -24,6 +24,7 @@ Read the documentation at https://adina.feinste.in/eleanor
 Changes to v1.0.1 (2019-12-19):
 * Ability to use local postcards
 * Addition of eleanor.Update() for automatic sector updates
+* Significant speedups when TIC, Coords, and a Gaia ID are all provided
 * Other bug fixes
 
 Changes to v1.0.0 (2019-12-16):
