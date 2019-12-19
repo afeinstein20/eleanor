@@ -58,7 +58,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False, local=Fal
             sectors = sector.tolist()
 
         if sectors[0] < 0:
-            raise SearchError("Your target is not observed by TESS.")
+            raise SearchError("Your target is not observed by TESS, or maybe you need to run eleanor.Update()")
         else:
             print('Found star in Sector(s) ' +" ".join(str(x) for x in sectors))
 

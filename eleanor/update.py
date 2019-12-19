@@ -9,6 +9,9 @@ from astropy.io import fits
 import numpy as np
 from lightkurve import TessLightCurveFile, search_targetpixelfile
 import sys
+import urllib.parse as urlparse
+import requests
+from bs4 import BeautifulSoup
 
 
 eleanorpath = os.path.dirname(__file__)
@@ -49,11 +52,20 @@ def date_to_jd(year,month,day):
     
     return jd 
 
+def listFD(url, ext=''):
+    page = requests.get(url).text
+    soup = BeautifulSoup(page, 'html.parser')
+    return [url + node.get('href') for node in soup.find_all('a') if node.get('href').endswith(ext)]
+
 __all__  = ['Update']
 
 class Update(object):
 
-    def __init__(self, sector):
+    def __init__(self, sector=None):
+        
+        if sector is None:
+            print('Please pass a sector into eleanor.Update()!')
+            return
         
         self.sector = sector
         
@@ -69,12 +81,24 @@ class Update(object):
             tic_north_cvz = 198237770
             tic_south_cvz = 38846515
 
-            if sector < 13.5:
+            if self.sector < 13.5:
                 self.tic = tic_south_cvz
-            elif sector < 26.5:
+            elif self.sector < 26.5:
                 self.tic = tic_north_cvz
             else:
                 self.tic = tic_south_cvz
+                
+            if self.tic == 198237770:
+                coord = SkyCoord('16:35:50.667 +63:54:39.87', unit=(u.hourangle, u.deg))
+            elif self.tic == 38846515:
+                coord = SkyCoord('04:35:50.330 -64:01:37.33', unit=(u.hourangle, u.deg))
+
+            sector_table = Tesscut.get_sectors(coord)
+
+
+            manifest = Tesscut.download_cutouts(coord, 31, sector = self.sector)
+
+            self.cutout = fits.open(manifest['Local Path'][0])
 
             print('Searching for Data...')
             self.get_target()
@@ -83,10 +107,63 @@ class Update(object):
             print('Cadences Calculated')
             self.get_quality()
             print('Quality Flags Assured')
+            self.get_cbvs()
+            print('CBVs Made')
             print('Success! Sector {:2d} now available.'.format(self.sector))
             
             self.try_next_sector()
             
+    def get_cbvs(self):
+        if self.sector <= 6:
+            year = 2018
+        elif self.sector <= 19:
+            year = 2019
+        else:
+            year = 2020
+
+
+        url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
+
+        directs = []
+        for file in listFD(url):
+            directs.append(file)
+        directs = np.sort(directs)[1::]
+
+        subdirects = []
+        for file in listFD(directs[0]):
+            subdirects.append(file)
+        subdirects = np.sort(subdirects)[1:-4]
+        for i in range(len(subdirects)):
+            file = listFD(subdirects[i], ext='cbv.fits')[0]
+            os.system('curl -O -L {}'.format(file))
+            
+        time = self.cutout[1].data['TIME'] - self.cutout[1].data['TIMECORR']
+
+        files = os.listdir('.')
+        files = [i for i in files if i.endswith('cbv.fits') and 's{0:04d}'.format(self.sector) in i]
+        
+        for c in range(len(files)):
+            cbv      = fits.open(files[c])
+            camera   = cbv[1].header['CAMERA']
+            ccd      = cbv[1].header['CCD']
+            cbv_time = cbv[1].data['Time']
+            
+            new_fn = eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.sector, camera, ccd)
+
+            convolved = np.zeros((len(time), 16))
+            inds = np.array([], dtype=int)
+            for i in range(len(time)):
+                g = np.argmin( np.abs(time[i] -cbv_time) )
+                for j in range(16):
+                    index = 'VECTOR_{0}'.format(j+1)
+                    cads  = np.arange(g-7, g+8,1)
+                    convolved[i,j] = np.mean(cbv[1].data[index][cads])
+            np.savetxt(new_fn, convolved)
+            cbv.close()
+        files = [i for i in files if i.endswith('.fits') and 's{0:04d}'.format(self.sector) in i]
+        for c in range(len(files)):
+            os.remove(files[c])
+
     
     def try_next_sector(self):
         try:
@@ -95,7 +172,7 @@ class Update(object):
             f = open('maxsector.py', 'w')
             f.write('maxsector = {:2d}'.format(self.sector))
             f.close()
-            print('Sector {:2d} appears to be available as well, run eleanor.Update() to include that sector next!'.format(self.sector+1))
+            print('Sector {:2d} may be available as well, run eleanor.Update() to include that sector next!'.format(self.sector+1))
         except HTTPError:
             print('Sector {:2d} does not yet appear to be available. You now have the most recent TESS data!'.format(self.sector+1))
 
@@ -125,7 +202,7 @@ class Update(object):
             cad = (tjd - index_t0)/(30./1440.)
             outarr[i] = (int(np.round(cad))+index_zeropoint)
 
-        np.savetxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.fits'.format(self.sector, self.sector), outarr, fmt='%i')
+        np.savetxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(self.sector, self.sector), outarr, fmt='%i')
         return
 
 
@@ -133,18 +210,8 @@ class Update(object):
         """ Uses the quality flags in a 2-minute target to create quality flags
             in the postcards.
         """
-        if self.tic == 198237770:
-            coord = SkyCoord('16:35:50.667 +63:54:39.87', unit=(u.hourangle, u.deg))
-        elif self.tic == 38846515:
-            coord = SkyCoord('04:35:50.330 -64:01:37.33', unit=(u.hourangle, u.deg))
 
-        sector_table = Tesscut.get_sectors(coord)
-
-
-        manifest = Tesscut.download_cutouts(coord, 31, sector = self.sector)
-
-        cutout = fits.open(manifest['Local Path'][0])
-        ffi_time = cutout[1].data['TIME'] - cutout[1].data['TIMECORR']
+        ffi_time = self.cutout[1].data['TIME'] - self.cutout[1].data['TIMECORR']
 
 
         shortCad_fn = eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector)
@@ -166,7 +233,7 @@ class Update(object):
         for i in range(len(ffi_time)):
             where = np.where(np.abs(ffi_time[i] - twoMinTime) == np.min(np.abs(ffi_time[i] - twoMinTime)))[0][0]
 
-            sflux = np.sum(cutout[1].data['FLUX'][i])
+            sflux = np.sum(self.cutout[1].data['FLUX'][i])
             if sflux == 0:
                 nodata[i] = 4096
 
