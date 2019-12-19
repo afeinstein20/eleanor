@@ -280,8 +280,7 @@ class Source(object):
         postcard_fmt = postcard_fmt.format(info_str)
         
 
-        eleanorpath = os.path.dirname(__file__).split('/')[0:-1]
-        eleanorpath = '/'.join(e for e in eleanorpath)
+        eleanorpath = os.path.dirname(__file__)
 
         guide_url = eleanorpath + '/metadata/postcard_centers.txt'
         guide     = Table.read(guide_url, format="ascii")

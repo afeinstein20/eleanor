@@ -80,7 +80,7 @@ def convolve_cbvs(sectors=np.arange(1,14,1)):
             ccd      = cbv[1].header['CCD']
             cbv_time = cbv[1].data['Time']
             
-            new_fn = './metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(sector, camera, ccd)
+            new_fn = './eleanor/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(sector, camera, ccd)
     
             convolved = np.zeros((len(time), 16))
             
@@ -111,7 +111,7 @@ def set_quality_flags(sector=np.arange(1,14,1)):
     ffi_time = cutout[1].data['TIME'] - cutout[1].data['TIMECORR']
     
     
-    shortCad_fn = 'metadata/s{0:04d}/target_s{0:04d}.fits'.format(sector)
+    shortCad_fn = 'eleanor/metadata/s{0:04d}/target_s{0:04d}.fits'.format(sector)
     
     # Binary string for values which apply to the FFIs
     ffi_apply = int('100010101111', 2)
@@ -145,7 +145,7 @@ def set_quality_flags(sector=np.arange(1,14,1)):
 
     flags    = np.bitwise_and(convolve_ffi, ffi_apply)
     
-    np.savetxt('metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector), flags+nodata, fmt='%i')
+    np.savetxt('eleanor/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector), flags+nodata, fmt='%i')
 
     return flags
 

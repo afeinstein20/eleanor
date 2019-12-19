@@ -173,7 +173,7 @@ class TargetData(object):
                 self.ffiindex = self.post_obj.ffiindex
                 self.flux_bkg = self.post_obj.bkg 
                 self.get_time(source.coords)
-
+                
                 if bkg_size is None:
                     bkg_size = width
 
@@ -719,8 +719,7 @@ class TargetData(object):
         ----------
         """
         
-        eleanorpath = os.path.dirname(__file__).split('/')[0:-1]
-        eleanorpath = '/'.join(e for e in eleanorpath)
+        eleanorpath = os.path.dirname(__file__)
 
         try:
             matrix_file = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
@@ -1465,6 +1464,7 @@ class TargetData(object):
 
                 
         self.get_cbvs()
+        
 
         return
 
