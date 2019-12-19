@@ -21,12 +21,19 @@ takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
 observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
-
-Changes to v0.2.10 (2019-11-07):
-
-* Updated to include Sector 16
-* Handling edge cases with TessCut
+Changes to v1.0.1 (2019-12-19):
+* Ability to use local postcards
+* Addition of eleanor.Update() for automatic sector updates
 * Other bug fixes
+
+Changes to v1.0.0 (2019-12-16):
+* Interfaces with MAST for all postcards in sectors 1-13. Use tc=False
+to use these data!
+* Addition of 2d background models
+* Speed enhancements
+* Better handling of edge cases
+* Improvements to PSF modeling
+* Other bugfixes
 """
 
 
