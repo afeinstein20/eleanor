@@ -83,8 +83,21 @@ class Update(object):
             print('Cadences Calculated')
             self.get_quality()
             print('Quality Flags Assured')
-            print('Success!')
+            print('Success! Sector {:2d} now available.'.format(self.sector))
             
+            self.try_next_sector()
+            
+    
+    def try_next_sector(self):
+        try:
+            filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:2d}_ffic.sh'.
+                  format(self.sector+1))
+            f = open('maxsector.py', 'w')
+            f.write('maxsector = {:2d}'.format(self.sector))
+            f.close()
+            print('Sector {:2d} appears to be available as well, run eleanor.Update() to include that sector next!'.format(self.sector+1))
+        except HTTPError:
+            print('Sector {:2d} does not yet appear to be available. You now have the most recent TESS data!'.format(self.sector+1))
 
     def get_target(self):
         tpf = search_targetpixelfile('tic %s'%str(self.tic), mission='TESS', sector=self.sector).download()
