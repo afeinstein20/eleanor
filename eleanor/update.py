@@ -14,8 +14,13 @@ import requests
 from bs4 import BeautifulSoup
 
 
-eleanorpath = os.path.dirname(__file__)
-
+eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+if not os.path.exists(eleanorpath):
+    try:
+        os.mkdir(eleanorpath)
+    except OSError:
+        eleanorpath = os.path.dirname(__file__)
+                
 def hmsm_to_days(hour=0,min=0,sec=0,micro=0):
     days = sec + (micro / 1.e6)    
     days = min + (days / 60.)   
@@ -57,7 +62,17 @@ def listFD(url, ext=''):
     soup = BeautifulSoup(page, 'html.parser')
     return [url + node.get('href') for node in soup.find_all('a') if node.get('href').endswith(ext)]
 
-__all__  = ['Update']
+__all__  = ['Update', 'update_all']
+
+def update_all():
+    sector = 1
+    good = 1
+    while good:
+        try:
+            Update(sector=sector)
+        except AttributeError:
+            good = 0
+        sector += 1
 
 class Update(object):
 
@@ -100,7 +115,8 @@ class Update(object):
 
             self.cutout = fits.open(manifest['Local Path'][0])
 
-            print('Searching for Data...')
+            print('This is the first light curve you have made for this sector. Getting eleanor metadata products for Sector {0:2d}...'.format(self.sector))
+            print('This will only take a minute, and only needs to be done once. Any other light curves you make in this sector will be faster.')
             self.get_target()
             print('Target Acquired')
             self.get_cadences()
@@ -160,25 +176,32 @@ class Update(object):
                     convolved[i,j] = np.mean(cbv[1].data[index][cads])
             np.savetxt(new_fn, convolved)
             cbv.close()
-        files = [i for i in files if i.endswith('.fits') and 's{0:04d}'.format(self.sector) in i]
+        files = [i for i in files if i.endswith('.fits')]
         for c in range(len(files)):
             os.remove(files[c])
 
     
     def try_next_sector(self):
-        try:
-            filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:2d}_ffic.sh'.
-                  format(self.sector+1))
-            f = open('maxsector.py', 'w')
+        codepath = os.path.dirname(__file__)
+        f1 = open(codepath + '/maxsector.py', 'r')
+        oldmax = float(f1.readline().split('=')[-1])
+        if self.sector > oldmax:          
+            f = open(codepath + '/maxsector.py', 'w')
             f.write('maxsector = {:2d}'.format(self.sector))
             f.close()
-            print('Sector {:2d} may be available as well, run eleanor.Update() to include that sector next!'.format(self.sector+1))
-        except HTTPError:
-            print('Sector {:2d} does not yet appear to be available. You now have the most recent TESS data!'.format(self.sector+1))
+        
 
     def get_target(self):
-        tpf = search_targetpixelfile('tic %s'%str(self.tic), mission='TESS', sector=self.sector).download()
-        tpf.to_fits(output_fn=eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector, self.sector))
+        print('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_lc.sh'.format(self.sector))
+        filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_lc.sh'.
+                           format(self.sector))
+        for line in filelist:
+            if len(str(line)) > 30:
+                print(str(line)[2:-3])
+                os.system(str(line)[2:-3])
+                fn = str(line)[2:-3].split()[5]
+                os.rename(fn, eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector, self.sector))
+                break
         return
 
     def get_cadences(self):
@@ -186,7 +209,7 @@ class Update(object):
         index_t0 = 1491.625533688852
 
         times = np.array([], dtype=int)
-        filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:2d}_ffic.sh'.
+        filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_ffic.sh'.
                           format(self.sector))
         for line in filelist:
             if len(str(line)) > 30:

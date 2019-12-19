@@ -19,6 +19,7 @@ from .ffi import check_pointing
 from .mast import *
 from .utils import *
 from .maxsector import maxsector
+from .update import *
 
 __all__ = ['Source', 'multi_sectors']
 
@@ -139,10 +140,19 @@ class Source(object):
                     warnings.warn('Warning: unable to create {}. '
                                   'Downloading to the current '
                                   'working directory instead.'.format(self.fn_dir))
+        
                     
         else:
             self.fn_dir  = fn_dir
             
+        self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+        if not os.path.exists(self.eleanorpath):
+            try:
+                os.mkdir(self.eleanorpath)
+            except OSError:
+                self.eleanorpath = os.path.dirname(__file__)
+        if not os.path.exists(self.eleanorpath + '/metadata'):
+            os.mkdir(self.eleanorpath + '/metadata')
 
         if self.fn is not None:
             try:
@@ -205,6 +215,9 @@ class Source(object):
             self.tess_mag = self.tess_mag[0]            
             self.locate_on_tess()
             self.tesscut_size = 31
+            
+            if not os.path.isdir(self.eleanorpath + '/metadata/s{:04d}'.format(self.sector)):
+                Update(sector=self.sector)
 
             if tc == False:
                 self.locate_postcard(local)
@@ -289,7 +302,7 @@ class Source(object):
 
         eleanorpath = os.path.dirname(__file__)
 
-        guide_url = eleanorpath + '/metadata/postcard_centers.txt'
+        guide_url = eleanorpath + '/postcard_centers.txt'
         guide     = Table.read(guide_url, format="ascii")
         
         col, row = self.position_on_chip[0], self.position_on_chip[1]

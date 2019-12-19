@@ -719,10 +719,8 @@ class TargetData(object):
         ----------
         """
         
-        eleanorpath = os.path.dirname(__file__)
-
         try:
-            matrix_file = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
+            matrix_file = np.loadtxt(self.source_info.eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
                                                                                                                                                          self.source_info.camera,
                                                                                                                                                          self.source_info.chip))
             cbvs = np.asarray(matrix_file)

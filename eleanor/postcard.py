@@ -329,7 +329,7 @@ class Postcard_tesscut(object):
     @property
     def quality(self):
         sector = self.header['SECTOR']
-        eleanorpath = os.path.dirname(__file__)
+        eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
         A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
         return A
 
@@ -347,7 +347,7 @@ class Postcard_tesscut(object):
     @property
     def ffiindex(self):
         sector = self.header['SECTOR']
-        eleanorpath = os.path.dirname(__file__)
+        eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
         A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
         return A
 
