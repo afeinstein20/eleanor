@@ -349,6 +349,7 @@ class Source(object):
                 self.postcard_bkg = results['Local Path'][0].split('/')[-1]
                 self.mast_results = results
                 self.cutout    = None  # Attribute for TessCut only
+                self.pm_dir = self.postcard_path
 
             else:
                 print("No eleanor postcard has been made for your target (yet). Using TessCut instead.")
@@ -362,7 +363,6 @@ class Source(object):
 
             self.pointing = check_pointing(self.sector, self.camera, self.chip)
 
-            
             
             
     def locate_with_tesscut(self):
