@@ -192,12 +192,10 @@ class Update(object):
         
 
     def get_target(self):
-        print('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_lc.sh'.format(self.sector))
         filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_lc.sh'.
                            format(self.sector))
         for line in filelist:
             if len(str(line)) > 30:
-                print(str(line)[2:-3])
                 os.system(str(line)[2:-3])
                 fn = str(line)[2:-3].split()[5]
                 os.rename(fn, eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector, self.sector))

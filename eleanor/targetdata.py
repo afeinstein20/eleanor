@@ -1118,9 +1118,6 @@ class TargetData(object):
         if bkg is None:
             bkg = self.flux_bkg
             
-        if pca == True:
-            if self.source_info.tc == True:
-                flux = self.raw_flux - bkg*np.sum(self.aperture)
 
         flux = np.array(flux)
         med = np.nanmedian(flux)
