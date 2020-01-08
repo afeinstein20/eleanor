@@ -193,7 +193,7 @@ class Source(object):
                 if self.tic is None:
                     self.tic, self.tess_mag, sep, self.tic_version, self.contratio = tic_from_coords(self.coords)
                 else:
-                    self.tess_mag = 999
+                    self.tess_mag = [999]
                     self.tic_version = None
                     self.contratio = 0.0
                 if self.gaia is None:
