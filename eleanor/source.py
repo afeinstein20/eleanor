@@ -211,8 +211,9 @@ class Source(object):
                 assert False, ("Source: one of the following keywords must be given: "
                                "tic, gaia, coords, fn.")
                 
-
-            self.tess_mag = self.tess_mag[0]            
+            if isinstance(self.tess_mag,list):
+                self.tess_mag = self.tess_mag[0] 
+                
             self.locate_on_tess()
             self.tesscut_size = 31
             
