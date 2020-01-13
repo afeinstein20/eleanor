@@ -110,7 +110,7 @@ class Visualize(object):
 
 
 
-    def pixel_by_pixel(self, colrange=None, rowrange=None,
+    def pixel_by_pixel(self, colrange=None, rowrange=None, cmap='viridis',
                        data_type="corrected", mask=None, xlim=None,
                        ylim=None, color_by_pixel=False):
         """
@@ -125,6 +125,8 @@ class Visualize(object):
         rowrange : np.array, optional
              A list of start row and end row you're interested in zooming
              in on.
+        cmap : str, optional
+             Name of a matplotlib colormap. Default is 'viridis'.
         data_type : str, optional
              The type of flux used. Either: 'raw', 'corrected' or 'amplitude'.
              If not, default set to 'corrected'.
@@ -173,7 +175,8 @@ class Visualize(object):
         
         c = ax.imshow(self.flux[100, rowrange[0]:rowrange[1],
                                 colrange[0]:colrange[1]],
-                      vmax=np.percentile(self.flux[100], 95))
+                      vmax=np.percentile(self.flux[100], 95),
+                      cmap=cmap)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.15)
         plt.colorbar(c, cax=cax, orientation='vertical')
