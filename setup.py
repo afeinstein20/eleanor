@@ -27,13 +27,8 @@ Changes to v1.0.1 (2019-12-19):
 * Significant speedups when TIC, Coords, and a Gaia ID are all provided
 * Other bug fixes
 
-Changes to v1.0.0 (2019-12-16):
-* Interfaces with MAST for all postcards in sectors 1-13. Use tc=False
-to use these data!
-* Addition of 2d background models
-* Speed enhancements
-* Better handling of edge cases
-* Improvements to PSF modeling
+Changes to v1.0.0 (2020-01-15):
+* Removed some package dependencies\
 * Other bugfixes
 """
 
