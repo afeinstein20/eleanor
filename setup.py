@@ -29,6 +29,8 @@ Changes to v1.0.1 (2019-12-19):
 
 Changes to v1.0.0 (2020-01-15):
 * Removed some package dependencies\
+* Added clarifications in documentation
+* Added new features to visualization tools
 * Other bugfixes
 """
 
