@@ -564,7 +564,7 @@ class TargetData(object):
             
             for a in range(len(self.all_apertures)):       
                 try:
-                    all_lc_err[a] = np.sqrt( np.nansum(self.tpf_err**2 * self.all_apertures[a]) )
+                    all_lc_err[a] = np.sqrt( np.nansum(self.tpf_err**2 * self.all_apertures[a], axis=(1,2)))
                     all_raw_lc_pc_sub[a] = np.nansum( (self.tpf * self.all_apertures[a]), axis=(1,2) )
                     
                     oned_bkg = np.zeros(self.tpf.shape)
