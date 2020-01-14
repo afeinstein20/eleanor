@@ -7,6 +7,7 @@ import warnings, os, requests
 import lightkurve as lk
 from bs4 import BeautifulSoup
 from pylab import *
+from astropy.timeseries import LombScargle
 
 from .ffi import use_pointing_model, load_pointing_model
 from .mast import *
@@ -112,7 +113,7 @@ class Visualize(object):
 
     def pixel_by_pixel(self, colrange=None, rowrange=None, cmap='viridis',
                        data_type="corrected", mask=None, xlim=None,
-                       ylim=None, color_by_pixel=False):
+                       ylim=None, color_by_pixel=False, freq_range=[1/20., 1/0.1]):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
         Contribution from Oliver Hall.
@@ -128,8 +129,8 @@ class Visualize(object):
         cmap : str, optional
              Name of a matplotlib colormap. Default is 'viridis'.
         data_type : str, optional
-             The type of flux used. Either: 'raw', 'corrected' or 'amplitude'.
-             If not, default set to 'corrected'.
+             The type of flux used. Either: 'raw', 'corrected', 'amplitude',
+             or 'periodogram'. If not, default set to 'corrected'.
         mask : np.array, optional
              Specifies the cadences used in the light curve. If not, default
              set to good quality cadences.
@@ -142,6 +143,10 @@ class Visualize(object):
         color_by_pixel : bool, optional
              Colors the light curve given the color of the pixel. If not,
              default is set to False.
+        freq_range : list, optional
+             List of minimum and maximum frequency to search in Lomb Scargle
+             periodogram. Only used if data_type = 'periodogram'. If None,
+             default = [1/20., 1/0.1].
         """
         if colrange is None:
             colrange = [0, self.dimensions[1]]
@@ -202,6 +207,13 @@ class Visualize(object):
             elif data_type.lower() == 'raw':
                 y = flux[q]/np.nanmedian(flux[q])
                 x = time[q]
+            
+            elif data_type.lower() == 'periodogram':
+                freq, power = LombScargle(time, corr_flux).autopower(minimum_frequency=freq_range[0],
+                                                                     maximum_frequency=freq_range[1],
+                                                                     method='fast')
+                y = power
+                x = 1/freq
 
             if color_by_pixel is False:
                 color = 'k'
@@ -232,8 +244,8 @@ class Visualize(object):
                 ax.set_ylim(y.min(), y.max())
                 ax.set_xlim(np.min(x),
                             np.max(x))
-                ax.set_xticks([])
-                ax.set_yticks([])
+#                ax.set_xticks([])
+#                ax.set_yticks([])
 
             ax.set_xticks([])
             ax.set_yticks([])
