@@ -27,7 +27,7 @@ Changes to v1.0.1 (2019-12-19):
 * Significant speedups when TIC, Coords, and a Gaia ID are all provided
 * Other bug fixes
 
-Changes to v1.0.0 (2020-01-15):
+Changes to v1.0.0 (2020-01-14):
 * Removed some package dependencies\
 * Added clarifications in documentation
 * Added new features to visualization tools
