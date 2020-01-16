@@ -125,8 +125,8 @@ class Source(object):
         self.tc        = tc
         self.contratio = None
         self.post_dir  = post_dir
-        self.pm_dir   = None
-        
+        self.pm_dir = pm_dir
+
         if self.pm_dir is None:
             self.pm_dir = self.post_dir
 
@@ -351,6 +351,8 @@ class Source(object):
                 self.mast_results = results
                 self.cutout    = None  # Attribute for TessCut only
                 self.pm_dir = self.postcard_path
+                self.pointing = check_pointing(self.sector, self.camera, self.chip, self.pm_dir)
+
 
             else:
                 print("No eleanor postcard has been made for your target (yet). Using TessCut instead.")
