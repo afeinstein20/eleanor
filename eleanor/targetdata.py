@@ -197,7 +197,7 @@ class TargetData(object):
                     if source.pointing is not None:
                         self.pointing_model = source.pointing
                     else:
-                        self.pointing_model = load_pointing_model(source.pm_dir)
+                        self.pointing_model = load_pointing_model(source.pm_dir, source.sector, source.camera, source.chip)
                 except:
                     self.pointing_model = None
                     

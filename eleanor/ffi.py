@@ -13,30 +13,17 @@ import urllib
 
 from .mast import tic_by_contamination
 
-def make_pm_dir(postcard_dir=None):
-    """ Creates a directory for pointing models.
-    """
-    pm_dir = os.path.join(os.path.expanduser('~'), '.eleanor/pointing_models')
-    if os.path.isdir(pm_dir) is False:
-        try:
-            os.mkdir(pm_dir)
-            return pm_dir
-        except OSError:
-            if postcard_dir is None:
-                return '.'
-            else:
-                return postcard_dir
-    else:
-        return pm_dir
 
-
-def check_pointing(sector, camera, chip):
+def check_pointing(sector, camera, chip, path=None):
     """ Checks to see if a pointing model exists locally already.
     """
     # Tries to create a pointing model directory
-    pm_dir = make_pm_dir()
+    if path == None:
+        pm_dir = '.'
+    else:
+        pm_dir = path
 
-    search = 's{0:04d}-{1}-{2}'.format(sector, camera, chip)
+    search = 's{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(sector, camera, chip)
     
     # Checks a directory of pointing models, if it exists
     # Returns the pointing model if it's in the pointing model directory
@@ -49,16 +36,13 @@ def check_pointing(sector, camera, chip):
         return None
 
 
-def load_pointing_model(postcard_dir):
-    """ Loads in pointing model from website.
+def load_pointing_model(pm_dir, sector, camera, chip):
+    """ Loads in pointing model.
     """
-    files = os.listdir(postcard_dir)
-    pm    = [i for i in files if i.endswith('.txt')]
-    pointing = Table.read(os.path.join(postcard_dir, pm[0]), format="ascii.basic")
-
-    pm_dir = make_pm_dir(postcard_dir=postcard_dir)
-    os.system('mv {0} {1}'.format(os.path.join(postcard_dir, pm[0]),
-                                  os.path.join(pm_dir, pm[0])))
+    files = os.listdir(pm_dir)
+    search = 's{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(sector, camera, chip)
+    pm    = [i for i in files if search in i]
+    pointing = Table.read(os.path.join(pm_dir, pm[0]), format="ascii.basic")
     
     return pointing
                 
