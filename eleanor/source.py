@@ -24,7 +24,7 @@ from .update import *
 __all__ = ['Source', 'multi_sectors']
 
 
-def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False, local=False, post_dir=None, pm_dir=None):
+def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False, local=False, post_dir=None, pm_dir=None):
     """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
 
     Parameters
@@ -50,6 +50,8 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, tc=False, local=Fal
                 coords, _, _, _ = coords_from_tic(tic)
             elif gaia is not None:
                 coords = coords_from_gaia(gaia)
+            elif name is not None:
+                coords = coords_from_name(name)
 
         if coords is not None:
             if type(coords) is SkyCoord:
@@ -86,6 +88,8 @@ class Source(object):
         The Gaia DR2 source_id.
     coords : tuple or astropy.coordinates.SkyCoord, optional
         The (RA, Dec) coords of the object in degrees or an astropy SkyCoord object.
+    name : str, optional
+        The name of your target (e.g. "HD#####" or "M31").
     fn : str, optional
         Filename of a TPF corresponding to the desired source.
     sector : int or str
@@ -115,10 +119,12 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None, fn=None, sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None):
+    def __init__(self, tic=None, gaia=None, coords=None, name=None, fn=None, 
+                 sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None):
         self.tic       = tic
         self.gaia      = gaia
         self.coords    = coords
+        self.name      = name
         self.fn        = fn
         self.premade   = False
         self.usr_sec   = sector
@@ -206,6 +212,10 @@ class Source(object):
             elif self.tic is not None:
                 self.coords, self.tess_mag, self.tic_version, self.contratio = coords_from_tic(self.tic)
                 self.gaia = gaia_from_coords(self.coords)
+
+            elif self.name is not None:
+                self.coords = coords_from_name(self.name)
+                self.tic, self.tess_mag, sep, self.tic_version, self.contratio = tic_from_coords(self.coords)
 
             else:
                 assert False, ("Source: one of the following keywords must be given: "
