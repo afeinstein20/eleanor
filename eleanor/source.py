@@ -335,7 +335,7 @@ class Source(object):
 
             if len(postcard_obs) > 0:
                 product_list = Observations.get_product_list(postcard_obs)
-                self.pointing = check_pointing(self.sector, self.camera, self.chip)
+                self.pointing = check_pointing(self.sector, self.camera, self.chip, self.pm_dir)
 
                 if self.pointing is None:
                     extension = ["pc.fits", "bkg.fits", "pm.txt"]
@@ -364,7 +364,7 @@ class Source(object):
             self.postcard_bkg = 'hlsp_eleanor_tess_ffi_' + self.postcard + '_tess_v2_bkg.fits'
             self.postcard = 'hlsp_eleanor_tess_ffi_' + self.postcard + '_tess_v2_pc.fits'
 
-            self.pointing = check_pointing(self.sector, self.camera, self.chip)
+            self.pointing = check_pointing(self.sector, self.camera, self.chip, self.pm_dir)
 
             
             
