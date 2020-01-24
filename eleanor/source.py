@@ -53,6 +53,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False
             elif name is not None:
                 coords = coords_from_name(name)
 
+
         if coords is not None:
             if type(coords) is SkyCoord:
                 coords = (coords.ra.degree, coords.dec.degree)
@@ -216,6 +217,7 @@ class Source(object):
             elif self.name is not None:
                 self.coords = coords_from_name(self.name)
                 self.tic, self.tess_mag, sep, self.tic_version, self.contratio = tic_from_coords(self.coords)
+                self.gaia = gaia_from_coords(self.coords)
 
             else:
                 assert False, ("Source: one of the following keywords must be given: "
