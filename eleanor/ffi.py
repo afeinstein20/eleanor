@@ -86,7 +86,7 @@ def pm_quality(time, sector, camera, chip, pm=None):
         cent_x,cent_y = [], []
 
         if pm is None:
-            pm = load_pointing_model(sector, camera, chip)
+            pm = load_pointing_model(pm_dir, sector, camera, chip)
 
         # Applies centroids
         for i in range(len(pm)):
