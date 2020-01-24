@@ -38,8 +38,8 @@ install:
   - python setup.py install
 
 script:
+  - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
   - pytest eleanor/tests/* --cov=eleanor/
 
 after_success:
   - codecov
-  - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
