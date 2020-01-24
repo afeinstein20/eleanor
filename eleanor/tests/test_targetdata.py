@@ -19,7 +19,7 @@ def test_making_tpfs():
     data2 = TargetData(star2)
     data3 = TargetData(star3)
 
-    test1 = np.sum(data1.raw_flux - data2.raw_flux) # should be zero
+    test1 = np.sum(data1.raw_flux - data2.raw_flux) # should be exactly zero
     test2 = np.sum(data2.raw_flux - data3.raw_flux) # should be zero
 
     assert(test1 == test2)
