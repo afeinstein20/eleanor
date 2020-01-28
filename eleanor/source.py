@@ -53,7 +53,6 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False
             elif name is not None:
                 coords = coords_from_name(name)
 
-
         if coords is not None:
             if type(coords) is SkyCoord:
                 coords = (coords.ra.degree, coords.dec.degree)
