@@ -23,7 +23,6 @@ import eleanor
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
 
-
 __all__  = ['TargetData']
 
 class TargetData(object):
