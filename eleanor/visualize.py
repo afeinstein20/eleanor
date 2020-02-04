@@ -292,3 +292,43 @@ class Visualize(object):
             return YouTubeVideo(id=id, width=900, height=500)
 
             
+    def lightkurve_wcs(self):   
+        from astropy.io.fits import Undefined
+        from astropy.wcs import WCS
+        # based on https://github.com/KeplerGO/lightkurve/blob/master/lightkurve/targetpixelfile.py
+        wcs_keywords = {'1CTYP5': 'CTYPE1',
+                        '2CTYP5': 'CTYPE2',
+                        '1CRPX5': 'CRPIX1',
+                        '2CRPX5': 'CRPIX2',
+                        '1CRVL5': 'CRVAL1',
+                        '2CRVL5': 'CRVAL2',
+                        '1CUNI5': 'CUNIT1',
+                        '2CUNI5': 'CUNIT2',
+                        '1CDLT5': 'CDELT1',
+                        '2CDLT5': 'CDELT2',
+                        '11PC5': 'PC1_1',
+                        '12PC5': 'PC1_2',
+                        '21PC5': 'PC2_1',
+                        '22PC5': 'PC2_2',
+                        'NAXIS1': 'NAXIS1',
+                        'NAXIS2': 'NAXIS2'}
+        mywcs = {}
+        for oldkey, newkey in wcs_keywords.items():
+            if (self.obj.header[oldkey] != Undefined):
+                mywcs[newkey] = self.obj.header[oldkey]
+        return WCS(mywcs)
+    
+
+    def show_target_on_sky(self, targetra, targetdec):
+                
+        w = self.lightkurve_wcs()
+        
+        fig = plt.figure(figsize=(12,12))
+        fig.add_subplot(111, projection=w)
+        plt.imshow(np.log(vis.obj.tpf[0]),cmap='gray',origin='lower')
+        ax = fig.gca()
+        
+        stars_pix_cord = w.wcs_world2pix([[targetra,targetdec]],0)
+        ax.scatter(stars_pix_cord[0][0],stars_pix_cord[0][1],marker='+',c='r',s=1000)
+
+        ax.scatter(targetra,targetdec,transform=ax.get_transform('world'),marker='.',c='b',s=1000)
