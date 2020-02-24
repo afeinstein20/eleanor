@@ -258,14 +258,14 @@ class Source(object):
             self.usr_sec = 'recent'
 
         result = tess_stars2px(6789998212, self.coords[0], self.coords[1])
-        sectors = result[3]
+        sectors = result[3][result[3] <= maxsector]
         cameras = result[4]
         chips   = result[5]
         cols    = result[6]
         rows    = result[7]
 
         # tess_stars2px returns array [-1] when star not observed yet
-        if len(sectors) == 1 and sectors[0] == np.array([-1]):
+        if len(sectors) < 1 or sectors[0] == np.array([-1]):
             raise SearchError("Tess has not (yet) observed your target.")
 
         else:
@@ -280,12 +280,12 @@ class Source(object):
 
             # Handles cases where the user does not pass in a sector
             elif self.usr_sec.lower() == 'recent':
-                self.sector = sectors[sectors <= maxsector][-1]
+                self.sector = sectors[-1]
                 camera = cameras[-1]
                 chip   = chips[-1]
                 position_on_chip = np.array([cols[-1], rows[-1]])
     
-        if self.sector is None or len(self.sector) < 1:
+        if self.sector is None or type(self.sector) == np.ndarray:
             raise SearchError("TESS has not (yet) observed your target.")
         else:
             self.camera = camera
