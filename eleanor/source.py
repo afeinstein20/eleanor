@@ -60,7 +60,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False
             sector = result[3][result[3] < maxsector + 0.5]
             sectors = sector.tolist()
 
-        if sectors[0] < 0:
+        if len(sectors) == 0 or sectors[0] < 0:
             raise SearchError("Your target is not observed by TESS, or maybe you need to run eleanor.Update()")
         else:
             print('Found star in Sector(s) ' +" ".join(str(x) for x in sectors))
@@ -280,7 +280,7 @@ class Source(object):
 
             # Handles cases where the user does not pass in a sector
             elif self.usr_sec.lower() == 'recent':
-                self.sector = sectors[-1]
+                self.sector = sectors[sectors <= maxsector][-1]
                 camera = cameras[-1]
                 chip   = chips[-1]
                 position_on_chip = np.array([cols[-1], rows[-1]])
