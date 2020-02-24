@@ -285,8 +285,7 @@ class Source(object):
                 chip   = chips[-1]
                 position_on_chip = np.array([cols[-1], rows[-1]])
     
-
-        if self.sector is None:
+        if self.sector is None or len(self.sector) < 1:
             raise SearchError("TESS has not (yet) observed your target.")
         else:
             self.camera = camera
