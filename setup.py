@@ -28,9 +28,7 @@ Changes to v1.0.1 (2019-12-19):
 * Other bug fixes
 
 Changes to v1.0.0 (2020-01-14):
-* Removed some package dependencies\
-* Added clarifications in documentation
-* Added new features to visualization tools
+* Pass in the name of the source as a string
 * Other bugfixes
 """
 

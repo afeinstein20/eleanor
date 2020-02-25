@@ -132,7 +132,7 @@ class Update(object):
     def get_cbvs(self):
         if self.sector <= 6:
             year = 2018
-        elif self.sector <= 19:
+        elif self.sector <= 20:
             year = 2019
         else:
             year = 2020
