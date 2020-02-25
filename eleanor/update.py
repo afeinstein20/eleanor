@@ -126,13 +126,13 @@ class Update(object):
             self.get_cbvs()
             print('CBVs Made')
             print('Success! Sector {:2d} now available.'.format(self.sector))
-            
+            os.remove(manifest['Local Path'][0])
             self.try_next_sector()
             
     def get_cbvs(self):
         if self.sector <= 6:
             year = 2018
-        elif self.sector <= 19:
+        elif self.sector <= 20:
             year = 2019
         else:
             year = 2020
