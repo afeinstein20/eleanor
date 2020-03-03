@@ -8,6 +8,9 @@ import lightkurve as lk
 from bs4 import BeautifulSoup
 from pylab import *
 from astropy.timeseries import LombScargle
+from astropy.wcs import WCS
+import astropy.units as u
+from astropy.coordinates import SkyCoord, Angle
 
 from .ffi import use_pointing_model, load_pointing_model
 from .mast import *
@@ -50,7 +53,7 @@ class Visualize(object):
         Scrapes the YouTube links to Ethan Kruse's TESS: The Movie videos.
 
         Parameters
-        ---------- 
+        ----------
 
         Attributes
         ----------
@@ -75,10 +78,10 @@ class Visualize(object):
     def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, **kwargs):
         """
         Overplots the countour of an aperture on a target pixel file.
-        Contribution from Gijs Mulders. 
+        Contribution from Gijs Mulders.
 
         Parameters
-        ---------- 
+        ----------
         aperture : np.2darray, optional
             A 2D mask the same size as the target pixel file. Default
             is the eleanor default aperture.
@@ -98,15 +101,15 @@ class Visualize(object):
 
         f = lambda x,y: aperture[int(y),int(x) ]
         g = np.vectorize(f)
-        
+
         x = np.linspace(0,aperture.shape[1], aperture.shape[1]*100)
         y = np.linspace(0,aperture.shape[0], aperture.shape[0]*100)
         X, Y= np.meshgrid(x[:-1],y[:-1])
         Z = g(X[:-1],Y[:-1])
-        
+
         plt.contour(Z[::-1], [0.5], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
-        
+
         return fig
 
 
@@ -135,10 +138,10 @@ class Visualize(object):
              Specifies the cadences used in the light curve. If not, default
              set to good quality cadences.
         xlim : np.array, optional
-             Specifies the xlim on the subplots. If not, default is set to 
+             Specifies the xlim on the subplots. If not, default is set to
              the entire light curve.
         ylim : np.array, optional
-             Specifies the ylim on the subplots, If not, default is set to 
+             Specifies the ylim on the subplots, If not, default is set to
              the entire light curve flux range.
         color_by_pixel : bool, optional
              Colors the light curve given the color of the pixel. If not,
@@ -177,7 +180,7 @@ class Visualize(object):
 
         ## PLOTS TARGET PIXEL FILE ##
         ax = plt.subplot(outer[0])
-        
+
         c = ax.imshow(self.flux[100, rowrange[0]:rowrange[1],
                                 colrange[0]:colrange[1]],
                       vmax=np.percentile(self.flux[100], 95),
@@ -207,7 +210,7 @@ class Visualize(object):
             elif data_type.lower() == 'raw':
                 y = flux[q]/np.nanmedian(flux[q])
                 x = time[q]
-            
+
             elif data_type.lower() == 'periodogram':
                 freq, power = LombScargle(time, corr_flux).autopower(minimum_frequency=freq_range[0],
                                                                      maximum_frequency=freq_range[1],
@@ -261,7 +264,7 @@ class Visualize(object):
         the sector your target is observed in.
 
         Parameters
-        ---------- 
+        ----------
 
         Attributes
         ----------
@@ -291,4 +294,57 @@ class Visualize(object):
             id = self.movie_url.split('=')[-1]
             return YouTubeVideo(id=id, width=900, height=500)
 
-            
+
+    def plot_gaia_overlay(self, magnitude_limit=18, frame=100):
+        """Check if the source is contaminated."""
+
+        tpf = self.obj.tpf
+        ra, dec = self.obj.source_info.coords
+        image_extent = (ra, ra + tpf.shape[2],
+                        dec, dec + tpf.shape[1])
+
+        fig, ax = plt.subplots(1, figsize=(7,7))
+        plt.imshow(tpf[frame], origin='lower', extent=image_extent)
+        fig = self._add_gaia_figure_elements(self.obj, fig, ra, dec, magnitude_limit=magnitude_limit)
+
+        fig = plt.gcf()
+        fig.patch.set_facecolor('white')
+        fig.set_size_inches(7, 7)
+
+        return ax
+
+
+    def _add_gaia_figure_elements(self, obj, fig, ra, dec, magnitude_limit=18):
+        """Make the Gaia Figure Elements"""
+        # Get the positions of the Gaia sources
+        c1 = SkyCoord(ra, dec, frame='icrs', unit='deg')
+        # Use pixel scale for query size
+        pix_scale = 21.0
+        # We are querying with a diameter as the radius, overfilling by 2x.
+        from astroquery.vizier import Vizier
+        Vizier.ROW_LIMIT = -1
+        result = Vizier.query_region(c1, catalog=["I/345/gaia2"],
+                                     radius=Angle(np.max(obj.tpf.shape[1:]) * pix_scale, "arcsec"))
+        no_targets_found_message = ValueError('Either no sources were found in the query region '
+                                              'or Vizier is unavailable')
+        too_few_found_message = ValueError('No sources found brighter than {:0.1f}'.format(magnitude_limit))
+        if result is None:
+            raise no_targets_found_message
+        elif len(result) == 0:
+            raise too_few_found_message
+        result = result["I/345/gaia2"].to_pandas()
+        result = result[result.Gmag < magnitude_limit]
+        if len(result) == 0:
+            raise no_targets_found_message
+        radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
+        coords = WCS(obj.post_obj.header, naxis=2).all_world2pix(radecs, 1)
+
+        # Gently size the points by their Gaia magnitude
+        sizes = 10000.0 / 2**(result['Gmag']/2)
+
+        plt.scatter(coords[:, 0]+obj.tpf_star_x, coords[:, 1]+obj.tpf_star_y, c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
+        plt.scatter(coords[:, 0]+obj.tpf_star_x, coords[:, 1]+obj.tpf_star_y, c='None', edgecolors='r', s=sizes)
+        plt.xlabel('RA')
+        plt.ylabel('dec')
+
+        return fig
