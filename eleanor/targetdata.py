@@ -778,7 +778,7 @@ class TargetData(object):
 
 
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model='gaussian', likelihood='gaussian',
-                       xc=None, yc=None, verbose=False,
+                       xc=None, yc=None, verbose=True,
                        err_method=True, ignore_pixels=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
