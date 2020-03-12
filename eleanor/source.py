@@ -130,11 +130,11 @@ class Source(object):
         self.usr_sec   = sector
         self.tc        = tc
         self.contratio = None
-        self.post_dir  = post_dir
+        self.postcard_path = post_dir
         self.pm_dir = pm_dir
 
         if self.pm_dir is None:
-            self.pm_dir = self.post_dir
+            self.pm_dir = self.postcard_path
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
@@ -177,14 +177,16 @@ class Source(object):
             self.tc       = hdr['TESSCUT']
             self.tic_version = hdr['TIC_V']
             self.postcard = hdr['POSTCARD']
-
+            
             if self.tc is True:
                 post_dir = self.tesscut_dir()
                 self.postcard_path = os.path.join(post_dir, self.postcard)
                 self.cutout = fits.open(self.postcard_path)
-
+#            else:
+                #########
+                
             self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
-#            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
+#            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2']) 
 
         else:
             if self.coords is not None:
@@ -238,9 +240,9 @@ class Source(object):
                                   # position_on_chip, position_on_postcard
             
         ## STILL NEEDS TO BE UPDATED ##
-        self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
-                                                                                                                                 self.camera,
-                                                                                                                                 self.chip)
+#        self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
+#                                                                                                                                 self.camera,
+#                                                                                                                                 self.chip)
 
     def locate_on_tess(self):
         """Finds the TESS sector, camera, chip, and position on chip for the source.
@@ -372,7 +374,6 @@ class Source(object):
                 self.locate_with_tesscut()
 
         else:
-            self.postcard_path = self.post_dir 
             self.cutout = None #Attribute for TessCut only
             self.postcard_bkg = 'hlsp_eleanor_tess_ffi_' + self.postcard + '_tess_v2_bkg.fits'
             self.postcard = 'hlsp_eleanor_tess_ffi_' + self.postcard + '_tess_v2_pc.fits'
