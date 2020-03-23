@@ -349,38 +349,4 @@ class Visualize(object):
         plt.ylim([tpf.row, tpf.row+tpf.shape[2]])
 
         return fig
-    """
-    def _add_gaia_figure_elements(self, obj, fig, ra, dec, magnitude_limit=18):
-        # Get the positions of the Gaia sources
-        c1 = SkyCoord(ra, dec, frame='icrs', unit='deg')
-        # Use pixel scale for query size
-        pix_scale = 21.0
-        # We are querying with a diameter as the radius, overfilling by 2x.
-        from astroquery.vizier import Vizier
-        Vizier.ROW_LIMIT = -1
-        result = Vizier.query_region(c1, catalog=["I/345/gaia2"],
-                                     radius=Angle(np.max(obj.tpf.shape[1:]) * pix_scale, "arcsec"))
-        no_targets_found_message = ValueError('Either no sources were found in the query region '
-                                              'or Vizier is unavailable')
-        too_few_found_message = ValueError('No sources found brighter than {:0.1f}'.format(magnitude_limit))
-        if result is None:
-            raise no_targets_found_message
-        elif len(result) == 0:
-            raise too_few_found_message
-        result = result["I/345/gaia2"].to_pandas()
-        result = result[result.Gmag < magnitude_limit]
-        if len(result) == 0:
-            raise no_targets_found_message
-        radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
-        coords = WCS(obj.post_obj.header, naxis=2).all_world2pix(radecs, 1)
 
-        # Gently size the points by their Gaia magnitude
-        sizes = 10000.0 / 2**(result['Gmag']/2)
-
-        plt.scatter(coords[:, 0]+obj.tpf_star_x, coords[:, 1]+obj.tpf_star_y, c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
-        plt.scatter(coords[:, 0]+obj.tpf_star_x, coords[:, 1]+obj.tpf_star_y, c='None', edgecolors='r', s=sizes)
-        plt.xlabel('RA')
-        plt.ylabel('dec')
-
-        return fig
-    """
