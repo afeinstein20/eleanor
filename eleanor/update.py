@@ -196,7 +196,7 @@ class Update(object):
                            format(self.sector))
         for line in filelist:
             if len(str(line)) > 30:
-                import shututil
+                import shutil
                 os.system(str(line)[2:-3])
                 fn = str(line)[2:-3].split()[5]
                 shutil.move(fn, eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector, self.sector))
