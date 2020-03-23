@@ -1279,8 +1279,8 @@ class TargetData(object):
 
         self.header.append(fits.Card(keyword='BKG_LVL', value=self.bkg_type,
                                      comment='Stage at which background is subtracted'))
-        self.header.append(fits.Card(keyword='URL', value=self.source_info.ELEANORURL,
-                                     comment='URL eleanor files are located at'))
+#        self.header.append(fits.Card(keyword='URL', value=self.source_info.ELEANORURL,
+#                                     comment='URL eleanor files are located at'))
 
         #if self.modes is not None:
         #    self.header.append(fits.Card(keyword='MODES', value=self.modes,
