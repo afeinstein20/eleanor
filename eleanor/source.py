@@ -120,7 +120,8 @@ class Source(object):
         Names of all postcards where the source appears.
     """
     def __init__(self, tic=None, gaia=None, coords=None, name=None, fn=None, 
-                 sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None):
+                 sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None,
+                 metadata_path=None):
         self.tic       = tic
         self.gaia      = gaia
         self.coords    = coords
@@ -132,6 +133,7 @@ class Source(object):
         self.contratio = None
         self.postcard_path = post_dir
         self.pm_dir = pm_dir
+        
 
         if self.pm_dir is None:
             self.pm_dir = self.postcard_path
@@ -152,13 +154,20 @@ class Source(object):
             self.fn_dir  = fn_dir
             
         self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+
+        if metadata_path is None:
+            self.metadata_path = self.eleanorpath
+        else:
+            self.metadata_path = metadata_path
+
         if not os.path.exists(self.eleanorpath):
             try:
                 os.mkdir(self.eleanorpath)
             except OSError:
                 self.eleanorpath = os.path.dirname(__file__)
-        if not os.path.exists(self.eleanorpath + '/metadata'):
-            os.mkdir(self.eleanorpath + '/metadata')
+
+        if not os.path.exists(self.metadata_path + '/metadata'):
+            os.mkdir(self.metadata_path + '/metadata')
 
         if self.fn is not None:
             try:
@@ -230,7 +239,7 @@ class Source(object):
             self.locate_on_tess()
             self.tesscut_size = 31
             
-            if not os.path.isdir(self.eleanorpath + '/metadata/s{:04d}'.format(self.sector)):
+            if not os.path.isdir(self.metadata_path + '/metadata/s{:04d}'.format(self.sector)):
                 Update(sector=self.sector)
 
             if tc == False:
