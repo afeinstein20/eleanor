@@ -24,4 +24,4 @@ Alternatively you can install the current development version of eleanor:
 
 For more information on how to install and use eleanor, please refer to the <a href="http://adina.feinste.in/eleanor/">documentation</a>.
 
-If your work uses eleanor, please cite <a href="https://ui.adsabs.harvard.edu/abs/2019PASP..131i4502F/abstract">Feinstein et al. 2019</a>. If your work uses eleanor in Sectors 13-, we are using TessCut behind the scenes, so please also cite <a href="https://ui.adsabs.harvard.edu/abs/2019ascl.soft05007B/abstract"><Brasseur et al. 2019</a>.
+If your work uses eleanor, please cite <a href="https://ui.adsabs.harvard.edu/abs/2019PASP..131i4502F/abstract">Feinstein et al. 2019</a>. If your work uses eleanor in Sectors 13-, we are using TessCut behind the scenes, so please also cite <a href="https://ui.adsabs.harvard.edu/abs/2019ascl.soft05007B/abstract">Brasseur et al. 2019</a>.
