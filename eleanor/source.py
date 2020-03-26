@@ -135,6 +135,7 @@ class Source(object):
         self.contratio = None
         self.postcard_path = post_dir
         self.pm_dir = pm_dir
+        self.local = local
         
 
         if self.pm_dir is None:
@@ -249,11 +250,7 @@ class Source(object):
             if tc == True:
                 self.locate_with_tesscut() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
-            
-        ## STILL NEEDS TO BE UPDATED ##
-#        self.ELEANORURL = 'https://users.flatironinstitute.org/dforeman/public_www/tess/postcards_test/s{0:04d}/{1}-{2}/'.format(self.sector,
-#                                                                                                                                 self.camera,
-#                                                                                                                                 self.chip)
+
 
     def locate_on_tess(self):
         """Finds the TESS sector, camera, chip, and position on chip for the source.

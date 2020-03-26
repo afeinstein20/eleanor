@@ -1258,10 +1258,10 @@ class TargetData(object):
                                      comment='central y pixel of TPF in FFI'))
         self.header.append(fits.Card(keyword='POSTCARD', value=self.source_info.postcard,
                                      comment=''))
-#        self.header.append(fits.Card(keyword='POSTPOS1', value= self.source_info.position_on_postcard[0],
-#                                     comment='predicted x pixel of source on postcard'))
-#        self.header.append(fits.Card(keyword='POSTPOS2', value= self.source_info.position_on_postcard[1],
-#                                     comment='predicted y pixel of source on postcard'))
+        self.header.append(fits.Card(keyword='POSTPOS1', value= self.cen_x,
+                                     comment='predicted x pixel of source on postcard'))
+        self.header.append(fits.Card(keyword='POSTPOS2', value= self.cen_y,
+                                     comment='predicted y pixel of source on postcard'))
         self.header.append(fits.Card(keyword='CEN_RA', value = self.source_info.coords[0],
                                      comment='RA of TPF source'))
         self.header.append(fits.Card(keyword='CEN_DEC', value=self.source_info.coords[1],
@@ -1279,8 +1279,13 @@ class TargetData(object):
 
         self.header.append(fits.Card(keyword='BKG_LVL', value=self.bkg_type,
                                      comment='Stage at which background is subtracted'))
-#        self.header.append(fits.Card(keyword='URL', value=self.source_info.ELEANORURL,
-#                                     comment='URL eleanor files are located at'))
+
+        if self.source_info.local == True:
+            record_val = 'Local_Postcard'
+        else:
+            record_val = 'MAST'
+        self.header.append(fits.Card(keyword='PCORIGIN', value=record_val,
+                                     comment='Provenance of eleanor Postcard'))
 
         #if self.modes is not None:
         #    self.header.append(fits.Card(keyword='MODES', value=self.modes,
@@ -1452,8 +1457,7 @@ class TargetData(object):
             if os.path.isfile(self.source_info.postcard_path) == True:
                 post_fn = self.source_info.postcard_path.split('/')[-1]
                 post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
-                self.post_obj = Postcard(filename=post_fn, ELEANORURL=self.source_info.ELEANORURL,
-                                         location=post_path)
+                self.post_obj = Postcard(filename=post_fn, location=post_path)
         else:
             self.post_obj =Postcard_tesscut(self.source_info.cutout,
                                             location=self.source_info.postcard_path)
