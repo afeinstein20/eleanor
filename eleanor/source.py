@@ -271,11 +271,11 @@ class Source(object):
             self.usr_sec = 'recent'
 
         result = tess_stars2px(6789998212, self.coords[0], self.coords[1])
+        cameras = result[4][result[3] <= maxsector]
+        chips = result[5][result[3] <= maxsector]
+        cols = result[6][result[3] <= maxsector]
+        rows = result[7][result[3] <= maxsector]
         sectors = result[3][result[3] <= maxsector]
-        cameras = result[4]
-        chips   = result[5]
-        cols    = result[6]
-        rows    = result[7]
 
         # tess_stars2px returns array [-1] when star not observed yet
         if len(sectors) < 1 or sectors[0] == np.array([-1]):
