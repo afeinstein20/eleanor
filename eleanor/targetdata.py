@@ -379,6 +379,7 @@ class TargetData(object):
             try:
                 if self.source_info.tc == False:
                     os.remove(self.post_obj.local_path)
+                    os.remove(self.post_obj.local_path.replace('pc.fits', 'bkg.fits'))
                 else:
                     os.remove(self.source_info.postcard_path)
             except OSError:
