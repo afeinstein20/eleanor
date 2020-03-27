@@ -9,7 +9,7 @@ from astropy import time, coordinates as coord, units as u
 from astropy.coordinates import SkyCoord, Angle
 from astropy.table import Table, Column
 from astropy.wcs import WCS
-from astropy.stats import SigmaClip
+from astropy.stats import SigmaClip, sigma_clip
 from time import strftime
 from astropy.io import fits
 from scipy.stats import mode
@@ -1125,7 +1125,7 @@ class TargetData(object):
 
         flux = np.array(flux)
         med = np.nanmedian(flux)
-        quality = self.quality
+        quality = copy.deepcopy(self.quality)
 
         cx = self.centroid_xs 
         cy = self.centroid_ys
@@ -1161,8 +1161,13 @@ class TargetData(object):
             badx = np.where(np.abs(cx - np.nanmedian(cx)) > 3*np.std(cx))[0]
             bady = np.where(np.abs(cy - np.nanmedian(cy)) > 3*np.std(cy))[0]
 
+            temp_lc = lightcurve.LightCurve(t, flux).flatten()
+            SC = sigma_clip(temp_lc.flux, sigma_upper=3.5, sigma_lower=3.5)
+
             quality[badx] = -999
             quality[bady] = -999
+
+            quality[SC.mask == True] = -999
 
             qm = quality[mask] == 0
 
