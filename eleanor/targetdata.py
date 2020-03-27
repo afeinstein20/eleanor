@@ -55,7 +55,9 @@ class TargetData(object):
         Start and end cadence numbers to use for optimal aperture selection.
     try_load: bool, optional
         If true, will search hidden ~/.eleanor directory to see if TPF has already
-        been created. 
+        been created.
+    regressors : numpy.ndarray
+        Extra data to regress against in the correction. Should be shape (len(data.time), N).
 
     Attributes
     ----------
@@ -137,12 +139,14 @@ class TargetData(object):
     """
 
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, 
-                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True, language='English'):
+                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True, regressors = None,
+                 language='English'):
 
         self.source_info = source 
         self.language = language
         self.pca_flux = None
         self.psf_flux = None
+        self.regressors = regressors
 
         if self.source_info.premade is True:
             self.load(directory=self.source_info.fn_dir)
@@ -1106,22 +1110,28 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False, bkg=None):
+    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False, bkg=None, regressors=None):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         Parameters
         ----------
         skip: int
             The number of cadences at the start of each orbit to skip in determining optimal model weights.
+        modes: int
+            If doing a PCA-based correction, the number of cotrending basis vectors to regress against.
+        regressors : numpy.ndarray
+            Extra data to regress against in the correction. Should be shape (len(data.time), N).
         """
         self.modes = modes
+
+        if regressors is None:
+            regressors = self.regressors
 
         if flux is None:
             flux = self.raw_flux
             
         if bkg is None:
             bkg = self.flux_bkg
-            
 
         flux = np.array(flux)
         med = np.nanmedian(flux)
@@ -1156,7 +1166,7 @@ class TargetData(object):
             return np.dot(eig_vecs, centroids)
 
         def calc_corr(mask, cx, cy, skip=50):
-            nonlocal quality, flux, bkg
+            nonlocal quality, flux, bkg, regressors
 
             badx = np.where(np.abs(cx - np.nanmedian(cx)) > 3*np.std(cx))[0]
             bady = np.where(np.abs(cy - np.nanmedian(cy)) > 3*np.std(cy))[0]
@@ -1202,6 +1212,10 @@ class TargetData(object):
                 if np.std(cx) > 1e-10:
                     cm = np.column_stack((cm, cx[qm][skip:], cy[qm][skip:], cx[qm][skip:]**2, cy[qm][skip:]**2))
                     cm_full = np.column_stack((cm_full, cx, cy, cx**2, cy**2))
+
+                if regressors is not None:
+                    cm = np.column_stack((cm, regressors[mask][qm][skip:]))
+                    cm_full = np.column_stack((cm_full, regressors[mask]))
                 
             else:
                 
