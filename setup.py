@@ -21,6 +21,16 @@ takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
 observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
+
+Changes to v1.0.4 (2020-03-27):
+* Pass in an array of regressors to use in calculating the corrected flux
+* Extreme short-term flux variability like eclipses ignored in corrections, which should improve detrending of these objects
+* Fixed bug where metadata could not be properly updated on linux clusters
+* Improvements to Gaia overlay of fields
+* Ability to create light curves offline
+* Ability to pass through a SIMBAD-resolvable name rather than TIC/Gaia ID or coordinates
+* Other minor bug fixes
+
 Changes to v1.0.1 (2019-12-19):
 * Ability to use local postcards
 * Addition of eleanor.Update() for automatic sector updates
