@@ -304,8 +304,8 @@ class Visualize(object):
         if tpf is None:
             tpf = lk.search_tesscut(f'TIC {tic}')[0].download(cutout_size=(self.obj.tpf.shape[1],
                                                                            self.obj.tpf.shape[2]))
-
-        fig = tpf.plot(show_colorbar=False, title=f'TIC {tic}')
+            
+        fig = tpf.plot(show_colorbar=False, title='TIC {0}'.format(tic))
         fig = self._add_gaia_figure_elements(tpf, fig, magnitude_limit=magnitude_limit)
 
         return fig
