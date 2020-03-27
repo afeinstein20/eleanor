@@ -200,7 +200,7 @@ class TargetData(object):
                         self.pointing_model = load_pointing_model(source.pm_dir, source.sector, source.camera, source.chip)
                 except:
                     self.pointing_model = None
-                    
+
                 self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
                 self.set_quality()
                 self.get_cbvs()
@@ -534,183 +534,185 @@ class TargetData(object):
             return
 
         self.flux_err = None
+        if aperture is not None:
+            self.aperture = aperture
 
         if self.language == 'Australian':
             print("G'day Mate! ʕ •ᴥ•ʔ Your light curves are being translated ...")
 
-        if (self.aperture is None):
 
-            self.all_flux_err  = None
 
-            all_raw_lc_pc_sub  = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_lc_err  = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_corr_lc_pc_sub = np.copy(all_raw_lc_pc_sub)
+        if self.aperture is not None:
+            if np.shape(self.all_apertures[0]) != np.shape(self.aperture):
+                raise ValueError(
+                    "Passed aperture does not match the size of the TPF. Please correct and try again. "
+                    "Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
 
-            # TPF background subtracted light curves
-            all_raw_lc_tpf_sub = np.zeros((len(self.all_apertures), len(self.tpf)))
-            all_corr_lc_tpf_sub = np.copy(all_raw_lc_tpf_sub)
-            
-            # 2D background subtracted light curves
-            all_raw_lc_tpf_2d_sub = np.copy(all_raw_lc_tpf_sub)
-            all_corr_lc_tpf_2d_sub = np.copy(all_raw_lc_tpf_sub)
+            self.all_apertures = np.zeros((1, np.shape(self.tpf[0])[0], np.shape(self.tpf[0])[1]))
+            self.all_apertures[0] = self.aperture
 
-            if self.source_info.tc == True:
-                for epoch in range(len(self.time)):
-                    self.tpf[epoch] -= self.tpf_flux_bkg[epoch]
+        self.all_flux_err  = None
 
-            pc_stds  = np.ones(len(self.all_apertures)) 
-            tpf_stds = np.ones(len(self.all_apertures)) 
-            stds_2d  = np.ones(len(self.all_apertures))
+        all_raw_lc_pc_sub  = np.zeros((len(self.all_apertures), len(self.tpf)))
+        all_lc_err  = np.zeros((len(self.all_apertures), len(self.tpf)))
+        all_corr_lc_pc_sub = np.copy(all_raw_lc_pc_sub)
 
-            ap_size = np.nansum(self.all_apertures, axis=(1,2))
-            
-            for a in range(len(self.all_apertures)):       
-                try:
-                    all_lc_err[a] = np.sqrt( np.nansum(self.tpf_err**2 * self.all_apertures[a], axis=(1,2)))
-                    all_raw_lc_pc_sub[a] = np.nansum( (self.tpf * self.all_apertures[a]), axis=(1,2) )
-                    
-                    oned_bkg = np.zeros(self.tpf.shape)
-                    for c in range(len(self.time)):
-                        oned_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.tpf_flux_bkg[c])
-                        
-                    post_bkg = np.zeros(self.tpf.shape)
-                    for c in range(len(self.time)):
-                        post_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.flux_bkg[c])
+        # TPF background subtracted light curves
+        all_raw_lc_tpf_sub = np.zeros((len(self.all_apertures), len(self.tpf)))
+        all_corr_lc_tpf_sub = np.copy(all_raw_lc_tpf_sub)
 
-                    all_raw_lc_tpf_sub[a]  = np.nansum( ((self.tpf + post_bkg - oned_bkg) * self.all_apertures[a]), axis=(1,2) )
-                    
-                    if self.source_info.tc == False:
-                        all_raw_lc_tpf_2d_sub[a] = np.nansum( ((self.tpf) - self.bkg_tpf) * self.all_apertures[a],
-                                                              axis=(1,2))
-                except ValueError:
-                    continue
+        # 2D background subtracted light curves
+        all_raw_lc_tpf_2d_sub = np.copy(all_raw_lc_tpf_sub)
+        all_corr_lc_tpf_2d_sub = np.copy(all_raw_lc_tpf_sub)
 
-                ## Remove something from all_raw_lc before passing into jitter_corr ##
-                try:
-                    all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]),
-                                                               bkg=np.nansum(post_bkg*self.all_apertures[a], axis=(1,2)))
-                    all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]),
-                                                                bkg=np.nansum(oned_bkg*self.all_apertures[a], axis=(1,2)))
+        if self.source_info.tc == True:
+            for epoch in range(len(self.time)):
+                self.tpf[epoch] -= self.tpf_flux_bkg[epoch]
 
-                    if self.source_info.tc == False:
-                        all_corr_lc_tpf_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_tpf_2d_sub[a]/np.nanmedian(all_raw_lc_tpf_2d_sub[a]),
-                                                                        bkg=np.nansum(self.bkg_tpf*self.all_apertures[a], axis=(1,2)))
-                        
+        pc_stds  = np.ones(len(self.all_apertures))
+        tpf_stds = np.ones(len(self.all_apertures))
+        stds_2d  = np.ones(len(self.all_apertures))
 
-                except IndexError:
-                    continue
+        ap_size = np.nansum(self.all_apertures, axis=(1,2))
 
-                q = self.quality == 0
+        for a in range(len(self.all_apertures)):
+            try:
+                all_lc_err[a] = np.sqrt( np.nansum(self.tpf_err**2 * self.all_apertures[a], axis=(1,2)))
+                all_raw_lc_pc_sub[a] = np.nansum( (self.tpf * self.all_apertures[a]), axis=(1,2) )
 
-                lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                                   flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+                oned_bkg = np.zeros(self.tpf.shape)
+                for c in range(len(self.time)):
+                    oned_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.tpf_flux_bkg[c])
 
-                flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-                
-                tpf_stds[a] =  np.std(flat_lc_tpf.flux)
+                post_bkg = np.zeros(self.tpf.shape)
+                for c in range(len(self.time)):
+                    post_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.flux_bkg[c])
 
-                lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                                  flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-                pc_stds[a] = np.std(flat_lc_pc.flux)
-
+                all_raw_lc_tpf_sub[a]  = np.nansum( ((self.tpf + post_bkg - oned_bkg) * self.all_apertures[a]), axis=(1,2) )
 
                 if self.source_info.tc == False:
-                    lc_2d_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                                      flux = all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                    flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-                    
-                    stds_2d[a] = np.std(flat_lc_2d.flux)
+                    all_raw_lc_tpf_2d_sub[a] = np.nansum( ((self.tpf) - self.bkg_tpf) * self.all_apertures[a],
+                                                          axis=(1,2))
+            except ValueError:
+                continue
 
-                    all_corr_lc_tpf_2d_sub[a] = all_corr_lc_tpf_2d_sub[a] * np.nanmedian(all_raw_lc_tpf_2d_sub[a])
-                    
+            ## Remove something from all_raw_lc before passing into jitter_corr ##
+            try:
+                all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]),
+                                                           bkg=np.nansum(post_bkg*self.all_apertures[a], axis=(1,2)))
+                all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]),
+                                                            bkg=np.nansum(oned_bkg*self.all_apertures[a], axis=(1,2)))
 
-                all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
-                all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
-
-            
-
-
-            if self.crowded_field > 0.15:
-                tpf_stds[ap_size > 8] = 1.0
-                pc_stds[ap_size > 8] = 1.0
                 if self.source_info.tc == False:
-                    stds_2d[ap_size > 8] = 1.0
-                    
+                    all_corr_lc_tpf_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_tpf_2d_sub[a]/np.nanmedian(all_raw_lc_tpf_2d_sub[a]),
+                                                                    bkg=np.nansum(self.bkg_tpf*self.all_apertures[a], axis=(1,2)))
 
-            if self.source_info.tess_mag < 8.5:
-                tpf_stds[ap_size < 8] = 1.0
-                pc_stds[ap_size < 8]  = 1.0
-                if self.source_info.tc == False:
-                    stds_2d[ap_size < 8] = 1.0
 
-            best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
-            best_ind_pc  = np.where(pc_stds == np.nanmin(pc_stds))[0][0]
+            except IndexError:
+                continue
+
+            q = self.quality == 0
+
+            lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+                                               flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+
+            flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
+
+            tpf_stds[a] =  np.std(flat_lc_tpf.flux)
+
+            lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+                                              flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+            flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
+            pc_stds[a] = np.std(flat_lc_pc.flux)
+
 
             if self.source_info.tc == False:
-                best_ind_2d = np.where(stds_2d == np.nanmin(stds_2d))[0][0]
-            else:
-                best_ind_2d = None
+                lc_2d_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+                                                  flux = all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+                flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
 
-            if best_ind_2d is not None:
-                stds = np.array([pc_stds[best_ind_pc],
-                                 tpf_stds[best_ind_tpf],
-                                 stds_2d[best_ind_2d]])
-                std_inds = np.array([best_ind_pc, best_ind_tpf, best_ind_2d])
-                types = np.array(['PC_LEVEL', 'TPF_LEVEL', 'TPF_2D_LEVEL'])
+                stds_2d[a] = np.std(flat_lc_2d.flux)
 
-            else:
-                stds = np.array([pc_stds[best_ind_pc],
-                                 tpf_stds[best_ind_tpf]])
-                std_inds = np.array([best_ind_pc, best_ind_tpf])
-                types =np.array(['PC_LEVEL', 'TPF_LEVEL'])
+                all_corr_lc_tpf_2d_sub[a] = all_corr_lc_tpf_2d_sub[a] * np.nanmedian(all_raw_lc_tpf_2d_sub[a])
 
-            best_ind = std_inds[np.argmin(stds)]
-            self.bkg_type = types[np.argmin(stds)]
 
-            ## Checks if postcard or tpf level bkg subtraction is better ##
-            ## Prints bkg_type to TPF header ##
+            all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
+            all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
+
+
+
+
+        if self.crowded_field > 0.15:
+            tpf_stds[ap_size > 8] = 1.0
+            pc_stds[ap_size > 8] = 1.0
+            if self.source_info.tc == False:
+                stds_2d[ap_size > 8] = 1.0
+
+
+        if self.source_info.tess_mag < 8.5:
+            tpf_stds[ap_size < 8] = 1.0
+            pc_stds[ap_size < 8]  = 1.0
+            if self.source_info.tc == False:
+                stds_2d[ap_size < 8] = 1.0
+
+        best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
+        best_ind_pc  = np.where(pc_stds == np.nanmin(pc_stds))[0][0]
+
+        if self.source_info.tc == False:
+            best_ind_2d = np.where(stds_2d == np.nanmin(stds_2d))[0][0]
+        else:
+            best_ind_2d = None
+
+        if best_ind_2d is not None:
+            stds = np.array([pc_stds[best_ind_pc],
+                             tpf_stds[best_ind_tpf],
+                             stds_2d[best_ind_2d]])
+            std_inds = np.array([best_ind_pc, best_ind_tpf, best_ind_2d])
+            types = np.array(['PC_LEVEL', 'TPF_LEVEL', 'TPF_2D_LEVEL'])
+
+        else:
+            stds = np.array([pc_stds[best_ind_pc],
+                             tpf_stds[best_ind_tpf]])
+            std_inds = np.array([best_ind_pc, best_ind_tpf])
+            types =np.array(['PC_LEVEL', 'TPF_LEVEL'])
+
+        best_ind = std_inds[np.argmin(stds)]
+        self.bkg_type = types[np.argmin(stds)]
+
+        ## Checks if postcard or tpf level bkg subtraction is better ##
+        ## Prints bkg_type to TPF header ##
 #            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
 #                best_ind = best_ind_pc
-            if self.bkg_type == 'PC_LEVEL':
-                self.all_raw_flux  = np.array(all_raw_lc_pc_sub)
-                self.all_corr_flux = np.array(all_corr_lc_pc_sub)
-                for epoch in range(len(self.time)):
-                    self.tpf[epoch] += self.tpf_flux_bkg[epoch]
+        if self.bkg_type == 'PC_LEVEL':
+            self.all_raw_flux  = np.array(all_raw_lc_pc_sub)
+            self.all_corr_flux = np.array(all_corr_lc_pc_sub)
+            for epoch in range(len(self.time)):
+                self.tpf[epoch] += self.tpf_flux_bkg[epoch]
 
-            elif self.bkg_type == 'TPF_LEVEL':
-                self.all_raw_flux  = np.array(all_raw_lc_tpf_sub)
-                self.all_corr_flux = np.array(all_corr_lc_tpf_sub)
-            
-            elif self.bkg_type == 'TPF_2D_LEVEL':
-                self.all_raw_flux  = np.array(all_raw_lc_tpf_2d_sub)
-                self.all_corr_flux = np.array(all_corr_lc_tpf_2d_sub)
-                
-            if self.language == 'Australian':
-                for i in range(len(self.all_raw_flux)):
-                    med = np.nanmedian(self.all_raw_flux[i])
-                    self.all_raw_flux[i] = (med-self.all_raw_flux[i]) + med
+        elif self.bkg_type == 'TPF_LEVEL':
+            self.all_raw_flux  = np.array(all_raw_lc_tpf_sub)
+            self.all_corr_flux = np.array(all_corr_lc_tpf_sub)
 
-                    med = np.nanmedian(self.all_corr_flux[i])
-                    self.all_corr_flux[i] = (med-self.all_corr_flux[i]) + med
+        elif self.bkg_type == 'TPF_2D_LEVEL':
+            self.all_raw_flux  = np.array(all_raw_lc_tpf_2d_sub)
+            self.all_corr_flux = np.array(all_corr_lc_tpf_2d_sub)
 
-            self.all_flux_err    = np.array(all_lc_err)
+        if self.language == 'Australian':
+            for i in range(len(self.all_raw_flux)):
+                med = np.nanmedian(self.all_raw_flux[i])
+                self.all_raw_flux[i] = (med-self.all_raw_flux[i]) + med
 
-            self.corr_flux= self.all_corr_flux[best_ind]
-            self.raw_flux = self.all_raw_flux[best_ind]
-            self.aperture = self.all_apertures[best_ind]
-            self.flux_err = self.all_flux_err[best_ind]
-            self.aperture_size = np.nansum(self.aperture)
-            self.best_ind = best_ind
-        else:
-            if np.shape(aperture) == np.shape(self.tpf[0]):
-                self.aperture = aperture
-                apply_mask(self.aperture)
-            elif self.aperture is not None:
-                apply_mask(self.aperture)
-            else:
-                raise Exception("We could not find a custom aperture. Please either create a 2D array that is the same shape as the TPF. "
-                                "Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
+                med = np.nanmedian(self.all_corr_flux[i])
+                self.all_corr_flux[i] = (med-self.all_corr_flux[i]) + med
+
+        self.all_flux_err    = np.array(all_lc_err)
+
+        self.corr_flux= self.all_corr_flux[best_ind]
+        self.raw_flux = self.all_raw_flux[best_ind]
+        self.aperture = self.all_apertures[best_ind]
+        self.flux_err = self.all_flux_err[best_ind]
+        self.aperture_size = np.nansum(self.aperture)
+        self.best_ind = best_ind
 
         return
     
