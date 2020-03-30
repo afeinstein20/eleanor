@@ -160,6 +160,7 @@ class TargetData(object):
                                                                                                   self.source_info.sector,
                                                                                                   eleanor.__version__)
                     self.load(fn=default_fn)
+                    print('Loading file {0} found on disk'.format(default_fn))
                     fnf = False
                 except:
                     pass
@@ -451,8 +452,8 @@ class TargetData(object):
                 all_apertures.append(cmask)
                 aperture_names.append(cname)
                 
-                all_apertures.append(tmask)
-                aperture_names.append(tname)
+                all_apertures.append(rmask)
+                aperture_names.append(rname)
             
         
             deg += 90
