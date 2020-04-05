@@ -765,9 +765,9 @@ class TargetData(object):
             cen[1] = np.shape(self.tpf[0])[1]-3
 
         for a in range(len(self.tpf)):
-            data = self.tpf[a, cen[0]-3:cen[0]+2, cen[1]-3:cen[1]+2]
+            data = self.tpf[a, cen[0]-2:cen[0]+3, cen[1]-2:cen[1]+3]
             c_0  = centroid_quadratic(data)
-            c_frame = [cen[0]+c_0[0], cen[1]+c_0[1]]
+            c_frame = [cen[0]+c_0[0]-2, cen[1]+c_0[1]-2]
             self.x_com.append(c_frame[0])
             self.y_com.append(c_frame[1])
             
