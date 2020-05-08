@@ -470,8 +470,7 @@ class ffi:
             new_coords = use_pointing_model(np.array(xy).T, pointing_model)
             return np.array(new_coords)
 
-
-        pm_fn = 'pointingModel_{0:04d}_{1}-{2}.txt'.format(self.sector, self.camera, self.chip)
+        pm_fn = 's{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(self.sector, self.camera, self.chip)
         
         eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 
