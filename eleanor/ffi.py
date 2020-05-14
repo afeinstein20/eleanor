@@ -23,29 +23,28 @@ def check_pointing(sector, camera, chip, path=None):
     else:
         pm_dir = path
 
-    search = 's{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(sector, camera, chip)
-    
+    searches = [
+        's{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(sector, camera, chip),
+        'pointingModel_{0:04d}_{1}-{2}.txt'.format(sector, camera, chip),
+    ]
+
     # Checks a directory of pointing models, if it exists
     # Returns the pointing model if it's in the pointing model directory
-    if os.path.isdir(pm_dir) is True:
+    for search in searches:
+        if not os.path.isdir(pm_dir):
+            continue
         pm_downloaded = os.listdir(pm_dir)
         pm = [i for i in pm_downloaded if search in i]
         if len(pm) > 0:
             return Table.read(os.path.join(pm_dir, pm[0]), format="ascii.basic")
-    else:
-        return None
+    warnings.warn("couldn't find pointing model")
 
 
 def load_pointing_model(pm_dir, sector, camera, chip):
     """ Loads in pointing model.
     """
-    files = os.listdir(pm_dir)
-    search = 's{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(sector, camera, chip)
-    pm    = [i for i in files if search in i]
-    pointing = Table.read(os.path.join(pm_dir, pm[0]), format="ascii.basic")
-    
-    return pointing
-                
+    return check_pointing(sector, camera, chip, path=pm_dir)
+
 
 def use_pointing_model(coords, pointing_model):
     """Applies pointing model to correct the position of star(s) on postcard.
@@ -171,7 +170,7 @@ def centroid_quadratic(data, mask=None):
     to Vakili, M., & Hogg, D. W. 2016, ArXiv, 1610.05873.
 
     Caveat: if the brightest pixel falls on the edge of the data array, the fit
-    will tend to fail or be inaccurate. 
+    will tend to fail or be inaccurate.
 
     As used in the Lightkurve package of Barentsen et al.
 
@@ -471,7 +470,7 @@ class ffi:
             return np.array(new_coords)
 
         pm_fn = 's{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(self.sector, self.camera, self.chip)
-        
+
         eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 
         qf = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector,
