@@ -22,6 +22,11 @@ observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
 
+Changes to v1.0.5 (2020-05-21):
+* Fixed bug where some apertures were made twice and others not at all
+* Fixed bug where mass centroids were off by a constant offset at all cadences
+* Fixed bug that happens when data are all zeros at the start of a sector
+
 Changes to v1.0.4 (2020-03-27):
 * Pass in an array of regressors to use in calculating the corrected flux
 * Extreme short-term flux variability like eclipses ignored in corrections, which should improve detrending of these objects
