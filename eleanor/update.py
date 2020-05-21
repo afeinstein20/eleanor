@@ -176,7 +176,7 @@ class Update(object):
                     convolved[i,j] = np.mean(cbv[1].data[index][cads])
             np.savetxt(new_fn, convolved)
             cbv.close()
-        files = [i for i in files if i.endswith('.fits')]
+        files = [i for i in files if i.endswith('cbv.fits') and 's{0:04d}'.format(self.sector) in i]
         for c in range(len(files)):
             os.remove(files[c])
 

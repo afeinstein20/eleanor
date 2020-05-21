@@ -462,8 +462,8 @@ class TargetData(object):
         if self.source_info.tc == True:
             ## Checks to see if there are empty rows/columns ##
             ## Sets those locations to 0 in the aperture mask ##
-            rows = np.unique(np.where(self.tpf[0] == 0)[0])
-            cols = np.unique(np.where(self.tpf[0] == 0)[1])
+            rows = np.unique(np.where(np.nanmedian(self.tpf, axis=0) == 0)[0])
+            cols = np.unique(np.where(np.nanmedian(self.tpf, axis=0) == 0)[1])
             if len(rows) > 0 and len(cols) > 0:
                 if np.array_equal(cols, np.arange(0,height,1)):
                     for i in range(len(all_apertures)):
@@ -782,6 +782,8 @@ class TargetData(object):
         """ Reads in quality flags set in the postcard
         """
         self.quality = np.array(self.post_obj.quality)
+
+        self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
 
 

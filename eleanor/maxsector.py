@@ -1,1 +1,1 @@
-maxsector = 21
+maxsector = 23
