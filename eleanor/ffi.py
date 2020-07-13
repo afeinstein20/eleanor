@@ -150,11 +150,11 @@ def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip,
     convolve_ffi = np.array(convolve_ffi)
 
     flags    = np.bitwise_and(convolve_ffi, ffi_apply)
-    pm_flags = pm_quality(ffi_stop, sector, camera, chip, pm=pm) * 4096
+    pm_flags = pm_quality(ffi_stop, sector, camera, chip, pm=pm) * 131072
 
-    pm_flags[ ((ffi_stop>1420.) & (ffi_stop < 1424.)) ] = 4096
+    pm_flags[ ((ffi_stop>1420.) & (ffi_stop < 1424.)) ] = 131072
 
-    return flags+pm_flags
+    return np.bitwise_or(flags, pm_flags)
 
 def centroid_quadratic(data, mask=None):
     """Computes the quadratic estimate of the centroid in a 2d-array.
