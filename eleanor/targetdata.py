@@ -56,8 +56,9 @@ class TargetData(object):
     try_load: bool, optional
         If true, will search hidden ~/.eleanor directory to see if TPF has already
         been created.
-    regressors : numpy.ndarray
-        Extra data to regress against in the correction. Should be shape (len(data.time), N).
+    regressors : numpy.ndarray or str
+        Extra data to regress against in the correction. Should be shape (len(data.time), N) or `'corner'`.
+        If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
 
     Attributes
     ----------
@@ -360,7 +361,7 @@ class TargetData(object):
 
         else:            
             if (height > 31) or (width > 31):
-                raise ValueError("Maximum allowed TPF size is 31 x 31 pixels.")
+                raise ValueError("Maximum allowed TPF size when using TessCut is 31 x 31 pixels.")
 
             self.tpf     = post_flux[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
             self.bkg_tpf = post_flux
@@ -1122,10 +1123,22 @@ class TargetData(object):
             The number of cadences at the start of each orbit to skip in determining optimal model weights.
         modes: int
             If doing a PCA-based correction, the number of cotrending basis vectors to regress against.
-        regressors : numpy.ndarray
-            Extra data to regress against in the correction. Should be shape (len(data.time), N).
+        regressors : numpy.ndarray or str
+            Extra data to regress against in the correction. Should be shape (len(data.time), N) or `'corner'`.
+            If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
         """
         self.modes = modes
+
+        if type(regressors) == str:
+            if regressors == 'corner':
+                self.regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
+                regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
+
+        if type(self.regressors) == str:
+            if self.regressors == 'corner':
+                self.regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
+                regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
+
 
         if regressors is None:
             regressors = self.regressors
