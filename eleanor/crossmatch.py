@@ -41,6 +41,10 @@ class Crossmatch(object):
         download : str, optional
              Allows the user to download the short cadence target pixel files.
              By default, downloads all sectors that are available.
+        sectors : np.ndarray, optional
+             Allows the user to specify which sector to search for two-minute
+             data. By default, downloads the sector assigned to the 30-minute
+             data.
         Returns
         ---------- 
         sc : np.ndarray
