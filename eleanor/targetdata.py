@@ -1170,10 +1170,10 @@ class TargetData(object):
             return np.dot(data, xhat)
 
         def xhat(mat, lc):
-            ATA = np.dot(mat.T, mat)
-            ATAinv = np.linalg.inv(ATA)
-            ATf = np.dot(mat.T, lc)
-            xhat = np.dot(ATAinv, ATf)
+            mat_T = mat.T
+            ATA = np.dot(mat_T, mat)
+            ATf = np.dot(mat_T, lc)
+            xhat = np.linalg.solve(ATA, ATf)
             return xhat
 
         def rotate_centroids(centroid_col, centroid_row):
