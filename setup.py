@@ -9,7 +9,7 @@ import setuptools
 from setuptools import setup
 
 sys.path.insert(0, "eleanor")
-from version import __version__  
+from version import __version__
 
 
 long_description = \
@@ -67,7 +67,7 @@ setup(
     install_requires=[
         'photutils>=0.7', 'tqdm', 'lightkurve>=1.9.0', 'astropy>=3.2.3',
         'astroquery', 'pandas',
-        'setuptools>=41.0.0', 
+        'setuptools>=41.0.0',
         'tensorflow<=1.14.0', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point>=0.3.6'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',

@@ -13,6 +13,7 @@ from astropy.stats import SigmaClip, sigma_clip
 from time import strftime
 from astropy.io import fits
 from scipy.stats import mode
+from scipy.ndimage import median_filter
 from urllib.request import urlopen
 import os, sys, copy
 import os.path
@@ -43,7 +44,7 @@ class TargetData(object):
         or else will return an aperture one pixel wider than requested so target
         falls on central pixel.
     bkg_size : int, optional
-        Size of box to use for background estimation. If not set, will default to the width of the 
+        Size of box to use for background estimation. If not set, will default to the width of the
         target pixel file.
     crowded_field : bool, optional
         If true, will return a light curve built using a small aperture (not more than 8 pixels in size).
@@ -139,11 +140,11 @@ class TargetData(object):
     Extension[2] = (3, N_time) time, raw flux, systematics corrected flux
     """
 
-    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False, 
+    def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False,
                  bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True, regressors = None,
                  language='English'):
 
-        self.source_info = source 
+        self.source_info = source
         self.language = language
         self.pca_flux = None
         self.psf_flux = None
@@ -168,23 +169,23 @@ class TargetData(object):
 
             if fnf is True:
                 self.aperture = None
-                
+
                 if source.tc == False:
                     self.post_obj = Postcard(source.postcard, source.postcard_bkg,
                                              source.postcard_path)
                 else:
                     self.post_obj = Postcard_tesscut(source.cutout)
-                
+
                 self.ffiindex = self.post_obj.ffiindex
-                self.flux_bkg = self.post_obj.bkg 
+                self.flux_bkg = self.post_obj.bkg
                 self.get_time(source.coords)
-                
+
                 if bkg_size is None:
                     bkg_size = width
 
 
-                # Uses the contamination ratio for crowded field if available and 
-                # not already set by the user   
+                # Uses the contamination ratio for crowded field if available and
+                # not already set by the user
                 if crowded_field is True:
                     self.crowded_field = 1
                 else:
@@ -198,7 +199,7 @@ class TargetData(object):
                     self.cal_cadences = (0, len(self.post_obj.time)-0)
                 else:
                     self.cal_cadences = cal_cadences
-            
+
                 try:
                     if source.pointing is not None:
                         self.pointing_model = source.pointing
@@ -210,9 +211,9 @@ class TargetData(object):
                 self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
                 self.set_quality()
                 self.get_cbvs()
-            
+
                 self.create_apertures(self.tpf.shape[1], self.tpf.shape[2])
-            
+
                 self.get_lightcurve()
 
                 if do_pca == True:
@@ -227,22 +228,22 @@ class TargetData(object):
                     self.psf_flux = None
 
                 self.center_of_mass()
-            
+
                 self.set_header()
 
 
     def get_time(self, coords):
         """Gets time, including light travel time correction to solar system barycenter for object given location"""
         t0 = self.post_obj.time - self.post_obj.barycorr
-        
+
         ra = Angle(coords[0], u.deg)
         dec = Angle(coords[1], u.deg)
-        
+
         greenwich = coord.EarthLocation.of_site('greenwich')
         times = time.Time(t0+2457000, format='jd',
                    scale='utc', location=greenwich)
         ltt_bary = times.light_travel_time(SkyCoord(ra, dec)).value
-        
+
         self.time = t0 + ltt_bary
         self.barycorr = ltt_bary
 
@@ -255,7 +256,7 @@ class TargetData(object):
 
         xy = WCS(self.post_obj.header, naxis=2).all_world2pix(pos[0], pos[1], 1)
         # Apply the pointing model to each cadence to find the centroids
-        
+
         if self.pointing_model is None:
             self.centroid_xs = np.zeros_like(self.post_obj.time)
             self.centroid_ys = np.zeros_like(self.post_obj.time)
@@ -267,7 +268,7 @@ class TargetData(object):
                 centroid_ys.append(new_coords[0][1])
             self.centroid_xs = np.array(centroid_xs)
             self.centroid_ys = np.array(centroid_ys)
-        
+
         # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
 
@@ -291,7 +292,7 @@ class TargetData(object):
         y_upp_lim = med_y+y_length+1
         x_low_lim = med_x-x_length
         x_upp_lim = med_x+x_length+1
-        
+
         y_low_bkg = med_y-y_bkg_len
         y_upp_bkg = med_y+y_bkg_len + 1
         x_low_bkg = med_x-x_bkg_len
@@ -315,7 +316,7 @@ class TargetData(object):
         if x_upp_lim >  post_x_upp:
             x_upp_lim = post_x_upp+1
             x_low_lim = med_x - height + (post_x_upp-med_x)
-            
+
         self.tpf_star_y = width  + (med_y - y_upp_lim)
         self.tpf_star_x = height + (med_x - x_upp_lim)
 
@@ -336,7 +337,7 @@ class TargetData(object):
         if x_upp_bkg >  post_x_upp:
             x_upp_bkg = post_x_upp+1
             x_low_bkg = med_x - height + (post_x_upp - med_x)
-            
+
         if source.tc == False:
             if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
                 warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
@@ -359,7 +360,7 @@ class TargetData(object):
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
 
 
-        else:            
+        else:
             if (height > 31) or (width > 31):
                 raise ValueError("Maximum allowed TPF size when using TessCut is 31 x 31 pixels.")
 
@@ -370,14 +371,14 @@ class TargetData(object):
             self.bkg_subtraction()
 
         self.dimensions = np.shape(self.tpf)
-        
+
         summed_tpf = np.nansum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
         if np.abs(mpix[0] - x_length) > 1:
             self.crowded_field = 1
         if np.abs(mpix[1] - y_length) > 1:
             self.crowded_field = 1
-            
+
 
         self.tpf = self.tpf
 
@@ -396,7 +397,7 @@ class TargetData(object):
     def create_apertures(self, height, width):
         """Creates a range of sizes and shapes of apertures to test."""
         default = 13
-            
+
         def circle_aperture(pos,r):
             return CircularAperture(pos,r)
         def square_aperture(pos, l, w, t):
@@ -406,9 +407,9 @@ class TargetData(object):
             center = (self.tpf_star_y, self.tpf_star_x)
         else:
             center = (self.tpf_star_x, self.tpf_star_y)
-        
+
         shape  = (height, width)
-        
+
         clist = [1.25, 2.5, 3.5, 4]
         rlist = [3, 3, 5, 4.1]
         theta = [np.pi/4., 0, np.pi/4., 0]
@@ -452,14 +453,14 @@ class TargetData(object):
 
                 all_apertures.append(cmask)
                 aperture_names.append(cname)
-                
+
                 all_apertures.append(rmask)
                 aperture_names.append(rname)
-            
-        
+
+
             deg += 90
 
-            
+
         if self.source_info.tc == True:
             ## Checks to see if there are empty rows/columns ##
             ## Sets those locations to 0 in the aperture mask ##
@@ -475,7 +476,7 @@ class TargetData(object):
 
         self.all_apertures = np.array(all_apertures)
         self.aperture_names = np.array(aperture_names)
-    
+
         if height < default or width < default:
             warnings.warn('WARNING: Making a TPF smaller than (13,13) may provide inadequate results.')
 
@@ -497,12 +498,12 @@ class TargetData(object):
             flux = self.bkg_tpf
         else:
             flux = self.tpf
-        
+
         tpf_flux_bkg = []
-        
+
         sigma_clip = SigmaClip(sigma=sigma)
         bkg = MMMBackground(sigma_clip=sigma_clip)
-        
+
         for i in range(len(time)):
             bkg_value = bkg.calc_background(flux[i])
             tpf_flux_bkg.append(bkg_value)
@@ -534,7 +535,7 @@ class TargetData(object):
             for cad in range(len(self.tpf)):
                 lc[cad]     = np.nansum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.nansum( self.tpf_err[cad]**2 * mask))
-            self.raw_flux   = np.array(lc) 
+            self.raw_flux   = np.array(lc)
             self.corr_flux  = self.corrected_flux(flux=lc, skip=50)
             self.flux_err   = np.array(lc_err)
             return
@@ -619,25 +620,24 @@ class TargetData(object):
 
             q = self.quality == 0
 
-            lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                               flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+            # lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+            #                                    flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+            # flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
+            # tpf_stds[a] =  np.std(flat_lc_tpf.flux)
+            tpf_stds[a] = get_flattened_sigma(all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
-            flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-
-            tpf_stds[a] =  np.std(flat_lc_tpf.flux)
-
-            lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                              flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-            flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-            pc_stds[a] = np.std(flat_lc_pc.flux)
-
+            # lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+            #                                   flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+            # flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
+            # pc_stds[a] = np.std(flat_lc_pc.flux)
+            pc_stds[a] = get_flattened_sigma(all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
             if self.source_info.tc == False:
-                lc_2d_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                                                  flux = all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-
-                stds_2d[a] = np.std(flat_lc_2d.flux)
+                # lc_2d_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
+                #                                   flux = all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
+                # flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
+                # stds_2d[a] = np.std(flat_lc_2d.flux)
+                stds_2d[a] = get_flattened_sigma(all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
                 all_corr_lc_tpf_2d_sub[a] = all_corr_lc_tpf_2d_sub[a] * np.nanmedian(all_raw_lc_tpf_2d_sub[a])
 
@@ -721,21 +721,21 @@ class TargetData(object):
         self.best_ind = best_ind
 
         return
-    
+
 
     def get_cbvs(self):
         """ Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.
         Parameters
         ----------
         """
-        
+
         try:
             matrix_file = np.loadtxt(self.source_info.eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
                                                                                                                                                          self.source_info.camera,
                                                                                                                                                          self.source_info.chip))
             cbvs = np.asarray(matrix_file)
             self.cbvs = np.reshape(cbvs, (len(self.time), 16))
-            
+
         except:
             self.cbvs = np.zeros((len(self.time), 16))
         return
@@ -771,7 +771,7 @@ class TargetData(object):
             c_frame = [cen[0]+c_0[0]-2, cen[1]+c_0[1]-2]
             self.x_com.append(c_frame[0])
             self.y_com.append(c_frame[1])
-            
+
         self.x_com = np.array(self.x_com)
         self.y_com = np.array(self.y_com)
 
@@ -833,7 +833,7 @@ class TargetData(object):
         import tensorflow as tf
         from .models import Gaussian, Moffat
         from tqdm import tqdm
-        
+
         tf.logging.set_verbosity(tf.logging.ERROR)
 
         if data_arr is None:
@@ -882,24 +882,24 @@ class TargetData(object):
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
-        
+
 
             if nstars == 1:
                 mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
             else:
                 mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
-                
+
             var_list = [flux, xshift, yshift, a, b, c, bkg]
-            
-            var_to_bounds = {flux: (0, np.infty), 
+
+            var_to_bounds = {flux: (0, np.infty),
                              xshift: (-1.0, 1.0),
                              yshift: (-1.0, 1.0),
                              a: (0, np.infty),
                              b: (-0.5, 0.5),
                              c: (0, np.infty)
                             }
-            
+
         elif model == 'moffat':
 
             moffat = Moffat(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
@@ -908,17 +908,17 @@ class TargetData(object):
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
             beta = tf.Variable(initial_value=1, dtype=tf.float64)
-        
+
 
             if nstars == 1:
                 mean = moffat(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
             else:
                 mean = [moffat(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
-                
+
             var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
-            
-            var_to_bounds = {flux: (0, np.infty), 
+
+            var_to_bounds = {flux: (0, np.infty),
                              xshift: (-2.0, 2.0),
                              yshift: (-2.0, 2.0),
                              a: (0, 3.0),
@@ -926,15 +926,15 @@ class TargetData(object):
                              c: (0, 3.0),
                              beta: (0, 10)
                             }
-            
+
 
             betaout = np.zeros(len(data_arr))
-            
+
 
         else:
             raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
                                                                     # and a gentle return
-                
+
         aout = np.zeros(len(data_arr))
         bout = np.zeros(len(data_arr))
         cout = np.zeros(len(data_arr))
@@ -958,10 +958,10 @@ class TargetData(object):
 
         sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
         sess.run(tf.global_variables_initializer())
-        
 
 
-        
+
+
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
         fout = np.zeros((len(data_arr), nstars))
@@ -975,7 +975,7 @@ class TargetData(object):
 
             fout[i] = sess.run(flux)
             bkgout[i] = sess.run(bkg)
-            
+
             if model == 'gaussian':
                 aout[i] = sess.run(a)
                 bout[i] = sess.run(b)
@@ -983,7 +983,7 @@ class TargetData(object):
                 xout[i] = sess.run(xshift)
                 yout[i] = sess.run(yshift)
                 llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-                
+
             if model == 'moffat':
                 aout[i] = sess.run(a)
                 bout[i] = sess.run(b)
@@ -992,7 +992,7 @@ class TargetData(object):
                 yout[i] = sess.run(yshift)
                 llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
                 betaout[i] = sess.run(beta)
-            
+
 
         sess.close()
 
@@ -1002,7 +1002,7 @@ class TargetData(object):
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
 
         self.psf_bkg = bkgout
-        
+
         if verbose:
             if model == 'gaussian':
                 self.psf_a = aout
@@ -1145,7 +1145,7 @@ class TargetData(object):
 
         if flux is None:
             flux = self.raw_flux
-            
+
         if bkg is None:
             bkg = self.flux_bkg
 
@@ -1153,33 +1153,9 @@ class TargetData(object):
         med = np.nanmedian(flux)
         quality = copy.deepcopy(self.quality)
 
-        cx = self.centroid_xs 
+        cx = self.centroid_xs
         cy = self.centroid_ys
         t  = self.time-self.time[0]
-        
-
-
-        # Inputs: light curve & quality flag
-        def norm(l, q):
-            l = l[q]
-            l /= np.nanmedian(l)
-            l -= 1
-            return l
-
-        def fhat(xhat, data):
-            return np.dot(data, xhat)
-
-        def xhat(mat, lc):
-            mat_T = mat.T
-            ATA = np.dot(mat_T, mat)
-            ATf = np.dot(mat_T, lc)
-            xhat = np.linalg.solve(ATA, ATf)
-            return xhat
-
-        def rotate_centroids(centroid_col, centroid_row):
-            centroids = np.array([centroid_col, centroid_row])
-            _, eig_vecs = np.linalg.eigh(np.cov(centroids))
-            return np.dot(eig_vecs, centroids)
 
         def calc_corr(mask, cx, cy, skip=50):
             nonlocal quality, flux, bkg, regressors
@@ -1205,17 +1181,17 @@ class TargetData(object):
             cy = cy[mask]
             cx -= np.median(cx)
             cy -= np.median(cy)
-            
+
 
             bkg_use = bkg[mask]
             bkg_use -= np.min(bkg_use)
-            
+
             vv = self.cbvs[mask][:,0:modes]
-                   
+
             if pca == False:
                 cm = np.column_stack((t[mask][qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((t[mask], np.ones_like(t[mask])))
-                
+
                 if np.std(vv) > 1e-10:
                     cm = np.column_stack((cm, vv[qm][skip:]))
                     cm_full = np.column_stack((cm_full, vv))
@@ -1232,9 +1208,9 @@ class TargetData(object):
                 if regressors is not None:
                     cm = np.column_stack((cm, regressors[mask][qm][skip:]))
                     cm_full = np.column_stack((cm_full, regressors[mask]))
-                
+
             else:
-                
+
                 cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((vv, np.ones_like(t[mask])))
 
@@ -1342,13 +1318,13 @@ class TargetData(object):
         """
         if self.language == 'Australian':
             raise ValueError("These light curves are upside down. Please don't save them ...")
-        
+
         self.set_header()
 
         # if the user did not specify a directory, set it to default
         if directory is None:
             directory = self.fetch_dir()
-            
+
         raw       = [e+'_raw'  for e in self.aperture_names]
         errors    = [e+'_err'  for e in self.aperture_names]
         corrected = [e+'_corr' for e in self.aperture_names]
@@ -1373,8 +1349,8 @@ class TargetData(object):
         if self.bkg_type == "PC_LEVEL":
             ext1['FLUX_BKG'] = self.flux_bkg
         else:
-            ext1['FLUX_BKG'] = self.flux_bkg + self.tpf_flux_bkg 
-        
+            ext1['FLUX_BKG'] = self.flux_bkg + self.tpf_flux_bkg
+
 
         if self.pca_flux is not None:
             ext1['PCA_FLUX'] = self.pca_flux
@@ -1427,7 +1403,7 @@ class TargetData(object):
             directory = self.fetch_dir()
         if fn is None:
             fn = self.source_info.fn
-            
+
         hdu = fits.open(os.path.join(directory, fn))
         hdr = hdu[0].header
         self.header = hdr
@@ -1473,7 +1449,7 @@ class TargetData(object):
         self.all_raw_flux  = []
         self.all_corr_flux = []
         self.all_flux_err  = []
-        
+
         names = []
         for i in cols:
             name = ('_').join(i.split('_')[0:-1])
@@ -1500,9 +1476,9 @@ class TargetData(object):
             self.post_obj =Postcard_tesscut(self.source_info.cutout,
                                             location=self.source_info.postcard_path)
 
-                
+
         self.get_cbvs()
-        
+
 
         return
 
@@ -1592,7 +1568,7 @@ class TargetData(object):
         Parameters
         ----------
         flux : np.ndarray, optional
-             An array of flux. Default is 
+             An array of flux. Default is
              eleanor.TargetData.corr_flux.
 
         quality_mask : np.ndarray, optional
@@ -1604,7 +1580,7 @@ class TargetData(object):
         lightkurve.lightcurve.TessLightCurve object
         """
         from lightkurve.lightcurve import TessLightCurve
-        
+
         if flux is None:
             flux = self.corr_flux
         if quality_mask is None:
@@ -1627,3 +1603,36 @@ class TargetData(object):
 
         return lk
 
+
+# Inputs: light curve & quality flag
+def norm(l, q):
+    l = l[q]
+    l /= np.nanmedian(l)
+    l -= 1
+    return l
+
+def fhat(xhat, data):
+    return np.dot(data, xhat)
+
+def xhat(mat, lc):
+    return np.linalg.lstsq(mat, lc, rcond=None)[0]
+
+def rotate_centroids(centroid_col, centroid_row):
+    centroids = np.array([centroid_col, centroid_row])
+    _, eig_vecs = np.linalg.eigh(np.cov(centroids))
+    return np.dot(eig_vecs, centroids)
+
+def get_flattened_sigma(y, maxiter=100, window_size=51, nsigma=4):
+    y = np.copy(y[np.isfinite(y)], order="C")
+    y[:] /= median_filter(y, window_size)
+    y[:] -= np.mean(y)
+    sig = np.std(y)
+    m = np.ones_like(y, dtype=bool)
+    n = len(y)
+    for n in range(maxiter):
+        sig = np.std(y[m])
+        m = np.abs(y) < nsigma * sig
+        if m.sum() == n:
+            break
+        n = m.sum()
+    return sig
