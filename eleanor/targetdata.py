@@ -1536,6 +1536,53 @@ class TargetData(object):
 
         return download_dir
 
+    def stitch(self, objects, flux='corrected'):
+        """
+        Stitches together basic light curve information from different 
+        eleanor.TargetData objects. 
+
+        Parameters
+        ----------
+        objects : np.ndarray
+             An array of eleanor.TargetData objects.
+        flux : str, optional
+             The keyword for which flux to stitch together 
+             and return. Sectors will be normalized by itself.
+             Default is 'corrected'. 
+
+        Returns
+        -------
+        time : np.ndarray
+             An array of stitched times.
+        flux : np.ndarray
+             An array of stitched normalized fluxes.
+        quality : np.ndarray
+             An array of stitched quality flags.
+        flux_err : np.ndarray
+             An array of stitched flux errors.
+        """
+        t, f = np.array([]), np.array([])
+        q, e = np.array([]), np.array([])
+
+        # sorts in ascending sector
+        sectors = np.zeros(len(objects), dtype=int)
+        for i in range(len(objects)):
+            sectors[i] = objects[i].source_info.sector
+        sectors, objects = zip(*sorted(zip(sectors, objects)))
+
+        # stitches lists
+        for o in objects:
+            t = np.append(t, o.time)
+            q = np.append(q, o.quality)
+            e = np.append(e, o.flux_err)
+
+            if flux == 'corrected':
+                f = np.append(f, o.corr_flux/np.nanmedian(o.corr_flux))
+            elif flux == 'raw':
+                f = np.append(f, o.raw_flux/np.nanmedian(o.raw_flux))
+
+        return t, f, q, e
+
 
     def to_lightkurve(self, flux=None, quality_mask=None):
         """
