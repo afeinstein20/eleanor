@@ -13,7 +13,7 @@ from astropy.stats import SigmaClip, sigma_clip
 from time import strftime
 from astropy.io import fits
 from scipy.stats import mode
-from scipy.ndimage import median_filter
+from scipy.signal import savgol_filter
 from urllib.request import urlopen
 import os, sys, copy
 import os.path
@@ -499,19 +499,14 @@ class TargetData(object):
         else:
             flux = self.tpf
 
-        tpf_flux_bkg = []
-
         sigma_clip = SigmaClip(sigma=sigma)
         bkg = MMMBackground(sigma_clip=sigma_clip)
-
-        for i in range(len(time)):
-            bkg_value = bkg.calc_background(flux[i])
-            tpf_flux_bkg.append(bkg_value)
+        tpf_flux_bkg = bkg.calc_background(flux, axis=(1, 2))
 
         if self.source_info.tc == True:
-            self.tpf_flux_bkg = np.array(tpf_flux_bkg)
+            self.tpf_flux_bkg = tpf_flux_bkg
         else:
-            return np.array(tpf_flux_bkg)
+            return tpf_flux_bkg
 
 
     def get_lightcurve(self, aperture=None):
@@ -582,33 +577,29 @@ class TargetData(object):
 
         ap_size = np.nansum(self.all_apertures, axis=(1,2))
 
+        bkg_subbed = self.tpf + (self.flux_bkg - self.tpf_flux_bkg)[:, None, None]
+        if not self.source_info.tc:
+            bkg_subbed_2 = self.tpf - self.bkg_tpf
+
         for a in range(len(self.all_apertures)):
             try:
                 all_lc_err[a] = np.sqrt( np.nansum(self.tpf_err**2 * self.all_apertures[a], axis=(1,2)))
                 all_raw_lc_pc_sub[a] = np.nansum( (self.tpf * self.all_apertures[a]), axis=(1,2) )
-
-                oned_bkg = np.zeros(self.tpf.shape)
-                for c in range(len(self.time)):
-                    oned_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.tpf_flux_bkg[c])
-
-                post_bkg = np.zeros(self.tpf.shape)
-                for c in range(len(self.time)):
-                    post_bkg[c] = np.full((self.tpf.shape[1], self.tpf.shape[2]), self.flux_bkg[c])
-
-                all_raw_lc_tpf_sub[a]  = np.nansum( ((self.tpf + post_bkg - oned_bkg) * self.all_apertures[a]), axis=(1,2) )
+                all_raw_lc_tpf_sub[a]  = np.nansum( (bkg_subbed * self.all_apertures[a]), axis=(1,2) )
 
                 if self.source_info.tc == False:
-                    all_raw_lc_tpf_2d_sub[a] = np.nansum( ((self.tpf) - self.bkg_tpf) * self.all_apertures[a],
+                    all_raw_lc_tpf_2d_sub[a] = np.nansum( bkg_subbed_2 * self.all_apertures[a],
                                                           axis=(1,2))
             except ValueError:
                 continue
 
             ## Remove something from all_raw_lc before passing into jitter_corr ##
             try:
+                norm = np.nansum(self.all_apertures[a], axis=1)
                 all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]),
-                                                           bkg=np.nansum(post_bkg*self.all_apertures[a], axis=(1,2)))
+                                                           bkg=self.flux_bkg[:, None] * norm)
                 all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]),
-                                                            bkg=np.nansum(oned_bkg*self.all_apertures[a], axis=(1,2)))
+                                                            bkg=self.tpf_flux_bkg[:, None] * norm)
 
                 if self.source_info.tc == False:
                     all_corr_lc_tpf_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_tpf_2d_sub[a]/np.nanmedian(all_raw_lc_tpf_2d_sub[a]),
@@ -692,8 +683,7 @@ class TargetData(object):
         if self.bkg_type == 'PC_LEVEL':
             self.all_raw_flux  = np.array(all_raw_lc_pc_sub)
             self.all_corr_flux = np.array(all_corr_lc_pc_sub)
-            for epoch in range(len(self.time)):
-                self.tpf[epoch] += self.tpf_flux_bkg[epoch]
+            self.tpf += self.tpf_flux_bkg[:, None, None]
 
         elif self.bkg_type == 'TPF_LEVEL':
             self.all_raw_flux  = np.array(all_raw_lc_tpf_sub)
@@ -1163,8 +1153,10 @@ class TargetData(object):
             badx = np.where(np.abs(cx - np.nanmedian(cx)) > 3*np.std(cx))[0]
             bady = np.where(np.abs(cy - np.nanmedian(cy)) > 3*np.std(cy))[0]
 
-            temp_lc = lightcurve.LightCurve(t, flux).flatten()
-            SC = sigma_clip(temp_lc.flux, sigma_upper=3.5, sigma_lower=3.5)
+            # temp_lc = lightcurve.LightCurve(t, flux).flatten()
+            tmp_flux = np.copy(flux[np.isfinite(flux)], order="C")
+            tmp_flux[:] /= savgol_filter(tmp_flux, 101, 2)
+            SC = sigma_clip(tmp_flux, sigma_upper=3.5, sigma_lower=3.5)
 
             quality[badx] = -999
             quality[bady] = -999
@@ -1514,17 +1506,17 @@ class TargetData(object):
 
     def stitch(self, objects, flux='corrected'):
         """
-        Stitches together basic light curve information from different 
-        eleanor.TargetData objects. 
+        Stitches together basic light curve information from different
+        eleanor.TargetData objects.
 
         Parameters
         ----------
         objects : np.ndarray
              An array of eleanor.TargetData objects.
         flux : str, optional
-             The keyword for which flux to stitch together 
+             The keyword for which flux to stitch together
              and return. Sectors will be normalized by itself.
-             Default is 'corrected'. 
+             Default is 'corrected'.
 
         Returns
         -------
@@ -1624,7 +1616,7 @@ def rotate_centroids(centroid_col, centroid_row):
 
 def get_flattened_sigma(y, maxiter=100, window_size=51, nsigma=4):
     y = np.copy(y[np.isfinite(y)], order="C")
-    y[:] /= median_filter(y, window_size)
+    y[:] /= savgol_filter(y, window_size, 2)
     y[:] -= np.mean(y)
     sig = np.std(y)
     m = np.ones_like(y, dtype=bool)
