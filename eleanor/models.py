@@ -66,7 +66,7 @@ class Moffat(Model):
 
 class Zernike(Model):
     '''
-    Use the first 'n_modes' Zernike polynomials with weights given by 'weights'.
+    Use the Zernike polynomials with weights given by 'weights'; the number of polynomials = the number of weights passed in.
     question for myself for later: what's the preferred datapath for caching these results? ~/.eleanor/...
     '''
     def zernike_radial(n, m, r):
@@ -116,11 +116,14 @@ class Zernike(Model):
         r, theta = tf.math.sqrt(self.x ** 2 + self.y ** 2), tf.math.tan(self.y / self.x)
         return np.sqrt(n + 1) * zernike_azimuthal(m, theta) * zernike_radial(n, m, r)
 
-    def evaluate(self, flux, weights, n_modes=10):
+    def evaluate(self, flux, *weights):
         '''
         Evaluates a weighted sum of Zernike polynomials.
-        xo and yo are excluded, because ideally those are fit by tip and tilt.
+        xo and yo are excluded, because ideally those are fitted by tip and tilt.
         '''
-        psf = sum([zernike(i) * weights[i] for i in range(n_modes)])
+        psf = np.zeros_like(self.x)
+        for i, w in enumerate(weights):
+            psf += zernike(i) * w
+        
         psf_sum = tf.reduce_sum(psf)
         return flux * psf / psf_sum

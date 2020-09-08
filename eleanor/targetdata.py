@@ -823,7 +823,7 @@ class TargetData(object):
         """
 
         import tensorflow as tf
-        from .models import Gaussian, Moffat
+        from .models import Gaussian, Moffat, Zernike
         from tqdm import tqdm
 
         tf.logging.set_verbosity(tf.logging.ERROR)
@@ -867,14 +867,20 @@ class TargetData(object):
         xshift = tf.Variable(0.0, dtype=tf.float64)
         yshift = tf.Variable(0.0, dtype=tf.float64)
 
-        if (model == 'gaussian'):
+        implemented_models = ['gaussian', 'moffat', 'zernike']
+
+        if model not in implemented_models:
+            warnings.warn("Model {} is not implemented yet; falling back to Gaussian.".format(model))
+            model = 'gaussian'
+
+        # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
+        if model == 'gaussian':
 
             gaussian = Gaussian(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
 
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
-
 
             if nstars == 1:
                 mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
@@ -884,13 +890,14 @@ class TargetData(object):
 
             var_list = [flux, xshift, yshift, a, b, c, bkg]
 
-            var_to_bounds = {flux: (0, np.infty),
-                             xshift: (-1.0, 1.0),
-                             yshift: (-1.0, 1.0),
-                             a: (0, np.infty),
-                             b: (-0.5, 0.5),
-                             c: (0, np.infty)
-                            }
+            var_to_bounds = {
+                flux: (0, np.infty),
+                xshift: (-1.0, 1.0),
+                yshift: (-1.0, 1.0),
+                a: (0, np.infty),
+                b: (-0.5, 0.5),
+                c: (0, np.infty)
+            }
 
         elif model == 'moffat':
 
@@ -910,28 +917,35 @@ class TargetData(object):
 
             var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
 
-            var_to_bounds = {flux: (0, np.infty),
-                             xshift: (-2.0, 2.0),
-                             yshift: (-2.0, 2.0),
-                             a: (0, 3.0),
-                             b: (-0.5, 0.5),
-                             c: (0, 3.0),
-                             beta: (0, 10)
-                            }
+            var_to_bounds = {
+                flux: (0, np.infty),
+                xshift: (-2.0, 2.0),
+                yshift: (-2.0, 2.0),
+                a: (0, 3.0),
+                b: (-0.5, 0.5),
+                c: (0, 3.0),
+                beta: (0, 10)
+            }
 
+        elif model == 'zernike':
+            n_modes = 6
+            zernike = Zernike(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
+            weights = tf.Variable(initial_value=[1.0]*n_modes)
 
-            betaout = np.zeros(len(data_arr))
+            if nstars == 1:
+                mean = zernike(flux, *weights)
+            else:
+                mean = [zernike(flux[j], *weights) for j in range(nstars)]
+                mean = np.sum(mean, axis=0)
 
+            var_list = [flux, *weights]
 
-        else:
-            raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
-                                                                    # and a gentle return
+            var_to_bounds = {
+                flux : (0, np.infty),
+                weights : (-5, 5) # does this work if I'm unpacking in one and not the other?
+            }
 
-        aout = np.zeros(len(data_arr))
-        bout = np.zeros(len(data_arr))
-        cout = np.zeros(len(data_arr))
-        xout = np.zeros(len(data_arr))
-        yout = np.zeros(len(data_arr))
+        params_out = np.zeros(len(data_arr), len(var_list) - 1) # dinosaur
 
         mean += bkg
 
@@ -968,23 +982,9 @@ class TargetData(object):
             fout[i] = sess.run(flux)
             bkgout[i] = sess.run(bkg)
 
-            if model == 'gaussian':
-                aout[i] = sess.run(a)
-                bout[i] = sess.run(b)
-                cout[i] = sess.run(c)
-                xout[i] = sess.run(xshift)
-                yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-
-            if model == 'moffat':
-                aout[i] = sess.run(a)
-                bout[i] = sess.run(b)
-                cout[i] = sess.run(c)
-                xout[i] = sess.run(xshift)
-                yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-                betaout[i] = sess.run(beta)
-
+            for j, v in enumerate(var_list[1:]):
+                params_out[i][j] = sess.run(v)
+            llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
 
         sess.close()
 
@@ -996,21 +996,8 @@ class TargetData(object):
         self.psf_bkg = bkgout
 
         if verbose:
-            if model == 'gaussian':
-                self.psf_a = aout
-                self.psf_b = bout
-                self.psf_c = cout
-                self.psf_x = xout
-                self.psf_y = yout
-                self.psf_ll = llout
-            if model == 'moffat':
-                self.psf_a = aout
-                self.psf_b = bout
-                self.psf_c = cout
-                self.psf_x = xout
-                self.psf_y = yout
-                self.psf_ll = llout
-                self.psf_beta = betaout
+            self.psf_params = params_out
+            self.psf_ll = llout
             if nstars > 1:
                 self.all_psf = fout
         return
