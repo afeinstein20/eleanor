@@ -820,6 +820,7 @@ class TargetData(object):
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
+
         import tensorflow as tf
         from .models import Gaussian, Moffat
         from tqdm import tqdm
