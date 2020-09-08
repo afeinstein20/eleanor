@@ -2,6 +2,7 @@ import sys, os, ast
 from .source import Source
 from .targetdata import TargetData
 from .visualize import Visualize
+from .update import Update
 
 if __name__ == "__main__":
     # Only gets run if it's called from the command line

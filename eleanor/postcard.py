@@ -7,6 +7,8 @@ import numpy as np
 import warnings
 import pandas as pd
 import copy
+from astropy.stats import SigmaClip
+from photutils import MMMBackground
 from .mast import crossmatch_by_position
 from urllib.request import urlopen
 
@@ -47,31 +49,14 @@ class Postcard(object):
     origin_xy : tuple
         (`x`, `y`) coordinates corresponding to the location of 
         the postcard's (0,0) pixel on the FFI.
+    background2d : np.ndarray
+        The 2D modeled background array.
     """
-    def __init__(self, filename, ELEANORURL, location=None):
-        if location is not None:
-            self.filename = '{}{}'.format(location, filename)
-            self.local_path = copy.copy(self.filename)
-            self.hdu = fits.open(self.local_path)
-        else:
-            self.post_dir = os.path.join(os.path.expanduser('~'), '.eleanor/postcards')
-            if os.path.isdir(self.post_dir) == False:
-                try:
-                    os.mkdir(self.post_dir)
-                except OSError:
-                    self.post_dir = '.'
-                    warnings.warn('Warning: unable to create {}. '
-                                  'Downloading postcard to the current '
-                                  'working directory instead.'.format(self.post_dir))
-
-            self.filename = '{}{}'.format(ELEANORURL, filename)
-            self.local_path = '{}/{}'.format(self.post_dir, filename)
-
-            if os.path.isfile(self.local_path) == False:
-                print("Downloading {}".format(self.filename))
-                os.system('cd {} && curl -O -L {}'.format(self.post_dir, self.filename))
-
-            self.hdu = fits.open(self.local_path)
+    def __init__(self, filename, background, filepath):
+        self.filename = os.path.join(filepath, filename)
+        self.local_path = copy.copy(self.filename)
+        self.hdu = fits.open(self.local_path)
+        self.background2d = fits.open(os.path.join(filepath, background))[1].data
 
     def __repr__(self):
         return "eleanor postcard ({})".format(self.filename)
@@ -198,11 +183,10 @@ class Postcard(object):
 class Postcard_tesscut(object):
     """TESS FFI data for one postcard across one sector.
     
-    A postcard is an rectangular subsection cut out from the FFIs. 
-    It's like a TPF, but bigger. 
-    The Postcard object contains a stack of these cutouts from all available 
-    FFIs during a given sector of TESS observations.
-    
+    TESSCut is a service from MAST to produce TPF cutouts from the TESS FFIs. If
+    `eleanor.Source()` is called with `tc=True`, TESSCut is used to produce a large
+    postcard-like cutout region rather than downlading a standard eleanor postcard.
+
     Parameters
     ----------
     filename : str
@@ -232,7 +216,12 @@ class Postcard_tesscut(object):
     """
     def __init__(self, cutout, location=None):
 
-            self.hdu = cutout
+        if location is None:
+            self.local_path = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
+        else:
+            self.local_path = location
+
+        self.hdu = cutout
 
 
     def plot(self, frame=0, ax=None, scale='linear', **kwargs):
@@ -340,13 +329,16 @@ class Postcard_tesscut(object):
     @property
     def quality(self):
         sector = self.header['SECTOR']
-        array_obj = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
-        A = [int(x) for x in array_obj.read().decode('utf-8').split()]
+        eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+        A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
         return A
 
     @property
     def bkg(self):
-        return np.nanmedian(self.hdu[1].data['FLUX_BKG'], axis=(1,2))
+        sigma_clip = SigmaClip(sigma=3.)
+        bkg = MMMBackground(sigma_clip=sigma_clip)
+        b = bkg.calc_background(self.flux, axis=(1,2))
+        return b
     
     @property 
     def barycorr(self):
@@ -355,6 +347,7 @@ class Postcard_tesscut(object):
     @property
     def ffiindex(self):
         sector = self.header['SECTOR']
-        array_obj = urlopen('https://archipelago.uchicago.edu/tess_postcards/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
-        A = [int(x) for x in array_obj.read().decode('utf-8').split()]
+        eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+        A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
         return A
+

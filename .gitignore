@@ -11,3 +11,8 @@ dist
 .cache/
 .coverage
 .eggs
+.ipynb_checkpoints
+*.so
+*.cppimporthash
+.rendered.*
+*.egg-info

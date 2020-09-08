@@ -19,6 +19,8 @@ eleanor is an open-source python framework for downloading, analyzing, and visua
    getting_started/about
    getting_started/installation
    getting_started/tutorial
+   getting_started/tips_tricks
+   getting_started/vis_crossmatch
    getting_started/faq
 
 .. toctree::
@@ -41,3 +43,4 @@ Index
 .. _TESS: https://heasarc.gsfc.nasa.gov/docs/tess/
 .. _GitHub: http://github.com/afeinstein20/eleanor
 .. _Git Issues: http://github.com/afeinstein20/eleanor/issues
+

@@ -75,26 +75,24 @@ def convolve_cbvs(sectors=np.arange(1,14,1)):
         time = cutout[1].data['TIME'] - cutout[1].data['TIMECORR']
 
         for c in trange(len(files)):
-            convolved = np.zeros((len(time),16))
-        
-            cbvs   = fits.open(cbv_dir+files[c])
+            cbv      = fits.open(files[c])
+            camera   = cbv[1].header['CAMERA']
+            ccd      = cbv[1].header['CCD']
+            cbv_time = cbv[1].data['Time']
             
-            camera = cbvs[1].header['CAMERA']
-            ccd    = cbvs[1].header['CCD']
-            
-            new_fn = './s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(sector, camera, ccd)
-
+            new_fn = './eleanor/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(sector, camera, ccd)
+    
             convolved = np.zeros((len(time), 16))
+            
             for i in range(len(time)):
-                g = np.where( np.abs(time[i] - cbv_time) == np.min(np.abs(time[i] - cbv_time))  )[0][0]
-                inds = np.append(inds, g)
+                g = np.argmin( np.abs(time[i] - cbv_time) )
                 for j in range(16):
-                    string = 'VECTOR_{0}'.format(j+1) 
-                    column = cbv[1].data[string][inds]
-                    convolved[i,j] = np.mean(column)
+                    index = 'VECTOR_{0}'.format(j+1)
+                    cads  = np.arange(g-7, g+8, 1)
+                    convolved[i,j] = np.mean(cbv[1].data[index][cads])
 
-                np.savetxt(new_fn, convolved)
-    return
+            np.savetxt(new_fn, convolved)
+
 
 def set_quality_flags(sector=np.arange(1,14,1)):
     """ Uses the quality flags in a 2-minute target to create quality flags
@@ -113,7 +111,7 @@ def set_quality_flags(sector=np.arange(1,14,1)):
     ffi_time = cutout[1].data['TIME'] - cutout[1].data['TIMECORR']
     
     
-    shortCad_fn = 'metadata/s{0:04d}/target_s{0:04d}.fits'.format(sector)
+    shortCad_fn = 'eleanor/metadata/s{0:04d}/target_s{0:04d}.fits'.format(sector)
     
     # Binary string for values which apply to the FFIs
     ffi_apply = int('100010101111', 2)
@@ -147,7 +145,7 @@ def set_quality_flags(sector=np.arange(1,14,1)):
 
     flags    = np.bitwise_and(convolve_ffi, ffi_apply)
     
-    np.savetxt('metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector), flags+nodata, fmt='%i')
+    np.savetxt('eleanor/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector), flags+nodata, fmt='%i')
 
     return flags
 
@@ -247,3 +245,5 @@ def create_ffiindex(sectors=np.arange(1,14,1)):
 
     os.remove(later_sector_curl)
 
+
+convolve_cbvs(sectors=[11])

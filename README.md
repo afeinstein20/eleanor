@@ -2,9 +2,10 @@
   <img width = "600" src="./figures/eleanor.gif"/>
 </p>
 <p align="center">  
-  <a href="https://travis-ci.org/afeinstein20/eleanor/"><img src="https://img.shields.io/travis/afeinstein20/eleanor/master.svg"/></a>
-  <a href="https://afeinstein20.github.io/eleanor/"><img src="https://img.shields.io/badge/read-the_docs-blue.svg?style=flat"/></a>
-  <a href="https://doi.org/10.5281/zenodo.2597620"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.2597620.svg" alt="DOI"></a>
+  <a href="https://travis-ci.org/afeinstein20/eleanor/"><img src="https://img.shields.io/travis/afeinstein20/eleanor/master.svg?colorB=F9E84F"/></a>
+  <a href="https://afeinstein20.github.io/eleanor/"><img src="https://img.shields.io/badge/read-the_docs-4D827F.svg?style=flat"/></a>
+  <a href="https://ui.adsabs.harvard.edu/abs/2019PASP..131i4502F/abstract"><img src="https://img.shields.io/badge/read-the_paper-4D827F.svg?style=flat"/></a>
+  <a href="https://doi.org/10.5281/zenodo.2597620"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.2597620.svg?colorB=3C0650" alt="DOI"></a>
 </p>
 
 <div align="justify">
@@ -23,3 +24,4 @@ Alternatively you can install the current development version of eleanor:
 
 For more information on how to install and use eleanor, please refer to the <a href="http://adina.feinste.in/eleanor/">documentation</a>.
 
+If your work uses eleanor, please cite <a href="https://ui.adsabs.harvard.edu/abs/2019PASP..131i4502F/abstract">Feinstein et al. 2019</a>. If your work uses eleanor in Sectors 14-Present, we are using TessCut behind the scenes, also cite <a href="https://ui.adsabs.harvard.edu/abs/2019ascl.soft05007B/abstract">Brasseur et al. 2019</a>.

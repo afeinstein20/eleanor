@@ -1,1 +1,3 @@
-include README.md LICENSE eleanor/default_apertures.pickle
+include README.md 
+include LICENSE 
+include eleanor/postcard_centers.txt

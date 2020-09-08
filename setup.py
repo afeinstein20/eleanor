@@ -3,8 +3,9 @@
 
 from __future__ import division, print_function
 
-import os
 import sys
+
+import setuptools
 from setuptools import setup
 
 sys.path.insert(0, "eleanor")
@@ -20,7 +21,32 @@ takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
 observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
+
+Changes to v1.0.5 (2020-05-21):
+* Fixed bug where some apertures were made twice and others not at all
+* Fixed bug where mass centroids were off by a constant offset at all cadences
+* Fixed bug that happens when data are all zeros at the start of a sector
+
+Changes to v1.0.4 (2020-03-27):
+* Pass in an array of regressors to use in calculating the corrected flux
+* Extreme short-term flux variability like eclipses ignored in corrections, which should improve detrending of these objects
+* Fixed bug where metadata could not be properly updated on linux clusters
+* Improvements to Gaia overlay of fields
+* Ability to create light curves offline
+* Ability to pass through a SIMBAD-resolvable name rather than TIC/Gaia ID or coordinates
+* Other minor bug fixes
+
+Changes to v1.0.1 (2019-12-19):
+* Ability to use local postcards
+* Addition of eleanor.Update() for automatic sector updates
+* Significant speedups when TIC, Coords, and a Gaia ID are all provided
+* Other bug fixes
+
+Changes to v1.0.0 (2020-01-14):
+* Pass in the name of the source as a string
+* Other bugfixes
 """
+
 
 
 setup(
@@ -39,13 +65,12 @@ setup(
     long_description_content_type="text/markdown",
     package_data={'': ['README.md', 'LICENSE']},
     install_requires=[
-        'mplcursors', 'photutils', 'tqdm', 'lightkurve', 'astropy',
-        'astroquery', 'bokeh', 'muchbettermoments', 'fitsio',
-        'tensorflow', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point'],
-
-
+        'photutils>=0.7', 'tqdm', 'lightkurve>=1.9.0', 'astropy>=3.2.3',
+        'astroquery', 'pandas',
+        'setuptools>=41.0.0',
+        'tensorflow<=1.14.0', 'vaneska', 'beautifulsoup4>=4.6.0', 'tess-point>=0.3.6'],
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Science/Research',
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',

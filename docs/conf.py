@@ -21,13 +21,13 @@ on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 # -- Project information -----------------------------------------------------
 
 project = 'eleanor'
-copyright = '2018-2019, Adina D. Feinstein'
-author = 'Adina D. Feinstein'
+copyright = '2018-2020, Adina D. Feinstein'
+author = 'Adina D. Feinstein and the eleanor team'
 
 # The short X.Y version
 version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.0.3'
+release = '1.0.4'
 
 
 # -- General configuration ---------------------------------------------------

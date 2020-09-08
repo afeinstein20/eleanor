@@ -3,7 +3,7 @@
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
-SPHINXBUILD   = python3 -c "import sys,sphinx;sys.exit(sphinx.main(sys.argv))"
+SPHINXBUILD   = python3 -c "import sys,sphinx,sphinx.cmd.build;sys.exit(sphinx.cmd.build.build_main([sys.argv[3], sys.argv[4]]))"
 SPHINXPROJ    = eleanor
 SOURCEDIR     = .
 BUILDDIR      = _build
@@ -19,5 +19,6 @@ help:
 %: Makefile
 	@$(SPHINXBUILD) -M $@ "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 	mkdir -p $(BUILDDIR)/html/_images
+	mkdir -p $(BUILDDIR)/html/getting_started
 	cp ../figures/eleanor.gif $(BUILDDIR)/html/_images/eleanor.gif
 	cp ../docs/getting_started/customApExample.gif $(BUILDDIR)/html/getting_started/customApExample.gif

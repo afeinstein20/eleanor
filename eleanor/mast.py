@@ -2,7 +2,7 @@ import os, sys, re, json, time
 import requests
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import SkyCoord
+from astropy.coordinates import SkyCoord, Angle
 from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs
 from astropy.table import Table, Column, Row
@@ -19,7 +19,7 @@ except ImportError: # Python 2.x
     import httplib
 
 __all__ = ['coords_from_tic', 'gaia_from_coords', 'coords_from_gaia', 'tic_from_coords',
-           'cone_search']
+           'cone_search', 'coords_from_name']
 
 def mastQuery(request):
     """Sends a request to the MAST server.
@@ -149,7 +149,15 @@ def coords_from_tic(tic):
     """
 
     ticData = Catalogs.query_object('tic'+str(tic), radius=.0001, catalog="TIC")
-    return [ticData['ra'].data[0], ticData['dec'].data[0]], ticData['Tmag'].data, int(ticData['version'])
+    return [ticData['ra'].data[0], ticData['dec'].data[0]], [ticData['Tmag'].data[0]], int(ticData['version'].data[0]), ticData['contratio'].data[0]
+
+def coords_from_name(name):
+    """ Finds the RA, Dec for a given target name."""
+    from astroquery.simbad import Simbad
+    result_table = Simbad.query_object(name)
+    coords = SkyCoord(Angle(result_table['RA'][0] + ' hours'),
+                      Angle(result_table['DEC'][0] + ' degrees'))
+    return (coords.ra.deg, coords.dec.deg)
 
 def coords_from_gaia(gaia_id):
     """Returns table of Gaia DR2 data given a source_id."""
@@ -165,9 +173,10 @@ def coords_from_gaia(gaia_id):
 def tic_from_coords(coords):
     """Returns TIC ID, Tmag, and separation of best match(es) to input coords."""
     tess = crossmatch_by_position(coords, 0.01, 'Mast.Tic.Crossmatch')
-    tessPos = [tess['MatchRA'], tess['MatchDEC']]
+    tessPos = [tess['MatchRa'], tess['MatchDEC']]
     sepTess = crossmatch_distance(coords, tessPos)
-    return int(tess[sepTess==np.min(sepTess)]['MatchID'].data[0]), [tess[sepTess==np.min(sepTess)]['Tmag'].data[0]], sepTess[sepTess==np.min(sepTess)]/u.arcsec, int(tess['version'][0])
+    subTess = tess[sepTess==np.min(sepTess)]
+    return int(subTess['MatchID'].data[0]), [subTess['Tmag'].data[0]], sepTess[sepTess==np.min(sepTess)]/u.arcsec, int(subTess['version'][0]), subTess['contratio'].data[0]
 
 def gaia_from_coords(coords):
     """Returns Gaia ID of best match(es) to input coords."""
@@ -203,9 +212,9 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
     table : astropy.table.Table
         A table of source(s) in radius
     """
-    request = {'service':'Mast.Catalogs.Filtered.Tic.Position',
+    request = {'service':'Mast.Catalogs.Filtered.Tic.Position.Rows',
                'format':'json',
-               'params': {'columns':'c.*',
+               'params': {'columns':'r.*',
                           'filters': [{'paramName':'contratio',
                                        'values':[{'min':contam[0], 'max':contam[1]}]},
                                       {'paramName':'Tmag',
@@ -216,6 +225,7 @@ def tic_by_contamination(pos, r, contam, tmag_lim):
                           'timeout':600,
                           'radius':r
                           }}
+    print(request)
     blob = {}
     while 'fields' not in blob:
         headers, outString = mastQuery(request)
