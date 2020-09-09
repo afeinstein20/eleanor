@@ -778,6 +778,28 @@ class TargetData(object):
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
 
+    def tess_star_field(self, ticid):
+        '''
+        Uses tess-point to set up the crowded star field, to use as input to psf_lightcurve.
+
+        Parameters
+        ----------
+        target_id : str
+            The unique target ID for the catalog (currently only TIC).
+        
+        Returns
+        -------
+        xc, yc, tmag : list
+            The coordinates and magnitude for each star in the field.
+        '''
+
+        ## TODO figure out how to actually get this info out of tess-point
+        from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
+        from .mast import cone_search
+
+        ra, dec = 0.0, 0.0 # dinosaur
+        stars_in_field = cone_search()
+
 
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
                        xc=None, yc=None, verbose=True,
@@ -870,7 +892,7 @@ class TargetData(object):
         yshift = tf.Variable(0.0, dtype=tf.float64)
 
         if model_name not in implemented_models:
-            warnings.warn("Model {} is not implemented yet; falling back to Gaussian.".format(model))
+            warnings.warn("Model '{}' is not implemented yet; falling back to Gaussian.".format(model))
             model_name = 'gaussian'
 
         model = {
@@ -937,7 +959,14 @@ class TargetData(object):
             }
 
         elif (model_name == 'zernike' or model_name == 'lygos'):
-            weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * model.num_params
+            if model_name == 'zernike':
+                num_params = 30
+
+
+            elif model_name == 'lygos':
+                num_params = 12
+            
+            weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * num_params
 
             if nstars == 1:
                 mean = model(flux, *weights)

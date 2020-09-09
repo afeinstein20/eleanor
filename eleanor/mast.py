@@ -191,7 +191,7 @@ def crossmatch_distance(pos, match):
     c2 = SkyCoord(match[0]*u.deg, match[1]*u.deg, frame='icrs')
     return c1.separation(c2).to(u.arcsec)
 
-def tic_by_contamination(pos, r, contam, tmag_lim):
+def tic_by_contamination(pos, r, contam, tmag_lim, call_internal=False):
     """Allows the user to perform a counts only query.
 
     When unsure how many results are expcted, it is best to first perform
