@@ -779,7 +779,7 @@ class TargetData(object):
         return
 
 
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model='gaussian', likelihood='gaussian',
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
                        xc=None, yc=None, verbose=True,
                        err_method=True, ignore_pixels=None):
         """
@@ -796,7 +796,7 @@ class TargetData(object):
             will default to `TargetData.flux_bkg`.
         nstars: int, optional
             Number of stars to be modeled on the TPF.
-        model: string, optional
+        model_name: string, optional
             PSF model to be applied. Must be one of the models listed in 'implemented_models'.
             Will be extended in the future once TESS PRF models are made publicly available.
         likelihood: string, optinal
@@ -823,10 +823,10 @@ class TargetData(object):
         """
 
         import tensorflow as tf
-        from .models import Gaussian, Moffat, Zernike
+        from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
 
-        implemented_models = ['gaussian', 'moffat', 'zernike']
+        implemented_models = ['gaussian', 'moffat', 'zernike', 'lygos']
 
         tf.logging.set_verbosity(tf.logging.ERROR)
 
@@ -869,40 +869,47 @@ class TargetData(object):
         xshift = tf.Variable(0.0, dtype=tf.float64)
         yshift = tf.Variable(0.0, dtype=tf.float64)
 
-        if model not in implemented_models:
+        if model_name not in implemented_models:
             warnings.warn("Model {} is not implemented yet; falling back to Gaussian.".format(model))
-            model = 'gaussian'
+            model_name = 'gaussian'
+        model = {
+            'gaussian' : Gaussian,
+            'moffat' : Moffat,
+            'zernike' : Zernike,
+            'lygos' : Lygos
+        }.get(model_name)(
+            shape=data_arr.shape[1:], 
+            col_ref=0, 
+            row_ref=0, 
+            directory = self.fetch_dir(),
+            num_params = 30
+        )
+        # directory and num_params are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
 
         # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
-        if model == 'gaussian':
-
-            gaussian = Gaussian(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
-
+        if model_name == 'gaussian':
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
 
             if nstars == 1:
-                mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
             else:
-                mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
             var_list = [flux, xshift, yshift, a, b, c, bkg]
 
             var_to_bounds = {
-                flux: (0, np.infty),
-                xshift: (-1.0, 1.0),
-                yshift: (-1.0, 1.0),
-                a: (0, np.infty),
-                b: (-0.5, 0.5),
-                c: (0, np.infty)
+                flux : (0, np.infty),
+                xshift : (-1.0, 1.0),
+                yshift : (-1.0, 1.0),
+                a : (0, np.infty),
+                b : (-0.5, 0.5),
+                c : (0, np.infty)
             }
 
-        elif model == 'moffat':
-
-            moffat = Moffat(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
-
+        elif model_name == 'moffat':
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
@@ -910,34 +917,30 @@ class TargetData(object):
 
 
             if nstars == 1:
-                mean = moffat(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
             else:
-                mean = [moffat(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
             var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
 
             var_to_bounds = {
-                flux: (0, np.infty),
-                xshift: (-2.0, 2.0),
-                yshift: (-2.0, 2.0),
-                a: (0, 3.0),
-                b: (-0.5, 0.5),
-                c: (0, 3.0),
-                beta: (0, 10)
+                flux : (0, np.infty),
+                xshift : (-2.0, 2.0),
+                yshift : (-2.0, 2.0),
+                a : (0, 3.0),
+                b : (-0.5, 0.5),
+                c : (0, 3.0),
+                beta : (0, 10)
             }
 
-        elif model == 'zernike':
-
-            n_modes = 30
-            zernike = Zernike(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
-
-            weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * n_modes
+        elif model == 'zernike' or model == 'lygos':
+            weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * model.num_params
 
             if nstars == 1:
-                mean = zernike(flux, *weights)
+                mean = model(flux, *weights)
             else:
-                mean = [zernike(flux[j], *weights) for j in range(nstars)]
+                mean = [model(flux[j], *weights) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
             var_list = [flux, *weights]
@@ -949,7 +952,6 @@ class TargetData(object):
             })
 
         params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
-
         mean += bkg
 
         data = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
