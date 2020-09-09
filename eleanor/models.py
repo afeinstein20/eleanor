@@ -64,9 +64,19 @@ class Moffat(Model):
 		psf_sum = tf.reduce_sum(psf)
 		return flux * psf / psf_sum
 
-# class MoffatAltTest(Model):
+class MoffatAltTest(Model):
+	def __init__(self, shape, col_ref, row_ref, **kwargs):
+		super().__init__(shape, col_ref, row_ref)
+		print('hi')
 
+	def evaluate(self, flux, *params):
+		dx = self.x - params[0]
+		dy = self.y - params[1]
+		psf = tf.divide(1., tf.pow(1. + params[2] * dx ** 2 + 2 * params[3] * dx * dy + params[4] * dy ** 2, params[5]))
+		return flux * psf / tf.reduce_sum(psf)
 
+Moffat = MoffatAltTest
+		
 class Zernike(Model):
 	'''
 	Use the Zernike polynomials with weights given by 'weights'; the number of polynomials = the number of weights passed in.
@@ -135,9 +145,9 @@ class Zernike(Model):
 		self.cache[('azim', m)] = res
 		return res
 
-	def zernike(self, i):
+	def zernike(self, i, xo, yo):
 		'''
-		Evaluates the 'i'th Zernike polynomial over (self.x, self.y).
+		Evaluates the 'i'th Zernike polynomial over (self.x - xo, self.y - yo).
 		Adapted from https://github.com/ehpor/hcipy/blob/master/hcipy/mode_basis/zernike.py. 
 		'''
 		subpath = self.get_zernike_subpath(i)
@@ -147,8 +157,8 @@ class Zernike(Model):
 			return np.load(store_path)
 		n = int((np.sqrt(8 * i + 1) - 1) / 2)
 		m = 2 * i - n * (n + 2)
-		x = self.x - np.median(self.x)
-		y = self.y - np.median(self.y)
+		x = self.x - xo
+		y = self.y - yo
 		r, theta = np.hypot(x, y), np.arctan2(y, x)
 		zern = np.sqrt(n + 1) * self.zernike_azimuthal(m, theta) * self.zernike_radial(n, m, r)
 		if not os.path.exists(store_path):
@@ -157,10 +167,9 @@ class Zernike(Model):
 		np.save(store_path, zern)
 		return zern
 
-	def evaluate(self, flux, *weights):
+	def evaluate(self, flux, xo, yo, *weights):
 		'''
 		Evaluates a weighted sum of Zernike polynomials.
-		xo and yo are excluded, because ideally those are fitted by tip and tilt.
 		'''
 		psf = np.zeros_like(self.x)
 		for i, w in enumerate(weights):
