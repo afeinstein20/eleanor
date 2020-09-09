@@ -67,12 +67,14 @@ class Moffat(Model):
 class MoffatAltTest(Model):
 	def __init__(self, shape, col_ref, row_ref, **kwargs):
 		super().__init__(shape, col_ref, row_ref)
-		print('hi')
+		print('This is Moffat alternate, with variable unpacking')
 
-	def evaluate(self, flux, *params):
-		dx = self.x - params[0]
-		dy = self.y - params[1]
-		psf = tf.divide(1., tf.pow(1. + params[2] * dx ** 2 + 2 * params[3] * dx * dy + params[4] * dy ** 2, params[5]))
+	def evaluate(self, flux, xo, yo, params, beta):
+		dx = self.x - xo
+		dy = self.y - yo
+		terms = tf.concat([[dx ** 2], [2 * dx * dy], [dy ** 2]], axis=0)
+		psf_denom = tf.pow(1. + tf.transpose(tf.reduce_sum(tf.multiply(tf.transpose(terms), params))), beta)
+		psf = tf.divide(1., psf_denom)
 		return flux * psf / tf.reduce_sum(psf)
 
 Moffat = MoffatAltTest

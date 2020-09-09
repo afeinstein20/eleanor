@@ -934,30 +934,27 @@ class TargetData(object):
             }
 
         elif model_name == 'moffat':
-            weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * 4
+            weights = tf.Variable(initial_value=[1., 0., 1.], dtype=tf.float64)
             '''a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
-            beta = tf.Variable(initial_value=1, dtype=tf.float64)'''
+            c = tf.Variable(initial_value=1., dtype=tf.float64)'''
+            beta = tf.Variable(initial_value=1, dtype=tf.float64)
 
             if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, *weights)
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, weights, beta)
             else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, *weights) for j in range(nstars)]
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, weights, beta) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
-            var_list = [flux, xshift, yshift] + weights + [bkg]
+            var_list = [flux, xshift, yshift] + weights + [beta, bkg]
 
             var_to_bounds = {
                 flux : (0, np.infty),
                 xshift : (-2.0, 2.0),
-                yshift : (-2.0, 2.0)
-            }.update({
-                weights[0] : (0, 3.0),
-                weights[1] : (-0.5, 0.5),
-                weights[2] : (0, 3.0),
-                weights[3] : (0, 10)
-            })
+                yshift : (-2.0, 2.0),
+                weights : ([0., -0.5, 0.], [3.0, 0.5, 3.0]),
+                beta : (0, 10)
+            }
 
         elif (model_name == 'zernike' or model_name == 'lygos'):
             if model_name == 'zernike':
