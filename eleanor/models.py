@@ -69,7 +69,20 @@ class Zernike(Model):
     Use the Zernike polynomials with weights given by 'weights'; the number of polynomials = the number of weights passed in.
     question for myself for later: what's the preferred datapath for caching these results? ~/.eleanor/...
     '''
-    def zernike_radial(n, m, r):
+    def precompute_zernike(self, n_modes, directory):
+        '''
+        Precompute the first 'n_modes' Zernike polynomials over the grid given by self.x/self.y,
+        and saves them to directory + /psf_models/zernike/.
+        '''
+        import os
+
+        for i in range(n_modes):
+            z = zernike(i)
+            path = directory + "psf_models" + os.path.sep + "zernike" + os.path.sep + "zmode_{0}_dimx_{1}_dimy_{2}.npy".format(i, self.x.shape[0], self.y.shape[1])
+            sess = tf.Session()
+            np.save(path, z.eval(session=sess))
+
+    def zernike_radial(self, n, m, r):
         '''
         Radial component of the (n, m)th Zernike polynomial over radial coordinates r.
         Adapted from the 'hcipy' package, https://github.com/ehpor/hcipy/blob/master/hcipy/mode_basis/zernike.py. 
@@ -80,8 +93,8 @@ class Zernike(Model):
         if n == m:
             res = r**n
         elif (n - m) == 2:
-            z1 = zernike_radial(n, n, r, cache)
-            z2 = zernike_radial(n - 2, n - 2, r, cache)
+            z1 = self.zernike_radial(n, n, r)
+            z2 = self.zernike_radial(n - 2, n - 2, r)
 
             res = n * z1 - (n - 1) * z2
         else:
@@ -92,29 +105,32 @@ class Zernike(Model):
             h2 = h3 * (p + q) * (p - q + 2) / float(4 * (q - 1)) + (q - 2)
             h1 = q * (q - 1) / 2.0 - q * h2 + h3 * (p + q + 2) * (p - q) / 8.0
 
-            r2 = zernike_radial(2, 2, r, cache)
-            res = h1 * zernike_radial(p, q, r, cache) + (h2 + h3 / r2) * zernike_radial(n, q - 2, r, cache)
+            r2 = self.zernike_radial(2, 2, r)
+            res = h1 * self.zernike_radial(p, q, r) + (h2 + h3 / r2) * self.zernike_radial(n, q - 2, r)
 
         return res
 
-    def zernike_azimuthal(m, theta):
+    def zernike_azimuthal(self, m, theta):
         if m < 0:
-            res = np.sqrt(2) * np.sin(-m * theta)
+            res = np.sqrt(2) * tf.math.sin(-m * theta)
         elif m == 0:
             return 1
         else:
-            res = np.sqrt(2) * np.cos(m * theta)
+            res = np.sqrt(2) * tf.math.cos(m * theta)
 
         return res
 
-    def zernike(i):
+    def zernike(self, i):
         '''
         Evaluates the 'i'th Zernike polynomial over (self.x, self.y).
         Adapted from https://github.com/ehpor/hcipy/blob/master/hcipy/mode_basis/zernike.py. 
         '''
         n = int((np.sqrt(8 * i + 1) - 1) / 2)
-        r, theta = tf.math.sqrt(self.x ** 2 + self.y ** 2), tf.math.tan(self.y / self.x)
-        return np.sqrt(n + 1) * zernike_azimuthal(m, theta) * zernike_radial(n, m, r)
+        m = 2 * i - n * (n + 2)
+        x = self.x - np.median(self.x)
+        y = self.y - np.median(self.y)
+        r, theta = np.hypot(x, y), np.arctan2(y, x)
+        return np.sqrt(n + 1) * self.zernike_azimuthal(m, theta) * self.zernike_radial(n, m, r)
 
     def evaluate(self, flux, *weights):
         '''
@@ -123,7 +139,19 @@ class Zernike(Model):
         '''
         psf = np.zeros_like(self.x)
         for i, w in enumerate(weights):
-            psf += zernike(i) * w
+            psf += self.zernike(i) * w
         
         psf_sum = tf.reduce_sum(psf)
         return flux * psf / psf_sum
+
+class Lygos(Model):
+    '''
+    Model from https://github.com/tdaylan/lygos/blob/master/lygos/main.py
+    TODO figure out citation if this ends up getting used
+    '''
+    def evaluate(self, flux, *coeffs):
+        x, y = self.x, self.y
+        terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
+        c = np.array(coeffs)
+        mult_coeffs, misc_coeffs = c[:len(terms)], c[len(terms):]
+        return tf.tensordot(terms, mult_coeffs) + misc_coeffs[0] * tf.math.exp(-x ** 2 / misc_coeffs[1] - y ** 2 / misc_coeffs[2])

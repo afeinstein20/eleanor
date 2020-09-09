@@ -7,9 +7,7 @@ import lightkurve as lk
 
 star = eleanor.Source(tic=120362128, sector=14, tc=True)
 
-data_without_psf = eleanor.TargetData(star, height=15, width=15, do_pca=True, do_psf=False)
-data_with_psf = eleanor.TargetData(star, height=15, width=15, do_pca=True, do_psf=True)
-
+data = eleanor.TargetData(star, height=15, width=15, do_pca=True, do_psf=False)
 sc = lk.search_targetpixelfile(target='tic120362128', sector=14).download()
 sq = sc.quality < 5000
 start = 2500

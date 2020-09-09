@@ -52,7 +52,7 @@ class TargetData(object):
     do_pca : bool, optional
         If true, will return a PCA-corrected light curve.
     do_psf : bool, optional
-        If true, will return a light curve made with a simple PSF model.
+        If true, will return a light curve made with a PSF model.
     cal_cadences : tuple, optional
         Start and end cadence numbers to use for optimal aperture selection.
     try_load: bool, optional
@@ -797,7 +797,7 @@ class TargetData(object):
         nstars: int, optional
             Number of stars to be modeled on the TPF.
         model: string, optional
-            PSF model to be applied. Presently must be `gaussian`, which models a single Gaussian.
+            PSF model to be applied. Must be one of the models listed in 'implemented_models'.
             Will be extended in the future once TESS PRF models are made publicly available.
         likelihood: string, optinal
             The data statistics given the parameters. Options are: 'gaussian' and 'poisson'.
@@ -825,6 +825,8 @@ class TargetData(object):
         import tensorflow as tf
         from .models import Gaussian, Moffat, Zernike
         from tqdm import tqdm
+
+        implemented_models = ['gaussian', 'moffat', 'zernike']
 
         tf.logging.set_verbosity(tf.logging.ERROR)
 
@@ -866,8 +868,6 @@ class TargetData(object):
         bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
         xshift = tf.Variable(0.0, dtype=tf.float64)
         yshift = tf.Variable(0.0, dtype=tf.float64)
-
-        implemented_models = ['gaussian', 'moffat', 'zernike']
 
         if model not in implemented_models:
             warnings.warn("Model {} is not implemented yet; falling back to Gaussian.".format(model))
@@ -928,9 +928,11 @@ class TargetData(object):
             }
 
         elif model == 'zernike':
-            n_modes = 6
+
+            n_modes = 30
             zernike = Zernike(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
-            weights = tf.Variable(initial_value=[1.0]*n_modes)
+
+            weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * n_modes
 
             if nstars == 1:
                 mean = zernike(flux, *weights)
@@ -941,11 +943,12 @@ class TargetData(object):
             var_list = [flux, *weights]
 
             var_to_bounds = {
-                flux : (0, np.infty),
-                weights : (-5, 5) # does this work if I'm unpacking in one and not the other?
-            }
+                flux : (0, np.infty)
+            }.update({
+                w : (-5, 5) for w in weights
+            })
 
-        params_out = np.zeros(len(data_arr), len(var_list) - 1) # dinosaur
+        params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
 
         mean += bkg
 
