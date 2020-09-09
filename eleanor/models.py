@@ -68,26 +68,23 @@ class Zernike(Model):
 	'''
 	Use the Zernike polynomials with weights given by 'weights'; the number of polynomials = the number of weights passed in.
 	'''
-	def __init__(self, shape, col_ref, row_ref, directory, n_modes):
+	def __init__(self, shape, col_ref, row_ref, directory, num_params):
 		super().__init__(shape, col_ref, row_ref)
 		self.cache = {}
-		self.directory = directory
-		self.precompute_zernike(n_modes) # this can be changed later so it's not a class parameter; 
+		self.directory = "~/.eleanor/" #hardcoding is bad 
+		self.precompute_zernike(num_params) # this can be changed later so it's not a class parameter; 
 		# it's just faster if you do this precomputation. If you change your mind you can call precompute_zernike again.
 
-	def get_zernike_subpath(self, i):
-		return "psf_models" + os.path.sep + "zernike" + os.path.sep + "zmode_{0}_dimx_{1}_dimy_{2}.npy".format(i, self.x.shape[0], self.y.shape[1])
+	def get_zernike_subpath_and_fname(self, i):
+		return os.path.sep + "psf_models" + os.path.sep + "zernike" + os.path.sep, "zmode_{0}_dimx_{1}_dimy_{2}.npy".format(i, self.x.shape[0], self.y.shape[1])
 
 	def precompute_zernike(self, n_modes):
 		'''
 		Precompute the first 'n_modes' Zernike polynomials over the grid given by self.x/self.y,
-		and saves them to directory + get_zernike_subpath(i).
+		and saves them to directory + get_zernike_subpath_and_fname(i).
 		'''
 		for i in range(n_modes):
-			z = self.zernike(i)
-			path = self.directory + self.get_zernike_subpath(i)
-			sess = tf.Session()
-			np.save(path, z.eval(session=sess))
+			self.zernike(i)
 
 	def zernike_radial(self, n, m, r):
 		'''
@@ -140,7 +137,8 @@ class Zernike(Model):
 		Evaluates the 'i'th Zernike polynomial over (self.x, self.y).
 		Adapted from https://github.com/ehpor/hcipy/blob/master/hcipy/mode_basis/zernike.py. 
 		'''
-		store_path = self.directory + self.get_zernike_subpath(i)
+		subpath, fname = self.get_zernike_subpath_and_fname(i)
+		store_path = os.path.join(self.directory, subpath)
 		if os.path.exists(store_path):
 			return np.load(store_path)
 		n = int((np.sqrt(8 * i + 1) - 1) / 2)
@@ -149,7 +147,10 @@ class Zernike(Model):
 		y = self.y - np.median(self.y)
 		r, theta = np.hypot(x, y), np.arctan2(y, x)
 		zern = np.sqrt(n + 1) * self.zernike_azimuthal(m, theta) * self.zernike_radial(n, m, r)
-		np.save(store_path, zern)
+		# if not os.path.exists(store_path):
+		#	os.makedirs(store_path, exist_ok=True) # for some reason this throws an error
+		np.save(os.path.join(store_path, fname), zern)
+		print(store_path)
 		return zern
 
 	def evaluate(self, flux, *weights):
@@ -175,7 +176,9 @@ class Lygos(Model):
 
 	def evaluate(self, flux, *coeffs):
 		x, y = self.x, self.y
-		terms = tf.Variable([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
-		mult_coeffs, misc_coeffs = c[:len(terms)], c[len(terms):]
-		print(mult_coeffs.dtype, terms.dtype)
-		return tf.einsum('i,ijk->jk', mult_coeffs, terms) + misc_coeffs[0] * tf.math.exp(-x ** 2 / misc_coeffs[1] - y ** 2 / misc_coeffs[2])
+		terms = [tf.Variable(v) for v in [x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3]]
+		
+		mult_coeffs, misc_coeffs = np.array(coeffs[:len(terms)]), np.array(coeffs[len(terms):])
+		
+		return (tf.reduce_sum([m * t for m, t in zip(mult_coeffs, terms)]) + misc_coeffs[0]) * tf.math.exp(-x ** 2 / misc_coeffs[1] - y ** 2 / misc_coeffs[2])
+		

@@ -953,8 +953,6 @@ class TargetData(object):
                 w : (-5, 5) for w in weights
             })
 
-        print(var_list)
-
         params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
         mean += bkg
 
