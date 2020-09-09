@@ -76,8 +76,6 @@ class MoffatAltTest(Model):
 		psf_denom = tf.pow(1. + tf.transpose(tf.reduce_sum(tf.multiply(tf.transpose(terms), params))), beta)
 		psf = tf.divide(1., psf_denom)
 		return flux * psf / tf.reduce_sum(psf)
-
-Moffat = MoffatAltTest
 		
 class Zernike(Model):
 	'''
@@ -189,11 +187,10 @@ class Lygos(Model):
 		super().__init__(shape, col_ref, row_ref, **kwargs)
 		self.num_params = 12
 
-	def evaluate(self, flux, *coeffs):
-		x, y = self.x, self.y
-		terms = [tf.Variable(v) for v in [x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3]]
-		
-		mult_coeffs, misc_coeffs = np.array(coeffs[:len(terms)]), np.array(coeffs[len(terms):])
-
-		return (tf.reduce_sum([m * t for m, t in zip(mult_coeffs, terms)]) + misc_coeffs[0]) * tf.math.exp(-x ** 2 / misc_coeffs[1] - y ** 2 / misc_coeffs[2])
+	def evaluate(self, flux, xo, yo, coeffs):
+		x, y = self.x - xo, self.y - yo
+		terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
+		polysum = sum(terms * coeffs[:len(terms)])
+		psf = polysum + coeffs[9] * tf.math.exp(-x ** 2 / coeffs[10] - y ** 2 / coeffs[11])
+		return flux * psf / tf.reduce_sum(psf)
 		

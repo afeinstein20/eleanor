@@ -934,36 +934,31 @@ class TargetData(object):
             }
 
         elif model_name == 'moffat':
-            weights = tf.Variable(initial_value=[1., 0., 1.], dtype=tf.float64)
-            '''a = tf.Variable(initial_value=1., dtype=tf.float64)
+            a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)'''
+            c = tf.Variable(initial_value=1., dtype=tf.float64)
             beta = tf.Variable(initial_value=1, dtype=tf.float64)
 
             if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, weights, beta)
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
             else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, weights, beta) for j in range(nstars)]
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
-            var_list = [flux, xshift, yshift] + weights + [beta, bkg]
+            var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
 
             var_to_bounds = {
                 flux : (0, np.infty),
                 xshift : (-2.0, 2.0),
                 yshift : (-2.0, 2.0),
-                weights : ([0., -0.5, 0.], [3.0, 0.5, 3.0]),
+                a : (0., 3.0),
+                b : (-0.5, 0.5),
+                c : (0., 3.0),
                 beta : (0, 10)
             }
 
-        elif (model_name == 'zernike' or model_name == 'lygos'):
-            if model_name == 'zernike':
-                num_params = 30
-
-
-            elif model_name == 'lygos':
-                num_params = 12
-            
+        elif model_name == 'zernike':
+            num_params = 30
             weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * num_params
 
             if nstars == 1:
@@ -972,13 +967,45 @@ class TargetData(object):
                 mean = [model(flux[j], *weights) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
-            var_list = [flux, *weights]
+        elif model_name == 'lygos':
+            num_params = 12
+            # not to be used in actual eleanor please
+            c1 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            c2 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            c3 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            c4 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            c5 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            c6 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            c7 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            c8 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            c9 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            ca = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            cb = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            cc = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            
+            var_list = [flux, xshift, yshift, c1, c2, c3, c4, c5, c6, c7, c8, c9, ca, cb, cc]
 
             var_to_bounds = {
-                flux : (0, np.infty)
-            }.update({
-                w : (-5, 5) for w in weights
-            })
+                flux : (0, np.infty),
+                c1 : (-1, 1),
+                c2 : (-1, 1),
+                c3 : (-0.5, 0.5),
+                c4 : (-0.5, 0.5),
+                c5 : (-1, 1),
+                c6 : (-1, 1),
+                c7 : (-1, 1),
+                c8 : (-1, 1),
+                c9 : (-1, 1),
+                ca : (-10, 10),
+                cb : (0.1, 100),
+                cc : (0.1, 100)
+            }
+
+            if nstars == 1:
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, var_list[3:])
+            else:
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
+                mean = np.sum(mean, axis=0)
 
         params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
         mean += bkg
