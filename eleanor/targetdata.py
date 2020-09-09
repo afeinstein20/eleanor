@@ -872,6 +872,7 @@ class TargetData(object):
         if model_name not in implemented_models:
             warnings.warn("Model {} is not implemented yet; falling back to Gaussian.".format(model))
             model_name = 'gaussian'
+
         model = {
             'gaussian' : Gaussian,
             'moffat' : Moffat,
@@ -887,6 +888,7 @@ class TargetData(object):
         # directory and num_params are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
 
         # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
+        
         if model_name == 'gaussian':
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
@@ -934,7 +936,7 @@ class TargetData(object):
                 beta : (0, 10)
             }
 
-        elif model == 'zernike' or model == 'lygos':
+        elif (model_name == 'zernike' or model_name == 'lygos'):
             weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * model.num_params
 
             if nstars == 1:
@@ -950,6 +952,8 @@ class TargetData(object):
             }.update({
                 w : (-5, 5) for w in weights
             })
+
+        print(var_list)
 
         params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
         mean += bkg

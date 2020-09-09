@@ -169,11 +169,13 @@ class Lygos(Model):
 	Model from https://github.com/tdaylan/lygos/blob/master/lygos/main.py
 	TODO figure out citation if this ends up getting used
 	'''
-	self.num_params = 12
+	def __init__(self, shape, col_ref, row_ref, **kwargs):
+		super().__init__(shape, col_ref, row_ref, **kwargs)
+		self.num_params = 12
 
 	def evaluate(self, flux, *coeffs):
 		x, y = self.x, self.y
-		terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
-		c = np.array(coeffs)
+		terms = tf.Variable([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
 		mult_coeffs, misc_coeffs = c[:len(terms)], c[len(terms):]
-		return tf.tensordot(terms, mult_coeffs) + misc_coeffs[0] * tf.math.exp(-x ** 2 / misc_coeffs[1] - y ** 2 / misc_coeffs[2])
+		print(mult_coeffs.dtype, terms.dtype)
+		return tf.einsum('i,ijk->jk', mult_coeffs, terms) + misc_coeffs[0] * tf.math.exp(-x ** 2 / misc_coeffs[1] - y ** 2 / misc_coeffs[2])
