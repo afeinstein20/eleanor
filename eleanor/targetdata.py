@@ -52,7 +52,7 @@ class TargetData(object):
     do_pca : bool, optional
         If true, will return a PCA-corrected light curve.
     do_psf : bool, optional
-        If true, will return a light curve made with a simple PSF model.
+        If true, will return a light curve made with a PSF model.
     cal_cadences : tuple, optional
         Start and end cadence numbers to use for optimal aperture selection.
     try_load: bool, optional
@@ -778,10 +778,33 @@ class TargetData(object):
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
 
+    def tess_star_field(self, ticid):
+        '''
+        Uses tess-point to set up the crowded star field, to use as input to psf_lightcurve.
 
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model='gaussian', likelihood='gaussian',
+        Parameters
+        ----------
+        target_id : str
+            The unique target ID for the catalog (currently only TIC).
+        
+        Returns
+        -------
+        xc, yc, tmag : list
+            The coordinates and magnitude for each star in the field.
+        '''
+
+        ## TODO figure out how to actually get this info out of tess-point
+        from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
+        from .mast import cone_search
+
+        ra, dec = 0.0, 0.0 # dinosaur
+        stars_in_field = cone_search()
+
+
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
                        xc=None, yc=None, verbose=True,
-                       err_method=True, ignore_pixels=None):
+                       err_method=True, ignore_pixels=None,
+                       initial_params=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -796,8 +819,8 @@ class TargetData(object):
             will default to `TargetData.flux_bkg`.
         nstars: int, optional
             Number of stars to be modeled on the TPF.
-        model: string, optional
-            PSF model to be applied. Presently must be `gaussian`, which models a single Gaussian.
+        model_name: string, optional
+            PSF model to be applied. Must be one of the models listed in 'implemented_models'.
             Will be extended in the future once TESS PRF models are made publicly available.
         likelihood: string, optinal
             The data statistics given the parameters. Options are: 'gaussian' and 'poisson'.
@@ -823,8 +846,13 @@ class TargetData(object):
         """
 
         import tensorflow as tf
-        from .models import Gaussian, Moffat
+        from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
+
+        implemented_models = ['gaussian', 'moffat', 'zernike', 'lygos']
+
+        star_idx_to_fit = 0
+        assert star_idx_to_fit < nstars
 
         tf.logging.set_verbosity(tf.logging.ERROR)
 
@@ -856,83 +884,121 @@ class TargetData(object):
             tpfsum[int(xc[0]-1.5):int(xc[0]+2.5),int(yc[0]-1.5):int(yc[0]+2.5)] = 0.0
             err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf
 
-        if len(xc) != nstars:
-            raise ValueError('xc must have length nstars')
-        if len(yc) != nstars:
-            raise ValueError('yc must have length nstars')
-
+        assert len(xc) == nstars and len(yc) == nstars, "xc and yc must have length nstars"
 
         flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
         bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
         xshift = tf.Variable(0.0, dtype=tf.float64)
         yshift = tf.Variable(0.0, dtype=tf.float64)
 
-        if (model == 'gaussian'):
+        if model_name not in implemented_models:
+            warnings.warn("Model '{}' is not implemented yet; falling back to Gaussian.".format(model))
+            model_name = 'gaussian'
 
-            gaussian = Gaussian(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
-
+        model = {
+            'gaussian' : Gaussian,
+            'moffat' : Moffat,
+            'zernike' : Zernike,
+            'lygos' : Lygos
+        }.get(model_name)(
+            shape=data_arr.shape[1:], 
+            col_ref=0, 
+            row_ref=0, 
+            directory = self.fetch_dir(),
+            num_params = 30,
+            star_coords = [xc[star_idx_to_fit], yc[star_idx_to_fit]]
+        )
+        # directory, num_params, star_coords are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
+        # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
+        
+        if model_name == 'gaussian':
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
 
-
             if nstars == 1:
-                mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
             else:
-                mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
             var_list = [flux, xshift, yshift, a, b, c, bkg]
 
-            var_to_bounds = {flux: (0, np.infty),
-                             xshift: (-1.0, 1.0),
-                             yshift: (-1.0, 1.0),
-                             a: (0, np.infty),
-                             b: (-0.5, 0.5),
-                             c: (0, np.infty)
-                            }
+            var_to_bounds = {
+                flux : (0, np.infty),
+                xshift : (-1.0, 1.0),
+                yshift : (-1.0, 1.0),
+                a : (0, np.infty),
+                b : (-0.5, 0.5),
+                c : (0, np.infty)
+            }
 
-        elif model == 'moffat':
-
-            moffat = Moffat(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
-
+        elif model_name == 'moffat':
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
-            beta = tf.Variable(initial_value=1, dtype=tf.float64)
-
+            beta = tf.Variable(initial_value=1., dtype=tf.float64)
 
             if nstars == 1:
-                mean = moffat(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
             else:
-                mean = [moffat(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
             var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
 
-            var_to_bounds = {flux: (0, np.infty),
-                             xshift: (-2.0, 2.0),
-                             yshift: (-2.0, 2.0),
-                             a: (0, 3.0),
-                             b: (-0.5, 0.5),
-                             c: (0, 3.0),
-                             beta: (0, 10)
-                            }
+            var_to_bounds = {
+                flux : (0, np.infty),
+                xshift : (-2.0, 2.0),
+                yshift : (-2.0, 2.0),
+                a : (0., 3.0),
+                b : (-0.5, 0.5),
+                c : (0., 3.0),
+                beta : (0, 10)
+            }
 
+        elif model_name == 'zernike':
+            num_params = 15
+            weights = [tf.Variable(initial_value=[np.random.randn()], dtype=tf.float64) for i in range(num_params)]
 
-            betaout = np.zeros(len(data_arr))
+            var_list = [flux] + weights
+            var_to_bounds = {
+                flux : (0, np.infty),
+            }.update({
+                weights[i] : (-10, 10) for i in range(num_params)
+            })
 
+            if nstars == 1:
+                mean = model(flux, weights)
+            else:
+                mean = [model(flux[j], weights) for j in range(nstars)]
+                mean = np.sum(mean, axis=0)
 
-        else:
-            raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
-                                                                    # and a gentle return
+        elif model_name == 'lygos':
+            num_params = 13
+            coeffs = [tf.Variable(initial_value=[x], dtype=tf.float64) for x in [1, 1, 0.1, 0.1, 0, 0, 0, 0, 0, 0, 100, 0, 100]]
+            
+            var_list = [flux, xshift, yshift] + coeffs
 
-        aout = np.zeros(len(data_arr))
-        bout = np.zeros(len(data_arr))
-        cout = np.zeros(len(data_arr))
-        xout = np.zeros(len(data_arr))
-        yout = np.zeros(len(data_arr))
+            var_to_bounds = {
+                flux : (0, np.infty),
+                coeffs[0] : (-1, 1),
+                coeffs[1] : (-1, 1),
+                coeffs[2] : (-0.5, 0.5),
+                coeffs[3] : (-0.5, 0.5),
+                coeffs[9] : (-10, 10),
+                coeffs[10] : (0.01, 1000),
+                coeffs[11] : (-10, 10),
+                coeffs[12] : (0.01, 1000)
+            }
 
+            if nstars == 1:
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, var_list[3:])
+            else:
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
+                mean = np.sum(mean, axis=0)
+
+        params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
         mean += bkg
 
         data = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
@@ -968,23 +1034,9 @@ class TargetData(object):
             fout[i] = sess.run(flux)
             bkgout[i] = sess.run(bkg)
 
-            if model == 'gaussian':
-                aout[i] = sess.run(a)
-                bout[i] = sess.run(b)
-                cout[i] = sess.run(c)
-                xout[i] = sess.run(xshift)
-                yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-
-            if model == 'moffat':
-                aout[i] = sess.run(a)
-                bout[i] = sess.run(b)
-                cout[i] = sess.run(c)
-                xout[i] = sess.run(xshift)
-                yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-                betaout[i] = sess.run(beta)
-
+            for j, v in enumerate(var_list[1:]):
+                params_out[i][j] = sess.run(v)
+            llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
 
         sess.close()
 
@@ -996,26 +1048,16 @@ class TargetData(object):
         self.psf_bkg = bkgout
 
         if verbose:
-            if model == 'gaussian':
-                self.psf_a = aout
-                self.psf_b = bout
-                self.psf_c = cout
-                self.psf_x = xout
-                self.psf_y = yout
-                self.psf_ll = llout
-            if model == 'moffat':
-                self.psf_a = aout
-                self.psf_b = bout
-                self.psf_c = cout
-                self.psf_x = xout
-                self.psf_y = yout
-                self.psf_ll = llout
-                self.psf_beta = betaout
+            self.psf_params = params_out
+            self.psf_ll = llout
             if nstars > 1:
                 self.all_psf = fout
         return
 
-
+    def gaussian_to_lygos(self, *args):
+        self.psf_lightcurve(model_name='gaussian', *args)
+        p = self.psf_params
+        a, b, c = np.mode(p, axis=0)
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """
