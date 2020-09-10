@@ -851,6 +851,9 @@ class TargetData(object):
 
         implemented_models = ['gaussian', 'moffat', 'zernike', 'lygos']
 
+        star_idx_to_fit = 0
+        assert star_idx_to_fit < nstars
+
         tf.logging.set_verbosity(tf.logging.ERROR)
 
         if data_arr is None:
@@ -881,11 +884,7 @@ class TargetData(object):
             tpfsum[int(xc[0]-1.5):int(xc[0]+2.5),int(yc[0]-1.5):int(yc[0]+2.5)] = 0.0
             err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf
 
-        if len(xc) != nstars:
-            raise ValueError('xc must have length nstars')
-        if len(yc) != nstars:
-            raise ValueError('yc must have length nstars')
-
+        assert len(xc) == nstars and len(yc) == nstars, "xc and yc must have length nstars"
 
         flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
         bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
@@ -906,9 +905,10 @@ class TargetData(object):
             col_ref=0, 
             row_ref=0, 
             directory = self.fetch_dir(),
-            num_params = 30
+            num_params = 30,
+            star_coords = [xc[0], yc[0]]
         )
-        # directory and num_params are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
+        # directory, num_params, star_coords are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
 
         # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
         
@@ -960,7 +960,7 @@ class TargetData(object):
 
         elif model_name == 'zernike':
             num_params = 10
-            weights = [tf.Variable(initial_value=[1.0 if i < 3 else 0.0], dtype=tf.float64) for i in range(num_params)]
+            weights = [tf.Variable(initial_value=[1.0 if i < 5 else 0.0], dtype=tf.float64) for i in range(num_params)]
 
             var_list = [flux, xshift, yshift] + weights
             var_to_bounds = {

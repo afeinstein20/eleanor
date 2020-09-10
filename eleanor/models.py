@@ -81,10 +81,11 @@ class Zernike(Model):
 	'''
 	Use the Zernike polynomials with weights given by 'weights'; the number of polynomials = the number of weights passed in.
 	'''
-	def __init__(self, shape, col_ref, row_ref, directory, num_params):
+	def __init__(self, shape, col_ref, row_ref, directory, num_params, star_coords):
 		super().__init__(shape, col_ref, row_ref)
 		self.cache = {}
 		self.directory = directory
+		self.star_coords = star_coords
 		# self.precompute_zernike(num_params) # this can be changed later so it's not a class parameter; 
 		# it's just faster if you do this precomputation. If you change your mind you can call precompute_zernike again.
 
@@ -145,7 +146,7 @@ class Zernike(Model):
 		self.cache[('azim', m)] = res
 		return res
 
-	def zernike(self, i, xo, yo):
+	def zernike(self, i):
 		'''
 		Evaluates the 'i'th Zernike polynomial over (self.x - xo, self.y - yo).
 		Adapted from https://github.com/ehpor/hcipy/blob/master/hcipy/mode_basis/zernike.py. 
@@ -157,8 +158,8 @@ class Zernike(Model):
 			return np.load(store_path)
 		n = int((np.sqrt(8 * i + 1) - 1) / 2)
 		m = 2 * i - n * (n + 2)
-		x = self.x - xo
-		y = self.y - yo
+		x = self.x - star_coords[0]
+		y = self.y - star_coords[1]
 		r, theta = np.hypot(x, y), np.arctan2(y, x)
 		zern = np.sqrt(n + 1) * self.zernike_azimuthal(m, theta) * self.zernike_radial(n, m, r)
 		if not os.path.exists(store_path):
@@ -167,7 +168,7 @@ class Zernike(Model):
 		np.save(store_path, zern)
 		return zern
 
-	def evaluate(self, flux, xo, yo, weights):
+	def evaluate(self, flux, weights):
 		'''
 		Evaluates a weighted sum of Zernike polynomials.
 		'''
