@@ -906,10 +906,9 @@ class TargetData(object):
             row_ref=0, 
             directory = self.fetch_dir(),
             num_params = 30,
-            star_coords = [xc[0], yc[0]]
+            star_coords = [xc[star_idx_to_fit], yc[star_idx_to_fit]]
         )
         # directory, num_params, star_coords are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
-
         # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
         
         if model_name == 'gaussian':
@@ -959,10 +958,10 @@ class TargetData(object):
             }
 
         elif model_name == 'zernike':
-            num_params = 10
-            weights = [tf.Variable(initial_value=[1.0 if i < 5 else 0.0], dtype=tf.float64) for i in range(num_params)]
+            num_params = 15
+            weights = [tf.Variable(initial_value=[np.random.randn()], dtype=tf.float64) for i in range(num_params)]
 
-            var_list = [flux, xshift, yshift] + weights
+            var_list = [flux] + weights
             var_to_bounds = {
                 flux : (0, np.infty),
             }.update({
@@ -970,9 +969,9 @@ class TargetData(object):
             })
 
             if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, weights)
+                mean = model(flux, weights)
             else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, weights) for j in range(nstars)]
+                mean = [model(flux[j], weights) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
         elif model_name == 'lygos':

@@ -86,11 +86,13 @@ class Zernike(Model):
 		self.cache = {}
 		self.directory = directory
 		self.star_coords = star_coords
-		# self.precompute_zernike(num_params) # this can be changed later so it's not a class parameter; 
+		self.precompute_zernike(num_params) # this can be changed later so it's not a class parameter; 
 		# it's just faster if you do this precomputation. If you change your mind you can call precompute_zernike again.
 
 	def get_zernike_subpath(self, i):
-		return os.path.join("psf_models", "zernike", "zmode_{0}_dimx_{1}_dimy_{2}.npy".format(i, self.x.shape[0], self.y.shape[1]))
+		return os.path.join("psf_models", "zernike", "zmode_{0}_dims_{1}_{2}_center_{3}_{4}.npy".format(
+			i, self.x.shape[0], self.y.shape[1], *self.star_coords
+		))
 
 	def precompute_zernike(self, n_modes):
 		'''
@@ -158,8 +160,8 @@ class Zernike(Model):
 			return np.load(store_path)
 		n = int((np.sqrt(8 * i + 1) - 1) / 2)
 		m = 2 * i - n * (n + 2)
-		x = self.x - star_coords[0]
-		y = self.y - star_coords[1]
+		x = self.x - self.star_coords[0]
+		y = self.y - self.star_coords[1]
 		r, theta = np.hypot(x, y), np.arctan2(y, x)
 		zern = np.sqrt(n + 1) * self.zernike_azimuthal(m, theta) * self.zernike_radial(n, m, r)
 		if not os.path.exists(store_path):
@@ -174,7 +176,7 @@ class Zernike(Model):
 		'''
 		psf = np.zeros_like(self.x)
 		for i, w in enumerate(weights):
-			psf += self.zernike(i, xo, yo) * w
+			psf += self.zernike(i) * w
 		
 		psf_sum = tf.reduce_sum(psf)
 		return flux * psf / psf_sum
@@ -186,7 +188,7 @@ class Lygos(Model):
 	'''
 	def __init__(self, shape, col_ref, row_ref, **kwargs):
 		super().__init__(shape, col_ref, row_ref, **kwargs)
-		self.num_params = 12
+		self.num_params = 13
 
 	def evaluate(self, flux, xo, yo, coeffs):
 		x, y = self.x - xo, self.y - yo
