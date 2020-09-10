@@ -85,7 +85,7 @@ class Zernike(Model):
 		super().__init__(shape, col_ref, row_ref)
 		self.cache = {}
 		self.directory = directory
-		self.precompute_zernike(num_params) # this can be changed later so it's not a class parameter; 
+		# self.precompute_zernike(num_params) # this can be changed later so it's not a class parameter; 
 		# it's just faster if you do this precomputation. If you change your mind you can call precompute_zernike again.
 
 	def get_zernike_subpath(self, i):
@@ -167,13 +167,13 @@ class Zernike(Model):
 		np.save(store_path, zern)
 		return zern
 
-	def evaluate(self, flux, xo, yo, *weights):
+	def evaluate(self, flux, xo, yo, weights):
 		'''
 		Evaluates a weighted sum of Zernike polynomials.
 		'''
 		psf = np.zeros_like(self.x)
 		for i, w in enumerate(weights):
-			psf += self.zernike(i) * w
+			psf += self.zernike(i, xo, yo) * w
 		
 		psf_sum = tf.reduce_sum(psf)
 		return flux * psf / psf_sum
@@ -191,6 +191,7 @@ class Lygos(Model):
 		x, y = self.x - xo, self.y - yo
 		terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
 		polysum = sum(terms * coeffs[:len(terms)])
-		psf = polysum + coeffs[9] * tf.math.exp(-x ** 2 / coeffs[10] - y ** 2 / coeffs[11])
+		gauss = coeffs[9] * tf.math.exp(-coeffs[10] * x ** 2  - 2 * coeffs[11] * x * y - coeffs[12] * y ** 2)
+		psf = polysum + gauss
 		return flux * psf / tf.reduce_sum(psf)
 		

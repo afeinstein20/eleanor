@@ -803,7 +803,8 @@ class TargetData(object):
 
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
                        xc=None, yc=None, verbose=True,
-                       err_method=True, ignore_pixels=None):
+                       err_method=True, ignore_pixels=None,
+                       initial_params=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -937,7 +938,7 @@ class TargetData(object):
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
-            beta = tf.Variable(initial_value=1, dtype=tf.float64)
+            beta = tf.Variable(initial_value=1., dtype=tf.float64)
 
             if nstars == 1:
                 mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
@@ -958,47 +959,38 @@ class TargetData(object):
             }
 
         elif model_name == 'zernike':
-            num_params = 30
-            weights = [tf.Variable(initial_value=[1.0], dtype=tf.float64)] * num_params
+            num_params = 10
+            weights = [tf.Variable(initial_value=[1.0 if i < 3 else 0.0], dtype=tf.float64) for i in range(num_params)]
+
+            var_list = [flux, xshift, yshift] + weights
+            var_to_bounds = {
+                flux : (0, np.infty),
+            }.update({
+                weights[i] : (-10, 10) for i in range(num_params)
+            })
 
             if nstars == 1:
-                mean = model(flux, *weights)
+                mean = model(flux, xc[0]+xshift, yc[0]+yshift, weights)
             else:
-                mean = [model(flux[j], *weights) for j in range(nstars)]
+                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, weights) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
         elif model_name == 'lygos':
-            num_params = 12
-            # not to be used in actual eleanor please
-            c1 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            c2 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            c3 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            c4 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            c5 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            c6 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            c7 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            c8 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            c9 = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            ca = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            cb = tf.Variable(initial_value=[1.0], dtype=tf.float64)
-            cc = tf.Variable(initial_value=[1.0], dtype=tf.float64)
+            num_params = 13
+            coeffs = [tf.Variable(initial_value=[x], dtype=tf.float64) for x in [1, 1, 0.1, 0.1, 0, 0, 0, 0, 0, 0, 100, 0, 100]]
             
-            var_list = [flux, xshift, yshift, c1, c2, c3, c4, c5, c6, c7, c8, c9, ca, cb, cc]
+            var_list = [flux, xshift, yshift] + coeffs
 
             var_to_bounds = {
                 flux : (0, np.infty),
-                c1 : (-1, 1),
-                c2 : (-1, 1),
-                c3 : (-0.5, 0.5),
-                c4 : (-0.5, 0.5),
-                c5 : (-1, 1),
-                c6 : (-1, 1),
-                c7 : (-1, 1),
-                c8 : (-1, 1),
-                c9 : (-1, 1),
-                ca : (-10, 10),
-                cb : (0.1, 100),
-                cc : (0.1, 100)
+                coeffs[0] : (-1, 1),
+                coeffs[1] : (-1, 1),
+                coeffs[2] : (-0.5, 0.5),
+                coeffs[3] : (-0.5, 0.5),
+                coeffs[9] : (-10, 10),
+                coeffs[10] : (0.01, 1000),
+                coeffs[11] : (-10, 10),
+                coeffs[12] : (0.01, 1000)
             }
 
             if nstars == 1:
@@ -1063,7 +1055,10 @@ class TargetData(object):
                 self.all_psf = fout
         return
 
-
+    def gaussian_to_lygos(self, *args):
+        self.psf_lightcurve(model_name='gaussian', *args)
+        p = self.psf_params
+        a, b, c = np.mode(p, axis=0)
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """
