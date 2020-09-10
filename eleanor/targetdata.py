@@ -820,9 +820,9 @@ class TargetData(object):
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
-
         import tensorflow as tf
-        from .models import Gaussian, Moffat
+        import torch
+        from .models import Gaussian, Gaussian_Torch, Moffat
         from tqdm import tqdm
 
         tf.logging.set_verbosity(tf.logging.ERROR)
@@ -862,69 +862,87 @@ class TargetData(object):
 
 
         flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
+        flux_torch = torch.tensor(np.ones(nstars)*np.max(data_arr[0]), dtype=torch.float64, requires_grad=True)
         bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
+        bkg_torch = torch.tensor(bkg_arr[0], dtype=torch.float64, requires_grad=True)
         xshift = tf.Variable(0.0, dtype=tf.float64)
+        xshift_torch = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
         yshift = tf.Variable(0.0, dtype=tf.float64)
+        yshift_torch = torch.tensor(0.0, dtype=torch.float64, requires_grad=True)
 
-        if (model == 'gaussian'):
+        # if (model == 'gaussian'):
 
-            gaussian = Gaussian(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
+            # PyTorch test
+        def objective_func(flux, xshift, yshift, a, b, c, bkg):
+            mean = [gaussian_torch(flux[j], torch.tensor(xc[j])+xshift, torch.tensor(yc[j])+yshift, a, b, c) for j in range(3)]
+            mean = np.sum(mean, axis=0)
+            mean += bkg
+            return torch.sum((mean - data_torch) ** 2 / derr_torch)
 
-            a = tf.Variable(initial_value=1., dtype=tf.float64)
-            b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
+        gaussian = Gaussian(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
+        gaussian_torch = Gaussian_Torch(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
 
-
-            if nstars == 1:
-                mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
-            else:
-                mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
-
-            var_list = [flux, xshift, yshift, a, b, c, bkg]
-
-            var_to_bounds = {flux: (0, np.infty),
-                             xshift: (-1.0, 1.0),
-                             yshift: (-1.0, 1.0),
-                             a: (0, np.infty),
-                             b: (-0.5, 0.5),
-                             c: (0, np.infty)
-                            }
-
-        elif model == 'moffat':
-
-            moffat = Moffat(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
-
-            a = tf.Variable(initial_value=1., dtype=tf.float64)
-            b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
-            beta = tf.Variable(initial_value=1, dtype=tf.float64)
+        a = tf.Variable(initial_value=1., dtype=tf.float64)
+        a_torch = torch.tensor(1., dtype=torch.float64, requires_grad=True)
+        b = tf.Variable(initial_value=0., dtype=tf.float64)
+        b_torch = torch.tensor(0., dtype=torch.float64, requires_grad=True)
+        c = tf.Variable(initial_value=1., dtype=tf.float64)
+        c_torch = torch.tensor(1., dtype=torch.float64, requires_grad=True)
 
 
-            if nstars == 1:
-                mean = moffat(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
-            else:
-                mean = [moffat(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
-
-            var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
-
-            var_to_bounds = {flux: (0, np.infty),
-                             xshift: (-2.0, 2.0),
-                             yshift: (-2.0, 2.0),
-                             a: (0, 3.0),
-                             b: (-0.5, 0.5),
-                             c: (0, 3.0),
-                             beta: (0, 10)
-                            }
-
-
-            betaout = np.zeros(len(data_arr))
-
-
+        if nstars == 1:
+            mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
+            # mean_torch = gaussian(flux_torch, xc[0]+xshift, yc[0]+yshift, a_torch, b_torch, c_torch)
         else:
-            raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
-                                                                    # and a gentle return
+            mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
+
+            mean = np.sum(mean, axis=0)
+
+        var_list = [flux, xshift, yshift, a, b, c, bkg]
+        var_list_torch = [flux_torch, xshift_torch, yshift_torch, a_torch, b_torch, c_torch, bkg_torch]
+        var_to_bounds = {flux: (0, np.infty),
+                         xshift: (-1.0, 1.0),
+                         yshift: (-1.0, 1.0),
+                         a: (0, np.infty),
+                         b: (-0.5, 0.5),
+                         c: (0, np.infty)
+                        }
+
+        # elif model == 'moffat':
+        #
+        #     moffat = Moffat(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
+        #
+        #     a = tf.Variable(initial_value=1., dtype=tf.float64)
+        #     b = tf.Variable(initial_value=0., dtype=tf.float64)
+        #     c = tf.Variable(initial_value=1., dtype=tf.float64)
+        #     beta = tf.Variable(initial_value=1, dtype=tf.float64)
+        #
+        #
+        #     if nstars == 1:
+        #         mean = moffat(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
+        #     else:
+        #         mean = [moffat(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
+        #         mean = np.sum(mean, axis=0)
+        #
+        #     var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
+        #     var_list_torch = [flux_torch, xshift_torch, yshift_torch, a_torch, b_torch, c_torch, beta_torch, bkg_torch]
+        #
+        #     var_to_bounds = {flux: (0, np.infty),
+        #                      xshift: (-2.0, 2.0),
+        #                      yshift: (-2.0, 2.0),
+        #                      a: (0, 3.0),
+        #                      b: (-0.5, 0.5),
+        #                      c: (0, 3.0),
+        #                      beta: (0, 10)
+        #                     }
+        #
+        #
+        #     betaout = np.zeros(len(data_arr))
+        #
+        #
+        # else:
+        #     raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
+        #                                                             # and a gentle return
 
         aout = np.zeros(len(data_arr))
         bout = np.zeros(len(data_arr))
@@ -932,11 +950,15 @@ class TargetData(object):
         xout = np.zeros(len(data_arr))
         yout = np.zeros(len(data_arr))
 
-        mean += bkg
+        # mean += bkg
 
         data = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
+        # data_torch = torch.empty(*data_arr[0].shape, dtype=torch.float64, requires_grad=False)
         derr = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
+        # derr_torch = torch.empty(*data_arr[0].shape, dtype=torch.float64, requires_grad=False)
         bkgval = tf.placeholder(dtype=tf.float64)
+        # bkgval_torch = torch.empty(0, dtype=torch.float64, requires_grad=False)
+
 
         if likelihood == 'gaussian':
             nll = tf.reduce_sum(tf.truediv(tf.squared_difference(mean, data), derr))
@@ -944,14 +966,27 @@ class TargetData(object):
             nll = tf.reduce_sum(tf.subtract(mean+bkgval, tf.multiply(data+bkgval, tf.log(mean+bkgval))))
         else:
             raise ValueError("likelihood argument {0} not supported".format(likelihood))
+        for i in tqdm(range(len(data_arr))):
+            optimizer = torch.optim.SGD(var_list_torch, lr=1e-5)
+            data_torch = torch.tensor(data_arr[i].astype(np.float32), dtype=torch.float64, requires_grad=False)
+            derr_torch = torch.tensor(data_arr[i].astype(np.float32), dtype=torch.float64, requires_grad=False)
+            bkgval_torch = torch.tensor(0, dtype=torch.float64, requires_grad=False)
+            for step in range(20000):
+
+                pred = objective_func(flux_torch, xshift_torch, yshift_torch, a_torch, b_torch, c_torch, bkg_torch)
+
+                optimizer.zero_grad()
+                pred.backward()
+                optimizer.step()
+
+                if step % 10000 == 0:
+                    print(f'step {step}: f(x) = {pred.item()}')
+
 
         grad = tf.gradients(nll, var_list)
 
         sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
         sess.run(tf.global_variables_initializer())
-
-
-
 
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
@@ -963,7 +998,6 @@ class TargetData(object):
         for i in tqdm(range(len(data_arr))):
             optim = optimizer.minimize(session=sess, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]}) # we could also pass a pointing model here
                                                                            # and just fit a single offset in all frames
-
             fout[i] = sess.run(flux)
             bkgout[i] = sess.run(bkg)
 
@@ -974,6 +1008,7 @@ class TargetData(object):
                 xout[i] = sess.run(xshift)
                 yout[i] = sess.run(yshift)
                 llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
+                print(llout[i])
 
             if model == 'moffat':
                 aout[i] = sess.run(a)
