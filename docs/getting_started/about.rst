@@ -40,10 +40,10 @@ Summary of Data Products
 Tutorial Video
 --------------
 
-..raw:: html
+.. raw:: html
 
-	<div>	
-		<iframe src="https://www.youtube.com/watch?v=xpvniFrA6V0" frameborder="0" allowfullscreen></iframe>		
-	</div>
+    <div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; max-width: 100%; height: auto;">
+        <iframe src="//www.youtube.com/embed/xpvniFrA6V0" frameborder="0" allowfullscreen style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"></iframe>
+    </div>
 
 .. _Git Issue: http://github.com/afeinstein20/eleanor/issues
