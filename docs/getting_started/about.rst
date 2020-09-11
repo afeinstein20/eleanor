@@ -37,5 +37,13 @@ Summary of Data Products
         Alternatively, the user can request data for only a specific sector.
 
 
+Tutorial Video
+--------------
+
+..raw:: html
+
+	<div>	
+		<iframe src="https://www.youtube.com/watch?v=xpvniFrA6V0" frameborder="0" allowfullscreen></iframe>		
+	</div>
 
 .. _Git Issue: http://github.com/afeinstein20/eleanor/issues
