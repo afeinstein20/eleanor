@@ -3,23 +3,27 @@ import os
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
-import tensorflow as tf
 from abc import ABC
+from .optimizers import Optimizer
 
 # Vaneska models of Ze Vinicius
 
 class Model(ABC):
 	"""
 	Base PSF-fitting model.
+
 	Attributes
 	----------
+	optimizer : Optimizer
+		The optimizer object as defined in optimizers.py and set in targetdata.py.
 	shape : tuple
 		shape of the TPF. (row_shape, col_shape)
 	col_ref, row_ref : int, int
 		column and row coordinates of the bottom
 		left corner of the TPF
 	"""
-	def __init__(self, shape, col_ref, row_ref, **kwargs):
+	def __init__(self, optimizer, shape, col_ref, row_ref, **kwargs):
+		self.optimizer = optimizer
 		self.shape = shape
 		self.col_ref = col_ref
 		self.row_ref = row_ref
@@ -39,10 +43,10 @@ class Gaussian(Model):
 		Evaluate the Gaussian model
 		Parameters
 		----------
-		flux : tf.Variable
-		xo, yo : tf.Variable, tf.Variable
+		flux : optimizer.param
+		xo, yo : optimizer.param, optimizer.param
 			Center coordinates of the Gaussian.
-		a, b, c : tf.Variable, tf.Variable
+		a, b, c : optimizer.param, optimizer.param
 			Parameters that control the rotation angle
 			and the stretch along the major axis of the Gaussian,
 			such that the matrix M = [a b ; b c] is positive-definite.
@@ -52,31 +56,17 @@ class Gaussian(Model):
 		"""
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = tf.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
-		psf_sum = tf.reduce_sum(psf)
+		psf = self.optimizer.math.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+		psf_sum = self.optimizer.math.sum(psf)
 		return flux * psf / psf_sum
-
 
 class Moffat(Model):
 	def evaluate(self, flux, xo, yo, a, b, c, beta):
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = tf.divide(1., tf.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
-		psf_sum = tf.reduce_sum(psf)
+		psf = self.optimizer.math.divide(1., self.optimizer.math(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
+		psf_sum = self.optimizer.math.sum(psf)
 		return flux * psf / psf_sum
-
-class MoffatAltTest(Model):
-	def __init__(self, shape, col_ref, row_ref, **kwargs):
-		super().__init__(shape, col_ref, row_ref)
-		print('This is Moffat alternate, with variable unpacking')
-
-	def evaluate(self, flux, xo, yo, params, beta):
-		dx = self.x - xo
-		dy = self.y - yo
-		terms = tf.concat([[dx ** 2], [2 * dx * dy], [dy ** 2]], axis=0)
-		psf_denom = tf.pow(1. + tf.transpose(tf.reduce_sum(tf.multiply(tf.transpose(terms), params))), beta)
-		psf = tf.divide(1., psf_denom)
-		return flux * psf / tf.reduce_sum(psf)
 		
 class Zernike(Model):
 	'''
@@ -88,7 +78,7 @@ class Zernike(Model):
 		self.directory = directory
 		self.star_coords = star_coords
 		self.apply_prior = apply_prior
-		self.precompute_zernike(num_params) # this can be changed later so it's not a class parameter; 
+		self.precompute_zernike(num_params) # this can be changed later, so it's not a class parameter; 
 		# it's just faster if you do this precomputation. If you change your mind you can call precompute_zernike again.
 
 	def get_zernike_subpath(self, i):
@@ -182,7 +172,7 @@ class Zernike(Model):
 		for i, w in enumerate(weights):
 			psf += self.zernike(i) * w
 		
-		psf_sum = tf.reduce_sum(psf)
+		psf_sum = self.optimizer.math.sum(psf)
 		return flux * psf / psf_sum
 
 class Lygos(Model):
@@ -198,7 +188,7 @@ class Lygos(Model):
 		x, y = self.x - xo, self.y - yo
 		terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
 		polysum = sum(terms * coeffs[:len(terms)])
-		gauss = coeffs[9] * tf.math.exp(-coeffs[10] * x ** 2  - coeffs[11] * y ** 2)
+		gauss = coeffs[9] * self.optimizer.math.exp(-coeffs[10] * x ** 2  - coeffs[11] * y ** 2)
 		psf = polysum + gauss
-		return flux * psf / tf.reduce_sum(psf)
+		return flux * psf / self.optimizer.math.sum(psf)
 		

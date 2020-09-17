@@ -801,10 +801,8 @@ class TargetData(object):
         stars_in_field = cone_search()
 
 
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
-                       xc=None, yc=None, verbose=True,
-                       err_method=True, ignore_pixels=None,
-                       initial_params=None):
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', optimization_module="tf", likelihood='gaussian',
+                       xc=None, yc=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -845,16 +843,16 @@ class TargetData(object):
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
 
-        from .optimizers import TensorflowOptimizer, TorchOptimizer
+        from .optimizers import Optimizer
         from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
+
+        optimizer = Optimizer(base_package=optimization_module)
 
         implemented_models = ['gaussian', 'moffat', 'zernike', 'lygos']
 
         star_idx_to_fit = 0
         assert star_idx_to_fit < nstars
-
-        tf.logging.set_verbosity(tf.logging.ERROR)
 
         if data_arr is None:
             data_arr = self.tpf + 0.0
@@ -886,10 +884,10 @@ class TargetData(object):
 
         assert len(xc) == nstars and len(yc) == nstars, "xc and yc must have length nstars"
 
-        flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
-        bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
-        xshift = tf.Variable(0.0, dtype=tf.float64)
-        yshift = tf.Variable(0.0, dtype=tf.float64)
+        flux = optimizer.param(np.ones(nstars)*np.max(data_arr[0]), dtype=optimizer.float)
+        bkg = optimizer.param(bkg_arr[0], dtype=optimizer.float)
+        xshift = optimizer.param(0.0, dtype=optimizer.float)
+        yshift = optimizer.param(0.0, dtype=optimizer.float)
 
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model))
@@ -912,9 +910,9 @@ class TargetData(object):
         # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
         
         if model_name == 'gaussian':
-            a = tf.Variable(initial_value=1., dtype=tf.float64)
-            b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
+            a = optimizer.param(initial_value=1., dtype=optimizer.float)
+            b = optimizer.param(initial_value=0., dtype=optimizer.float)
+            c = optimizer.param(initial_value=1., dtype=optimizer.float)
 
             if nstars == 1:
                 mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
@@ -934,10 +932,10 @@ class TargetData(object):
             }
 
         elif model_name == 'moffat':
-            a = tf.Variable(initial_value=1., dtype=tf.float64)
-            b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
-            beta = tf.Variable(initial_value=1., dtype=tf.float64)
+            a = optimizer.param(initial_value=1., dtype=optimizer.float)
+            b = optimizer.param(initial_value=0., dtype=optimizer.float)
+            c = optimizer.param(initial_value=1., dtype=optimizer.float)
+            beta = optimizer.param(initial_value=1., dtype=optimizer.float)
 
             if nstars == 1:
                 mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
@@ -959,7 +957,7 @@ class TargetData(object):
 
         elif model_name == 'zernike':
             num_params = 120
-            weights = [tf.Variable(initial_value=[np.random.randn()], dtype=tf.float64) for i in range(num_params)]
+            weights = [optimizer.param(initial_value=[np.random.randn()], dtype=optimizer.float) for i in range(num_params)]
 
             var_list = [flux] + weights
             var_to_bounds = {
@@ -976,7 +974,7 @@ class TargetData(object):
 
         elif model_name == 'lygos':
             num_params = 13
-            coeffs = [tf.Variable(initial_value=[np.random.randn()], dtype=tf.float64) for _ in range(num_params)]
+            coeffs = [optimizer.param(initial_value=[np.random.randn()], dtype=optimizer.float) for _ in range(num_params)]
             
             var_list = [flux, xshift, yshift] + coeffs
 
@@ -1001,24 +999,20 @@ class TargetData(object):
         params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
         mean += bkg
 
-        data = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
-        derr = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
-        bkgval = tf.placeholder(dtype=tf.float64)
+        data = optimizer.empty(dtype=optimizer.float, shape=data_arr[0].shape)
+        derr = optimizer.empty(dtype=optimizer.float, shape=data_arr[0].shape)
+        bkgval = optimizer.empty(dtype=optimizer.float)
 
         if likelihood == 'gaussian':
-            nll = tf.reduce_sum(tf.truediv(tf.squared_difference(mean, data), derr))
+            nll = optimizer.math.sum(optimizer.math.truediv(optimizer.math.squared_difference(mean, data), derr))
         elif likelihood == 'poisson':
-            nll = tf.reduce_sum(tf.subtract(mean+bkgval, tf.multiply(data+bkgval, tf.log(mean+bkgval))))
+            nll = optimizer.math.sum(optimizer.math.subtract(mean+bkgval, optimizer.math.multiply(data+bkgval, optimizer.math.log(mean+bkgval))))
         else:
             raise ValueError("likelihood argument {0} not supported".format(likelihood))
 
-        grad = tf.gradients(nll, var_list)
-
-        sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
-        sess.run(tf.global_variables_initializer())
-
-
-
+        if optimizer.pkg.__name__ == "tf":
+            sess = optimizer.pkg.Session(config=optimizer.pkg.ConfigProto(device_count={'GPU': 0}))
+            sess.run(tf.global_variables_initializer())
 
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
