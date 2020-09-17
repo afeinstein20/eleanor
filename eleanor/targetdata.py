@@ -845,7 +845,7 @@ class TargetData(object):
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
 
-        import tensorflow as tf
+        from .optimizers import TensorflowOptimizer, TorchOptimizer
         from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
 
@@ -892,7 +892,7 @@ class TargetData(object):
         yshift = tf.Variable(0.0, dtype=tf.float64)
 
         if model_name not in implemented_models:
-            warnings.warn("Model '{}' is not implemented yet; falling back to Gaussian.".format(model))
+            warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model))
             model_name = 'gaussian'
 
         model = {
@@ -958,7 +958,7 @@ class TargetData(object):
             }
 
         elif model_name == 'zernike':
-            num_params = 15
+            num_params = 120
             weights = [tf.Variable(initial_value=[np.random.randn()], dtype=tf.float64) for i in range(num_params)]
 
             var_list = [flux] + weights
@@ -976,7 +976,7 @@ class TargetData(object):
 
         elif model_name == 'lygos':
             num_params = 13
-            coeffs = [tf.Variable(initial_value=[x], dtype=tf.float64) for x in [1, 1, 0.1, 0.1, 0, 0, 0, 0, 0, 0, 100, 0, 100]]
+            coeffs = [tf.Variable(initial_value=[np.random.randn()], dtype=tf.float64) for _ in range(num_params)]
             
             var_list = [flux, xshift, yshift] + coeffs
 

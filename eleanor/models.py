@@ -4,10 +4,11 @@ from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
 import tensorflow as tf
+from abc import ABC
 
 # Vaneska models of Ze Vinicius
 
-class Model:
+class Model(ABC):
 	"""
 	Base PSF-fitting model.
 	Attributes
@@ -81,16 +82,17 @@ class Zernike(Model):
 	'''
 	Use the Zernike polynomials with weights given by 'weights'; the number of polynomials = the number of weights passed in.
 	'''
-	def __init__(self, shape, col_ref, row_ref, directory, num_params, star_coords):
+	def __init__(self, shape, col_ref, row_ref, directory, num_params, star_coords, apply_prior=True):
 		super().__init__(shape, col_ref, row_ref)
 		self.cache = {}
 		self.directory = directory
 		self.star_coords = star_coords
+		self.apply_prior = apply_prior
 		self.precompute_zernike(num_params) # this can be changed later so it's not a class parameter; 
 		# it's just faster if you do this precomputation. If you change your mind you can call precompute_zernike again.
 
 	def get_zernike_subpath(self, i):
-		return os.path.join("psf_models", "zernike", "zmode_{0}_dims_{1}_{2}_center_{3}_{4}.npy".format(
+		return os.path.join("psf_models", "zernike", "zmode_{0}_dims_{1}_{2}_center_{3}_{4}".replace(".", "p") + ".npy".format(
 			i, self.x.shape[0], self.y.shape[1], *self.star_coords
 		))
 
@@ -131,6 +133,8 @@ class Zernike(Model):
 			r2 = self.zernike_radial(2, 2, r)
 			res = h1 * self.zernike_radial(p, q, r) + (h2 + h3 / r2) * self.zernike_radial(n, q - 2, r)
 
+		if self.apply_prior:
+			res *= np.exp(-(r - np.sqrt(self.star_coords[0] ** 2 + self.star_coords[1] ** 2) ** 2) / 100) # arbitrarily hardcoded just to see what'll happen
 		self.cache[('rad', n, m)] = res
 		return res
 
@@ -194,7 +198,7 @@ class Lygos(Model):
 		x, y = self.x - xo, self.y - yo
 		terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
 		polysum = sum(terms * coeffs[:len(terms)])
-		gauss = coeffs[9] * tf.math.exp(-coeffs[10] * x ** 2  - 2 * coeffs[11] * x * y - coeffs[12] * y ** 2)
+		gauss = coeffs[9] * tf.math.exp(-coeffs[10] * x ** 2  - coeffs[11] * y ** 2)
 		psf = polysum + gauss
 		return flux * psf / tf.reduce_sum(psf)
 		
