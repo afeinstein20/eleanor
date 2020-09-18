@@ -801,7 +801,7 @@ class TargetData(object):
         stars_in_field = cone_search()
 
 
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', optimization_module="tensorflow", likelihood='gaussian',
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', optimization_module="tensorflow", likelihood='gaussian',
                        xc=None, yc=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
@@ -847,11 +847,7 @@ class TargetData(object):
         from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
 
-        optimizer = OptimizerAPI(base_package=optimization_module)
-        if optimizer.pkg.__name__ == "tensorflow":
-            optimizer.pkg.logging.set_verbosity(optimizer.pkg.logging.ERROR)
-
-        implemented_models = ['gaussian', 'moffat', 'zernike', 'lygos']
+        implemented_models = ['Gaussian', 'Moffat', 'Zernike', 'Lygos']
 
         star_idx_to_fit = 0
         assert star_idx_to_fit < nstars
@@ -886,22 +882,16 @@ class TargetData(object):
 
         assert len(xc) == nstars and len(yc) == nstars, "xc and yc must have length nstars"
 
-        flux = optimizer.param(np.ones(nstars)*np.max(data_arr[0]), dtype=optimizer.float)
-        bkg = optimizer.param(bkg_arr[0], dtype=optimizer.float)
-        xshift = optimizer.param(0.0, dtype=optimizer.float)
-        yshift = optimizer.param(0.0, dtype=optimizer.float)
+        flux = np.ones(nstars)*np.max(data_arr[0])
+        bkg = bkg_arr[0]
+        xshift = 0.0
+        yshift = 0.0
 
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
-            model_name = 'gaussian'
+            model_name = 'Gaussian'
 
-        model = {
-            'gaussian' : Gaussian,
-            'moffat' : Moffat,
-            'zernike' : Zernike,
-            'lygos' : Lygos
-        }.get(model_name)(
-            optimizer=optimizer,
+        model = eval(model_name)(
             shape=data_arr.shape[1:], 
             col_ref=0, 
             row_ref=0, 
@@ -911,56 +901,38 @@ class TargetData(object):
         )
         # directory, num_params, star_coords are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
         # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
+
+        params = model.default_params()
+        model.set_mean(flux, xc, yc, xshift, yshift, params, nstars)
+        model.mean += bkg
+        var_list = [flux, xshift, yshift] + list(params) + [bkg]
         
-        if model_name == 'gaussian':
-            a = optimizer.param(initial_value=1., dtype=optimizer.float)
-            b = optimizer.param(initial_value=0., dtype=optimizer.float)
-            c = optimizer.param(initial_value=1., dtype=optimizer.float)
-
-            if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
-            else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
-
-            var_list = [flux, xshift, yshift, a, b, c, bkg]
-
+        if model_name == 'Gaussian':
+            var_list = [flux, xshift, yshift] + list(params) + [bkg]
             var_to_bounds = {
                 flux : (0, np.infty),
                 xshift : (-1.0, 1.0),
                 yshift : (-1.0, 1.0),
-                a : (0, np.infty),
-                b : (-0.5, 0.5),
-                c : (0, np.infty)
+                params[0] : (0, np.infty),
+                params[1] : (-0.5, 0.5),
+                params[2] : (0, np.infty)
             }
 
         elif model_name == 'moffat':
-            a = optimizer.param(initial_value=1., dtype=optimizer.float)
-            b = optimizer.param(initial_value=0., dtype=optimizer.float)
-            c = optimizer.param(initial_value=1., dtype=optimizer.float)
-            beta = optimizer.param(initial_value=1., dtype=optimizer.float)
-
-            if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
-            else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
-
-            var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
-
+            var_list = [flux, xshift, yshift] + list(params) + [bkg]
             var_to_bounds = {
                 flux : (0, np.infty),
                 xshift : (-2.0, 2.0),
                 yshift : (-2.0, 2.0),
-                a : (0., 3.0),
-                b : (-0.5, 0.5),
-                c : (0., 3.0),
-                beta : (0, 10)
+                params[0] : (0., 3.0),
+                params[1] : (-0.5, 0.5),
+                params[2] : (0., 3.0),
+                params[3] : (0, 10)
             }
 
         elif model_name == 'zernike':
             num_params = 120
-            weights = [optimizer.param(initial_value=[np.random.randn()], dtype=optimizer.float) for i in range(num_params)]
+            weights = [optimizer.param([np.random.randn()], dtype=optimizer.float) for i in range(num_params)]
 
             var_list = [flux] + weights
             var_to_bounds = {
@@ -970,15 +942,14 @@ class TargetData(object):
             })
 
             if nstars == 1:
-                mean = model(flux, weights)
+                model.mean = model(flux, weights)
             else:
-                mean = [model(flux[j], weights) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
+                model.mean = [model(flux[j], weights) for j in range(nstars)]
+                model.mean = np.sum(mean, axis=0)
 
         elif model_name == 'lygos':
             num_params = 13
             coeffs = [optimizer.param(initial_value=[np.random.randn()], dtype=optimizer.float) for _ in range(num_params)]
-            
             var_list = [flux, xshift, yshift] + coeffs
 
             var_to_bounds = {
@@ -994,60 +965,31 @@ class TargetData(object):
             }
 
             if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, var_list[3:])
+                model.mean = model(flux, xc[0]+xshift, yc[0]+yshift, var_list[3:])
             else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
+                model.mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
+                model.mean = np.sum(model.mean, axis=0)
 
-        var_to_bounds = optimizer.bounds_converter(var_to_bounds)
-        params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
-        mean += bkg
+        optimizer = OptimizerAPI(model, variables=var_list, bounds=var_to_bounds, loss_name=likelihood)
 
-        data = optimizer.empty(dtype=optimizer.float, shape=data_arr[0].shape)
-        derr = optimizer.empty(dtype=optimizer.float, shape=data_arr[0].shape)
-        bkgval = optimizer.empty(dtype=optimizer.float)
+        # corrected_lc = np.empty(dtype=np.float64, shape=data_arr[0].shape)
+        # corrected_lc_err = np.empty(dtype=np.float64, shape=data_arr[0].shape)
+        # background = np.empty(dtype=np.float64)
+        optimizer.set_data(data_arr)
+        popt = optimizer.minimize()
 
-        if likelihood == 'gaussian':
-            nll = optimizer.math.sum(optimizer.math.truediv(optimizer.math.squared_difference(mean, data), derr))
-        elif likelihood == 'poisson':
-            nll = optimizer.math.sum(optimizer.math.subtract(mean+bkgval, optimizer.math.multiply(data+bkgval, optimizer.math.log(mean+bkgval))))
-        else:
-            raise ValueError("likelihood argument {0} not supported".format(likelihood))
-
-        if optimizer.pkg.__name__ == "tensorflow":
-            sess = optimizer.pkg.Session(config=optimizer.pkg.ConfigProto(device_count={'GPU': 0}))
-            sess.run(optimizer.pkg.global_variables_initializer())
-
-        fout = np.zeros((len(data_arr), nstars))
-        bkgout = np.zeros(len(data_arr))
-
-        llout = np.zeros(len(data_arr))
-
-        for i in tqdm(range(len(data_arr))):
-            optim = optimizer.minimize(session=sess, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]}) # we could also pass a pointing model here
-                                                                           # and just fit a single offset in all frames
-
-            fout[i] = sess.run(flux)
-            bkgout[i] = sess.run(bkg)
-
-            for j, v in enumerate(var_list[1:]):
-                params_out[i][j] = sess.run(v)
-            llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-
-        sess.close()
-
-        self.psf_flux = fout[:,0]
+        # self.psf_flux = fout[:,0]
 
         if self.language == 'Australian':
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
 
-        self.psf_bkg = bkgout
+        # self.psf_bkg = bkgout
 
-        if verbose:
-            self.psf_params = params_out
-            self.psf_ll = llout
-            if nstars > 1:
-                self.all_psf = fout
+        #if verbose:
+        #    self.psf_params = params_out
+        #    self.psf_ll = llout
+        #    if nstars > 1:
+        #        self.all_psf = fout
         return
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):

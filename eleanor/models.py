@@ -3,8 +3,8 @@ import os
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
+import torch
 from abc import ABC
-from .optimizers import OptimizerAPI
 
 # Vaneska models of Ze Vinicius
 
@@ -14,16 +14,13 @@ class Model(ABC):
 
 	Attributes
 	----------
-	optimizer : Optimizer
-		The optimizer object as defined in optimizers.py and set in targetdata.py.
 	shape : tuple
 		shape of the TPF. (row_shape, col_shape)
 	col_ref, row_ref : int, int
 		column and row coordinates of the bottom
 		left corner of the TPF
 	"""
-	def __init__(self, optimizer, shape, col_ref, row_ref, **kwargs):
-		self.optimizer = optimizer
+	def __init__(self, shape, col_ref, row_ref, **kwargs):
 		self.shape = shape
 		self.col_ref = col_ref
 		self.row_ref = row_ref
@@ -31,6 +28,12 @@ class Model(ABC):
 
 	def __call__(self, *params):
 		return self.evaluate(*params)
+
+	def default_params(self):
+		pass
+
+	def mean_model(self):
+		pass
 
 	def evaluate(self, *args):
 		pass
@@ -41,12 +44,18 @@ class Model(ABC):
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
 class Gaussian(Model):
+	def default_params(self):
+		return torch.tensor([1, 0, 1], dtype=np.float64) # a, b, c
+
+	def set_mean(self, flux, xc, yc, xshift, yshift, params, nstars):
+		self.mean = torch.reduce_sum([self.evaluate(flux[j], xc[j]+xshift, yc[j]+yshift, *params) for j in range(nstars)], axis=0)
+	
 	def evaluate(self, flux, xo, yo, a, b, c):
 		"""
 		Evaluate the Gaussian model
 		Parameters
 		----------
-		flux : optimizer.param
+		flux : 
 		xo, yo : optimizer.param, optimizer.param
 			Center coordinates of the Gaussian.
 		a, b, c : optimizer.param, optimizer.param
@@ -59,16 +68,22 @@ class Gaussian(Model):
 		"""
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = self.optimizer.math.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
-		psf_sum = self.optimizer.math.sum(psf)
+		psf = torch.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum
 
 class Moffat(Model):
+	def default_params(self):
+		return np.array([1, 0, 1, 1], dtype=np.float64) # a, b, c, beta
+
+	def mean_model(self, flux, xc, yc, xshift, yshift, params, nstars):
+		return np.sum([self.evaluate(flux[j], xc[j]+xshift, yc[j]+yshift, *params) for j in range(nstars)], axis=0)
+
 	def evaluate(self, flux, xo, yo, a, b, c, beta):
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = self.optimizer.math.divide(1., self.optimizer.math(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
-		psf_sum = self.optimizer.math.sum(psf)
+		psf = np.divide(1., np.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
+		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 		
 class Zernike(Model):

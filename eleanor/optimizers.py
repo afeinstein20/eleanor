@@ -1,89 +1,74 @@
 import importlib
-from functools import partialmethod
+from functools import partial
 import numpy as np
+import torch
 
 class OptimizerAPI:
-    '''
-    Common API to several optimizers, to allow for easy switching and comparisons.
-    This likely won't be what this looks like in the final PR to master, and is more a utility for quick benchmarking/
-    for encapsulating the eventual optimizer in case further downstream changes are desired.
+    """
+    This provides an optimizer API, to separate targetdata.py from the optimizer details.
 
     Attributes
     ----------
-    pkg : module
-    The package being wrapped.
+    variables : iterable
+    List of variable objects (torch.tensor) to be optimized.
 
-    param : callable
-    The method to get an optimization parameter variable.
-    Must take in a value and dtype.
+    bounds : dict
+    A dictionary from variable names to (lower, upper) tuples for each variable.
 
-    float : dtype
-    The optimizer's float type.
+    loss : callable
+    Takes in an model data array and returns its numerical loss value; function to be minimized.
 
-    empty : callable
-    The optimizer's "empty array/tensor" function.
+    data : list or np.ndarray or torch.tensor
+    The target data to compare the model data array to; one argument to the loss.
 
-    math : module
-    The optimizer's math module.
+    num_opt_steps : int
+    The number of steps in an optimization.
+    """
+    def __init__(self, model, variables=None, bounds=None, loss_name=None, data=None, **kwargs):
+        self.model = model
+        self.set_variables(variables)
+        self.set_bounds(bounds)
+        self.set_loss(loss_name)
+        self.set_data(data)
+        self.num_opt_steps = 1000
+        for k in kwargs:
+            setattr(self, k, kwargs.get(k))
 
-    concat : callable
-    The optimizer's concatenation function.
+    def __repr__(self):
+        # change this as desired, if the optimization package ever changes.
+        return "Interface for optimizer based on the PyTorch package."
 
-    bounds_converter : callable
-    Converts a tf var_to_bounds to a form usable by torch and numpy.
+    def set_variables(self, variables):
+        self.variables = [torch.tensor(v, dtype=torch.float64, requires_grad=True) for v in variables]
 
-    minimize : callable
-    The optimizer's minimization interface: takes in 
-    - a callable objective function
-    - a parameter array of type self.param
-    - var_to_bounds, as returned by bounds_converter.
-    - **kwargs, to handle case-by-case inputs
-    '''
-    def __init__(self, base_package="scipy"):
-        self.pkg = importlib.import_module(base_package)
-        self.float = self.pkg.float64
-        self.param = eval({
-            "tensorflow" : "self.pkg.Variable",
-            "torch" : "partial(self.pkg.tensor, requires_grad=True)",
-        }.get(base_package, "np.array"))
+    def set_bounds(self, bounds):
+        self.bounds = torch.stack([bounds.get(k) for k in bounds])
 
-        self.empty = eval({
-            "tensorflow" : "self.pkg.placeholder",
-            "torch" : "self.pkg.empty",
-        }.get(base_package, "np.empty"))
+    def set_data(self, data):
+        self.data = torch.tensor(data)
 
-        self.math = eval({
-            "tensorflow" : "self.pkg.math",
-            "torch" : "self.pkg",
-        }.get(base_package, "np"))
-
-        self.concat = eval({
-            "tensorflow" : "self.pkg.concat",
-            "torch" : "self.pkg.cat",
-        }.get(base_package, "np.concat"))
-
-        self.bounds_converter = eval({
-            "tensorflow" : "lambda var_to_bounds : var_to_bounds"
-        }.get(base_package, "lambda var_to_bounds : self.pkg.stack([var_to_bounds.get(k) for k in var_to_bounds])"))
-
-        self.minimizer = eval({
-            "scipy" : "self.pkg.optimize"
-        }.get(base_package, "self._minimizer"))
-
-        self.minimize = eval({
-            "torch" : "self.minimizer.step",
-        }.get(base_package, "self.minimizer.minimize"))
-
-        if base_package == "tensorflow":
-            self.math.sum = self.pkg.reduce_sum
-
-    def _minimizer(self, loss, var_list, var_to_bounds, algorithm="Adam"):
-        name = self.pkg.__name__
-        assert name == "torch" or name == "tensorflow"
-        if name == "torch":
-            pkg_name = "self.pkg.optim"
-        elif name == "tensorflow":
-            pkg_name = "self.pkg.keras.optimizers"
-        return eval("{0}.{1}".format(pkg_name, algorithm))
-
+    def set_loss(self, loss_name):
+        if loss_name == 'gaussian':
+            self.loss = partial(torch.nn.MSELoss(reduction='sum'), self.data)
+        # elif loss_name == 'poisson':
+            #mean = self.mean
+            #bkgval = self.bkgval # should be set in kwargs if this is desired
+            #self.loss = torch.sum(torch.subtract(mean+bkgval, optimizer.math.multiply(data+bkgval, optimizer.math.log(mean+bkgval))))
+        else:
+            raise ValueError("likelihood argument {0} not supported".format(loss_name))
     
+    def minimize(self, algorithm="Adam"):
+        if any([x is None for x in [self.variables, self.bounds, self.loss]]):
+            raise ValueError("Set variables, bounds, and loss before optimizing.")
+        opt = eval("torch.optim.{}".format(algorithm))(params=self.variables, lr=0.001)
+        for _ in tqdm.trange(self.num_opt_steps):
+            self.model.set_mean(opt.params)
+            loss = self.loss(self.model.mean)
+            opt.zero_grad()
+            loss.backward()
+            opt.step()
+        self.model.set_mean(opt.params)
+        return opt.params
+
+
+

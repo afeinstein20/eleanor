@@ -1,7 +1,7 @@
 dist: trusty
 
 language: python
-python: 3.6
+python: 3.8
 
 matrix:
     include:
@@ -20,7 +20,6 @@ before_install:
 install:
   - pip install tornado==5.1.1
   - pip install lightkurve
-  - pip install tensorflow
   - pip install astropy
   - pip install astroquery
   - pip install tqdm
