@@ -801,7 +801,7 @@ class TargetData(object):
         stars_in_field = cone_search()
 
 
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', optimization_module="tf", likelihood='gaussian',
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', optimization_module="tensorflow", likelihood='gaussian',
                        xc=None, yc=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
@@ -848,6 +848,8 @@ class TargetData(object):
         from tqdm import tqdm
 
         optimizer = OptimizerAPI(base_package=optimization_module)
+        if optimizer.pkg.__name__ == "tensorflow":
+            optimizer.pkg.logging.set_verbosity(optimizer.pkg.logging.ERROR)
 
         implemented_models = ['gaussian', 'moffat', 'zernike', 'lygos']
 
@@ -890,7 +892,7 @@ class TargetData(object):
         yshift = optimizer.param(0.0, dtype=optimizer.float)
 
         if model_name not in implemented_models:
-            warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model))
+            warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
             model_name = 'gaussian'
 
         model = {
@@ -899,6 +901,7 @@ class TargetData(object):
             'zernike' : Zernike,
             'lygos' : Lygos
         }.get(model_name)(
+            optimizer=optimizer,
             shape=data_arr.shape[1:], 
             col_ref=0, 
             row_ref=0, 
@@ -1011,7 +1014,7 @@ class TargetData(object):
         else:
             raise ValueError("likelihood argument {0} not supported".format(likelihood))
 
-        if optimizer.pkg.__name__ == "tf":
+        if optimizer.pkg.__name__ == "tensorflow":
             sess = optimizer.pkg.Session(config=optimizer.pkg.ConfigProto(device_count={'GPU': 0}))
             sess.run(optimizer.pkg.global_variables_initializer())
 

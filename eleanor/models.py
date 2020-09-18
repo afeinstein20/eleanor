@@ -4,7 +4,7 @@ from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
 from abc import ABC
-from .optimizers import Optimizer
+from .optimizers import OptimizerAPI
 
 # Vaneska models of Ze Vinicius
 
@@ -31,6 +31,9 @@ class Model(ABC):
 
 	def __call__(self, *params):
 		return self.evaluate(*params)
+
+	def evaluate(self, *args):
+		pass
 
 	def _init_grid(self):
 		r, c = self.row_ref, self.col_ref

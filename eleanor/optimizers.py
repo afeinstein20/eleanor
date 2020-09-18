@@ -1,5 +1,5 @@
 import importlib
-from functools import partial
+from functools import partialmethod
 import numpy as np
 
 class OptimizerAPI:
@@ -39,48 +39,51 @@ class OptimizerAPI:
     - var_to_bounds, as returned by bounds_converter.
     - **kwargs, to handle case-by-case inputs
     '''
-    def __init__(self, base_package="tf", **kwargs):
+    def __init__(self, base_package="scipy"):
         self.pkg = importlib.import_module(base_package)
         self.float = self.pkg.float64
         self.param = eval({
-            "tf" : "self.pkg.Variable",
+            "tensorflow" : "self.pkg.Variable",
             "torch" : "partial(self.pkg.tensor, requires_grad=True)",
         }.get(base_package, "np.array"))
 
         self.empty = eval({
-            "tf" : "self.pkg.placeholder",
+            "tensorflow" : "self.pkg.placeholder",
             "torch" : "self.pkg.empty",
         }.get(base_package, "np.empty"))
 
         self.math = eval({
-            "tf" : "self.pkg.math",
+            "tensorflow" : "self.pkg.math",
             "torch" : "self.pkg",
         }.get(base_package, "np"))
 
         self.concat = eval({
-            "tf" : "self.pkg.concat",
+            "tensorflow" : "self.pkg.concat",
             "torch" : "self.pkg.cat",
-        }).get(base_package, "np.concat")
+        }.get(base_package, "np.concat"))
 
         self.bounds_converter = eval({
-            "tf" : "lambda var_to_bounds : var_to_bounds"
-        }).get(base_package, "lambda var_to_bounds : self.pkg.stack([var_to_bounds.get(k) for k in var_to_bounds])")
+            "tensorflow" : "lambda var_to_bounds : var_to_bounds"
+        }.get(base_package, "lambda var_to_bounds : self.pkg.stack([var_to_bounds.get(k) for k in var_to_bounds])"))
 
-        def _torch_minimizer(self, loss, var_list, var_to_bounds, algorithm="Adam"):
-            assert self.pkg.__name__ == "torch"
-            opt = eval("self.pkg.optim.{}".format(algorithm))(params=var_list)
-            return opt.step(loss)
+        self.minimizer = eval({
+            "scipy" : "self.pkg.optimize"
+        }.get(base_package, "self._minimizer"))
 
         self.minimize = eval({
-            "tf" : "partial(self.pkg.contrib.opt.ScipyOptimizerInterface, method='TNC', tol=1e-4)",
-            "torch" : "self._torch_minimizer",
-            "scipy" : "self.pkg.optimize.minimize"
-        }).get(base_package)
+            "torch" : "self.minimizer.step",
+        }.get(base_package, "self.minimizer.minimize"))
 
-        if base_package == "tf":
+        if base_package == "tensorflow":
             self.math.sum = self.pkg.reduce_sum
 
-        for k in kwargs:
-            setattr(self, k, kwargs[k])
+    def _minimizer(self, loss, var_list, var_to_bounds, algorithm="Adam"):
+        name = self.pkg.__name__
+        assert name == "torch" or name == "tensorflow"
+        if name == "torch":
+            pkg_name = "self.pkg.optim"
+        elif name == "tensorflow":
+            pkg_name = "self.pkg.keras.optimizers"
+        return eval("{0}.{1}".format(pkg_name, algorithm))
 
     
