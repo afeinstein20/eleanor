@@ -25,7 +25,7 @@ __all__ = ['Source', 'multi_sectors']
 
 
 def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False, local=False, post_dir=None, pm_dir=None,
-                  metadata_path=None):
+                  metadata_path=None, tesscut_size=31):
     """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
 
     Parameters
@@ -42,6 +42,9 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False
     tc : bool, optional
         If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
         postcard data products.
+    tesscut_size : int, array-like, astropy.units.Quantity
+        The size of the cutout array, when tc is True. Details can be seen in
+        astroquery.mast.TesscutClass.download_cutouts
     """
     objs = []
 
@@ -69,7 +72,7 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False
     if (type(sectors) == list) or (type(sectors) == np.ndarray):
         for s in sectors:
             star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc, local=local, post_dir=post_dir, pm_dir=pm_dir,
-                          metadata_path=metadata_path)
+                          metadata_path=metadata_path, tesscut_size=tesscut_size)
             if star.sector is not None:
                 objs.append(star)
         if len(objs) < len(sectors):
@@ -100,6 +103,9 @@ class Source(object):
     tc : bool, optional
         If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
         postcard data products.
+    tesscut_size : int, array-like, astropy.units.Quantity
+        The size of the cutout array, when tc is True. Details can be checked in
+        astroquery.mast.TesscutClass.download_cutouts
 
     Attributes
     ----------
@@ -123,7 +129,7 @@ class Source(object):
     """
     def __init__(self, tic=None, gaia=None, coords=None, name=None, fn=None, 
                  sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None,
-                 metadata_path=None):
+                 metadata_path=None, tesscut_size=31):
         self.tic       = tic
         self.gaia      = gaia
         self.coords    = coords
@@ -136,6 +142,7 @@ class Source(object):
         self.postcard_path = post_dir
         self.pm_dir = pm_dir
         self.local = local
+
         
 
         if self.pm_dir is None:
@@ -205,7 +212,7 @@ class Source(object):
                 if type(self.coords) is SkyCoord:
                     self.coords = (self.coords.ra.degree, self.coords.dec.degree)
                 elif (len(self.coords) == 2) & (all(isinstance(c, float) for c in self.coords) | all(isinstance(c, int) for c in self.coords) ):
-                    self.coords  = coords
+                    self.coords = coords
                 else:
                     assert False, ("Source: invalid coords. Valid input types are: "
                                    "(RA [deg], Dec [deg]) tuple or astropy.coordinates.SkyCoord object.")
@@ -240,7 +247,7 @@ class Source(object):
                 self.tess_mag = self.tess_mag[0] 
                 
             self.locate_on_tess()
-            self.tesscut_size = 31
+            self.tesscut_size = tesscut_size
             
             if not os.path.isdir(self.metadata_path + '/metadata/s{:04d}'.format(self.sector)):
                 Update(sector=self.sector)
@@ -439,14 +446,14 @@ class Source(object):
     def search_tesscut(self, download_dir, coords):
         """Searches to see if the TESSCut cutout has already been downloaded.
         """
-        ra =  format(coords.ra.deg, '.6f')
+        ra = format(coords.ra.deg, '.6f')
         dec = format(coords.dec.deg, '.6f')
 
-        tesscut_fn = "tess-s{0:04d}-{1}-{2}_{3}_{4}_{5}x{5}_astrocut.fits".format(self.sector,
+        tesscut_fn = "tess-s{0:04d}-{1}-{2}_{3}_{4}_{5}x{6}_astrocut.fits".format(self.sector,
                                                                                   self.camera,
                                                                                   self.chip,
                                                                                   ra, dec,
-                                                                                  self.tesscut_size)
+                                                                                  self.tesscut_size[0], self.tesscut_size[1])
         local_path = os.path.join(download_dir, tesscut_fn)
         if os.path.isfile(local_path):
             return local_path
