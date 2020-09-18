@@ -843,11 +843,11 @@ class TargetData(object):
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
 
-        from .optimizers import Optimizer
+        from .optimizers import OptimizerAPI
         from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
 
-        optimizer = Optimizer(base_package=optimization_module)
+        optimizer = OptimizerAPI(base_package=optimization_module)
 
         implemented_models = ['gaussian', 'moffat', 'zernike', 'lygos']
 
@@ -996,6 +996,7 @@ class TargetData(object):
                 mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
+        var_to_bounds = optimizer.bounds_converter(var_to_bounds)
         params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
         mean += bkg
 
@@ -1012,9 +1013,7 @@ class TargetData(object):
 
         if optimizer.pkg.__name__ == "tf":
             sess = optimizer.pkg.Session(config=optimizer.pkg.ConfigProto(device_count={'GPU': 0}))
-            sess.run(tf.global_variables_initializer())
-
-        optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
+            sess.run(optimizer.pkg.global_variables_initializer())
 
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
@@ -1047,11 +1046,6 @@ class TargetData(object):
             if nstars > 1:
                 self.all_psf = fout
         return
-
-    def gaussian_to_lygos(self, *args):
-        self.psf_lightcurve(model_name='gaussian', *args)
-        p = self.psf_params
-        a, b, c = np.mode(p, axis=0)
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """
