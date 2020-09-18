@@ -361,12 +361,13 @@ class TargetData(object):
 
 
         else:
-            if (height > 31) or (width > 31):
-                raise ValueError("Maximum allowed TPF size when using TessCut is 31 x 31 pixels.")
+            post_x_length, post_y_length = post_flux.shape[2], post_flux.shape[1]
+            if (height > post_y_length) or (width > post_x_length):
+                raise ValueError("Maximum allowed TPF size should less than the TessCut size.")
 
-            self.tpf     = post_flux[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
+            self.tpf = post_flux[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
             self.bkg_tpf = post_flux
-            self.tpf_err = post_err[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
+            self.tpf_err = post_err[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
             self.bkg_subtraction()
 
