@@ -20,19 +20,27 @@ class Model(ABC):
 		column and row coordinates of the bottom
 		left corner of the TPF
 	"""
-	def __init__(self, shape, col_ref, row_ref, **kwargs):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, star_idx_to_fit, **kwargs):
 		self.shape = shape
 		self.col_ref = col_ref
 		self.row_ref = row_ref
+		self.xc = xc
+		self.yc = yc
+		self.star_idx_to_fit = star_idx_to_fit
+		assert len(self.xc) == len(self.yc), "xc and yc must have length nstars"
+		self.nstars = len(self.xc)
 		self._init_grid()
 
 	def __call__(self, *params):
 		return self.evaluate(*params)
 
-	def default_params(self):
+	def default_params(self, *args):
 		pass
 
-	def mean_model(self):
+	def set_fixed_params(self, *args):
+		pass
+
+	def mean_model(self, *args):
 		pass
 
 	def evaluate(self, *args):
@@ -44,21 +52,29 @@ class Model(ABC):
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
 class Gaussian(Model):
-	def default_params(self):
-		return torch.tensor([1, 0, 1], dtype=np.float64) # a, b, c
+	def default_params(self, data):
+		# [flux, xshift, yshift, a, b, c, bkg]
+		return torch.tensor([np.max(data[0])] * self.nstars + [0, 0, 1, 0, 1], dtype=torch.float64)
 
-	def set_mean(self, flux, xc, yc, xshift, yshift, params, nstars):
-		self.mean = torch.reduce_sum([self.evaluate(flux[j], xc[j]+xshift, yc[j]+yshift, *params) for j in range(nstars)], axis=0)
+	def set_fixed_params(self, xc, yc, nstars):
+		self.xc = xc
+		self.yc = yc
+		self.nstars = nstars
+
+	def set_mean(self, params):
+		flux = params[:self.nstars]
+		xshift, yshift, a, b, c = params[self.nstars:]
+		self.mean = torch.stack(tuple(self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, a, b, c) for j in range(self.nstars))).sum(dim=0)
 	
 	def evaluate(self, flux, xo, yo, a, b, c):
 		"""
 		Evaluate the Gaussian model
 		Parameters
 		----------
-		flux : 
-		xo, yo : optimizer.param, optimizer.param
+		flux : torch.tensor
+		xo, yo : torch.tensor, torch.tensor
 			Center coordinates of the Gaussian.
-		a, b, c : optimizer.param, optimizer.param
+		a, b, c : 
 			Parameters that control the rotation angle
 			and the stretch along the major axis of the Gaussian,
 			such that the matrix M = [a b ; b c] is positive-definite.
@@ -66,8 +82,8 @@ class Gaussian(Model):
 		----------
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
-		dx = self.x - xo
-		dy = self.y - yo
+		dx = torch.tensor(self.x - xo.detach().numpy())
+		dy = torch.tensor(self.y - yo.detach().numpy())
 		psf = torch.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
 		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum

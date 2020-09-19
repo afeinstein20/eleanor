@@ -880,12 +880,7 @@ class TargetData(object):
             tpfsum[int(xc[0]-1.5):int(xc[0]+2.5),int(yc[0]-1.5):int(yc[0]+2.5)] = 0.0
             err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf
 
-        assert len(xc) == nstars and len(yc) == nstars, "xc and yc must have length nstars"
-
-        flux = np.ones(nstars)*np.max(data_arr[0])
         bkg = bkg_arr[0]
-        xshift = 0.0
-        yshift = 0.0
 
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
@@ -895,31 +890,32 @@ class TargetData(object):
             shape=data_arr.shape[1:], 
             col_ref=0, 
             row_ref=0, 
+            xc = xc,
+            yc = yc,
+            star_idx_to_fit=star_idx_to_fit,
             directory = self.fetch_dir(),
-            num_params = 30,
-            star_coords = [xc[star_idx_to_fit], yc[star_idx_to_fit]]
+            num_params = 30,    
         )
-        # directory, num_params, star_coords are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
-        # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
+        # directory, num_params are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
 
-        params = model.default_params()
-        model.set_mean(flux, xc, yc, xshift, yshift, params, nstars)
+        model.set_fixed_params(xc, yc, nstars)
+        params = model.default_params(data_arr)
+        model.set_mean(params)
         model.mean += bkg
-        var_list = [flux, xshift, yshift] + list(params) + [bkg]
         
         if model_name == 'Gaussian':
-            var_list = [flux, xshift, yshift] + list(params) + [bkg]
-            var_to_bounds = {
-                flux : (0, np.infty),
-                xshift : (-1.0, 1.0),
-                yshift : (-1.0, 1.0),
-                params[0] : (0, np.infty),
-                params[1] : (-0.5, 0.5),
-                params[2] : (0, np.infty)
-            }
+            var_list = list(params)
+            bounds = np.array([
+                [0, np.infty],
+                [-1.0, 1.0],
+                [-1.0, 1.0],
+                [0, np.infty],
+                [-0.5, 0.5],
+                [-0.5, 0.5]
+            ])
 
         elif model_name == 'moffat':
-            var_list = [flux, xshift, yshift] + list(params) + [bkg]
+            var_list = list(params)
             var_to_bounds = {
                 flux : (0, np.infty),
                 xshift : (-2.0, 2.0),
@@ -936,7 +932,7 @@ class TargetData(object):
 
             var_list = [flux] + weights
             var_to_bounds = {
-                flux : (0, np.infty),
+                flux : (0, np.infty)
             }.update({
                 weights[i] : (-10, 10) for i in range(num_params)
             })
@@ -970,15 +966,15 @@ class TargetData(object):
                 model.mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
                 model.mean = np.sum(model.mean, axis=0)
 
-        optimizer = OptimizerAPI(model, variables=var_list, bounds=var_to_bounds, loss_name=likelihood)
+        optimizer = OptimizerAPI(model, variables=var_list, bounds=bounds, loss_name=likelihood, data=data_arr)
 
         # corrected_lc = np.empty(dtype=np.float64, shape=data_arr[0].shape)
         # corrected_lc_err = np.empty(dtype=np.float64, shape=data_arr[0].shape)
         # background = np.empty(dtype=np.float64)
         optimizer.set_data(data_arr)
-        popt = optimizer.minimize()
-
-        # self.psf_flux = fout[:,0]
+        optimizer.minimize()
+    
+        self.psf_flux = model.mean
 
         if self.language == 'Australian':
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
@@ -1021,8 +1017,6 @@ class TargetData(object):
         shape = shape.lower()
         if pos is None:
             pos = (self.tpf.shape[1]/2, self.tpf.shape[2]/2)
-        else:
-            pos = pos
 
         if shape == 'circle':
             if r == 0.0:
