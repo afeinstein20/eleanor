@@ -54,7 +54,7 @@ class Model(ABC):
 class Gaussian(Model):
 	def default_params(self, data):
 		# [flux, xshift, yshift, a, b, c, bkg]
-		return torch.tensor([np.max(data[0])] * self.nstars + [0, 0, 1, 0, 1], dtype=torch.float64)
+		return torch.tensor([np.max(data[0])] * self.nstars + [0, 0, 1, 0, 1], dtype=torch.float64, requires_grad=True)
 
 	def set_fixed_params(self, xc, yc, nstars, bkg0):
 		self.xc = xc
@@ -62,12 +62,12 @@ class Gaussian(Model):
 		self.nstars = nstars
 		self.bkg0 = bkg0
 
-	def set_mean(self, params):
+	def get_mean(self, params):
 		flux = params[:self.nstars]
 		xshift, yshift, a, b, c = params[self.nstars:]
-
 		self.mean = torch.stack(tuple(self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, a, b, c) for j in range(self.nstars))).sum(dim=0) + self.bkg0
-	
+		return self.mean
+
 	def evaluate(self, flux, xo, yo, a, b, c):
 		"""
 		Evaluate the Gaussian model

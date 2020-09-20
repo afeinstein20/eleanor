@@ -43,7 +43,13 @@ class OptimizerAPI:
         return "Interface for optimizer based on the PyTorch package."
 
     def set_variables(self, variables):
-        self.variables = [torch.tensor(v, dtype=torch.float64, requires_grad=True) for v in variables]
+        self.variables = []
+        for v in variables:
+            if isinstance(v, torch.Tensor):
+                self.variables.append(v)
+            else:
+                self.variables.append(torch.tensor(v, dtype=torch.float64, requires_grad=True))
+
 
     def set_bounds(self, bounds):
         self.bounds = torch.tensor(bounds)
@@ -58,22 +64,22 @@ class OptimizerAPI:
         if loss_name == 'gaussian':
             self.loss = partial(torch.nn.MSELoss(reduction='sum'), self.flux_raw)
         elif loss_name == 'poisson':
-            self.loss = lambda mean: torch.sum(torch.subtract(mean+self.bkg, torch.multiply(self.flux_raw+self.bkg, optimizer.math.log(mean+self.bkg))))
+            self.loss = lambda mean: torch.sum(torch.subtract(mean+self.bkg, torch.multiply(self.flux_raw+self.bkg, torch.log(mean+self.bkg))))
         else:
             raise ValueError("likelihood argument {0} not supported".format(loss_name))
     
-    def minimize(self, algorithm="SGD"):
+    def minimize(self, algorithm="Adam"):
         if any([x is None for x in [self.variables, self.bounds, self.loss]]):
             raise ValueError("Set variables, bounds, and loss before optimizing.")
         opt = eval("torch.optim.{}".format(algorithm))(params=self.variables, lr=0.001)
-        for _ in range(self.num_opt_steps):
-            self.model.set_mean(self.variables)
-            loss = self.loss(self.model.mean)
+        for i in range(self.num_opt_steps):
+            loss = self.loss(self.model.get_mean(self.variables))
+            if i % 100 == 0:
+                print(i, loss)
             opt.zero_grad()
             loss.backward()
             opt.step()
-        self.model.set_mean(self.variables)
-        # return self.variables
+        return self.model.get_mean(self.variables)
 
 
 

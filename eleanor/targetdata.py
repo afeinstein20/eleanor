@@ -900,7 +900,7 @@ class TargetData(object):
 
         model.set_fixed_params(xc, yc, nstars, bkg0)
         params = model.default_params(data_arr)
-        model.set_mean(params)
+        model.get_mean(params)
         var_list = list(params)
         
         if model_name == 'Gaussian':
@@ -913,7 +913,7 @@ class TargetData(object):
                 [-0.5, 0.5]
             ])
 
-        elif model_name == 'moffat':
+        elif model_name == 'Moffat':
             bounds = np.array([
                 [0, np.infty],
                 [-2.0, 2.0],
