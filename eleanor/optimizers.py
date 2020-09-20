@@ -32,9 +32,8 @@ class OptimizerAPI:
         if bounds is not None:
             self.set_bounds(bounds)
         if data is not None:
-            self.set_data(data)
-        if loss_name is not None:
-            self.set_loss(loss_name)
+            self.set_data_and_bkg(*data)
+        self.loss_name = loss_name
         self.num_opt_steps = 1000
         for k in kwargs:
             setattr(self, k, kwargs.get(k))
@@ -49,12 +48,15 @@ class OptimizerAPI:
     def set_bounds(self, bounds):
         self.bounds = torch.tensor(bounds)
 
-    def set_data(self, data):
-        self.data = torch.tensor(data)
+    def set_data_and_bkg(self, flux_raw, flux_err, bkg):
+        self.flux_raw = torch.tensor(flux_raw)
+        self.flux_err = torch.tensor(flux_err)
+        self.bkg = torch.tensor(bkg)
+        self.set_loss(self.loss_name)
 
     def set_loss(self, loss_name):
         if loss_name == 'gaussian':
-            self.loss = partial(torch.nn.MSELoss(reduction='sum'), self.data)
+            self.loss = partial(torch.nn.MSELoss(reduction='sum'), self.flux_raw)
         # elif loss_name == 'poisson':
             #mean = self.mean
             #bkgval = self.bkgval # should be set in kwargs if this is desired
@@ -63,10 +65,10 @@ class OptimizerAPI:
             raise ValueError("likelihood argument {0} not supported".format(loss_name))
     
     def minimize(self, algorithm="Adam"):
-        if any([x is None for x in [self.variables, self.bounds, self.loss, self.data]]):
+        if any([x is None for x in [self.variables, self.bounds, self.loss]]):
             raise ValueError("Set variables, bounds, and loss before optimizing.")
         opt = eval("torch.optim.{}".format(algorithm))(params=self.variables, lr=0.001)
-        for _ in tqdm.trange(self.num_opt_steps):
+        for _ in range(self.num_opt_steps):
             self.model.set_mean(self.variables)
             loss = self.loss(self.model.mean)
             opt.zero_grad()

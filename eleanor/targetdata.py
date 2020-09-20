@@ -880,7 +880,7 @@ class TargetData(object):
             tpfsum[int(xc[0]-1.5):int(xc[0]+2.5),int(yc[0]-1.5):int(yc[0]+2.5)] = 0.0
             err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf
 
-        bkg = bkg_arr[0]
+        bkg0 = bkg_arr[0]
 
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
@@ -898,13 +898,12 @@ class TargetData(object):
         )
         # directory, num_params are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
 
-        model.set_fixed_params(xc, yc, nstars)
+        model.set_fixed_params(xc, yc, nstars, bkg0)
         params = model.default_params(data_arr)
         model.set_mean(params)
-        model.mean += bkg
+        var_list = list(params)
         
         if model_name == 'Gaussian':
-            var_list = list(params)
             bounds = np.array([
                 [0, np.infty],
                 [-1.0, 1.0],
@@ -915,16 +914,15 @@ class TargetData(object):
             ])
 
         elif model_name == 'moffat':
-            var_list = list(params)
-            var_to_bounds = {
-                flux : (0, np.infty),
-                xshift : (-2.0, 2.0),
-                yshift : (-2.0, 2.0),
-                params[0] : (0., 3.0),
-                params[1] : (-0.5, 0.5),
-                params[2] : (0., 3.0),
-                params[3] : (0, 10)
-            }
+            bounds = np.array([
+                [0, np.infty],
+                [-2.0, 2.0],
+                [-2.0, 2.0],
+                [0., 3.0],
+                [-0.5, 0.5],
+                [0., 3.0],
+                [0, 10]
+            ])
 
         elif model_name == 'zernike':
             num_params = 120
@@ -941,7 +939,7 @@ class TargetData(object):
                 model.mean = model(flux, weights)
             else:
                 model.mean = [model(flux[j], weights) for j in range(nstars)]
-                model.mean = np.sum(mean, axis=0)
+                model.mean = np.sum(model.mean, axis=0)
 
         elif model_name == 'lygos':
             num_params = 13
@@ -966,26 +964,33 @@ class TargetData(object):
                 model.mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
                 model.mean = np.sum(model.mean, axis=0)
 
-        optimizer = OptimizerAPI(model, variables=var_list, bounds=bounds, loss_name=likelihood, data=data_arr)
-
-        # corrected_lc = np.empty(dtype=np.float64, shape=data_arr[0].shape)
-        # corrected_lc_err = np.empty(dtype=np.float64, shape=data_arr[0].shape)
-        # background = np.empty(dtype=np.float64)
-        optimizer.set_data(data_arr)
-        optimizer.minimize()
+        optimizer = OptimizerAPI(model, variables=var_list, bounds=bounds, loss_name=likelihood)
     
-        self.psf_flux = model.mean
+        fout = np.zeros((len(data_arr), nstars))
+        bkgout = np.zeros(len(data_arr))
+        llout = np.zeros(len(data_arr))
+        params_out = np.zeros((len(data_arr), len(var_list) - 1 - nstars)) 
+
+        for i in tqdm(range(len(data_arr))):
+            optimizer.set_data_and_bkg(data_arr[i], err_arr[i], bkg_arr[i])
+            optimizer.minimize()
+            fout[i] = var_list[:nstars]
+            params_out[i] = var_list[nstars:-1]
+            bkgout[i] = var_list[-1]
+            llout[i] = optimizer.loss(model.mean)
+            
+        self.psf_flux = fout[:,star_idx_to_fit]
 
         if self.language == 'Australian':
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
 
-        # self.psf_bkg = bkgout
+        self.psf_bkg = bkgout
 
-        #if verbose:
-        #    self.psf_params = params_out
-        #    self.psf_ll = llout
-        #    if nstars > 1:
-        #        self.all_psf = fout
+        if verbose:
+            self.psf_params = params_out
+            self.psf_ll = llout
+            if nstars > 1:
+                self.all_psf = fout
         return
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):

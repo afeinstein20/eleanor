@@ -56,15 +56,17 @@ class Gaussian(Model):
 		# [flux, xshift, yshift, a, b, c, bkg]
 		return torch.tensor([np.max(data[0])] * self.nstars + [0, 0, 1, 0, 1], dtype=torch.float64)
 
-	def set_fixed_params(self, xc, yc, nstars):
+	def set_fixed_params(self, xc, yc, nstars, bkg0):
 		self.xc = xc
 		self.yc = yc
 		self.nstars = nstars
+		self.bkg0 = bkg0
 
 	def set_mean(self, params):
 		flux = params[:self.nstars]
 		xshift, yshift, a, b, c = params[self.nstars:]
-		self.mean = torch.stack(tuple(self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, a, b, c) for j in range(self.nstars))).sum(dim=0)
+
+		self.mean = torch.stack(tuple(self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, a, b, c) for j in range(self.nstars))).sum(dim=0) + self.bkg0
 	
 	def evaluate(self, flux, xo, yo, a, b, c):
 		"""
@@ -96,10 +98,10 @@ class Moffat(Model):
 		return np.sum([self.evaluate(flux[j], xc[j]+xshift, yc[j]+yshift, *params) for j in range(nstars)], axis=0)
 
 	def evaluate(self, flux, xo, yo, a, b, c, beta):
-		dx = self.x - xo
-		dy = self.y - yo
+		dx = torch.tensor(self.x - xo.detach().numpy())
+		dy = torch.tensor(self.y - yo.detach().numpy())
 		psf = np.divide(1., np.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
-		psf_sum = np.sum(psf)
+		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum
 		
 class Zernike(Model):
@@ -206,7 +208,7 @@ class Zernike(Model):
 		for i, w in enumerate(weights):
 			psf += self.zernike(i) * w
 		
-		psf_sum = self.optimizer.math.sum(psf)
+		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum
 
 class Lygos(Model):
@@ -219,10 +221,11 @@ class Lygos(Model):
 		self.num_params = 13
 
 	def evaluate(self, flux, xo, yo, coeffs):
-		x, y = self.x - xo, self.y - yo
+		x = torch.tensor(self.x - xo.detach().numpy())
+		y = torch.tensor(self.y - yo.detach().numpy())
 		terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
 		polysum = sum(terms * coeffs[:len(terms)])
-		gauss = coeffs[9] * self.optimizer.math.exp(-coeffs[10] * x ** 2  - coeffs[11] * y ** 2)
+		gauss = coeffs[9] * torch.exp(-coeffs[10] * x ** 2  - coeffs[11] * y ** 2)
 		psf = polysum + gauss
-		return flux * psf / self.optimizer.math.sum(psf)
+		return flux * psf / torch.sum(psf)
 		
