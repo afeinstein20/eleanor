@@ -57,14 +57,12 @@ class OptimizerAPI:
     def set_loss(self, loss_name):
         if loss_name == 'gaussian':
             self.loss = partial(torch.nn.MSELoss(reduction='sum'), self.flux_raw)
-        # elif loss_name == 'poisson':
-            #mean = self.mean
-            #bkgval = self.bkgval # should be set in kwargs if this is desired
-            #self.loss = torch.sum(torch.subtract(mean+bkgval, optimizer.math.multiply(data+bkgval, optimizer.math.log(mean+bkgval))))
+        elif loss_name == 'poisson':
+            self.loss = lambda mean: torch.sum(torch.subtract(mean+self.bkg, torch.multiply(self.flux_raw+self.bkg, optimizer.math.log(mean+self.bkg))))
         else:
             raise ValueError("likelihood argument {0} not supported".format(loss_name))
     
-    def minimize(self, algorithm="Adam"):
+    def minimize(self, algorithm="SGD"):
         if any([x is None for x in [self.variables, self.bounds, self.loss]]):
             raise ValueError("Set variables, bounds, and loss before optimizing.")
         opt = eval("torch.optim.{}".format(algorithm))(params=self.variables, lr=0.001)

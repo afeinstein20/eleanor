@@ -801,7 +801,7 @@ class TargetData(object):
         stars_in_field = cone_search()
 
 
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', optimization_module="tensorflow", likelihood='gaussian',
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian',
                        xc=None, yc=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
@@ -843,7 +843,7 @@ class TargetData(object):
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
 
-        from .optimizers import OptimizerAPI
+        from .optimizer import OptimizerAPI
         from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
 
