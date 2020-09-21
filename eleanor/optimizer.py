@@ -57,9 +57,9 @@ class OptimizerAPI:
         self.bounds = torch.tensor(bounds)
 
     def set_data_and_loss(self, flux_raw, flux_err, bkg):
-        self.flux_raw = torch.tensor(flux_raw)
-        self.flux_err = torch.tensor(flux_err)
-        self.bkg = torch.tensor(bkg)
+        self.flux_raw = torch.tensor(flux_raw.astype(np.float32), dtype=torch.float64)
+        self.flux_err = torch.tensor(flux_err.astype(np.float32), dtype=torch.float64)
+        self.bkg = torch.tensor(bkg.astype(np.float32), dtype=torch.float64)
         if self.likelihood == 'gaussian':
             self.loss = partial(torch.nn.MSELoss(reduction='sum'), self.flux_raw)
         elif self.likelihood == 'poisson':

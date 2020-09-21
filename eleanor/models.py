@@ -62,7 +62,7 @@ class Gaussian(Model):
 		self.nstars = nstars
 		self.bkg0 = bkg0
 
-	def get_mean(self, params):
+	def get_mean(self, params, set_mean=True):
 		flux = params[:self.nstars]
 		xshift, yshift, a, b, c = params[self.nstars:]
 		self.mean = torch.stack(tuple(self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, a, b, c) for j in range(self.nstars))).sum(dim=0) + self.bkg0
