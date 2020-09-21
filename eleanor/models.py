@@ -54,7 +54,7 @@ class Model(ABC):
 class Gaussian(Model):
 	def default_params(self, data):
 		# [flux, xshift, yshift, a, b, c, bkg]
-		return [torch.tensor(x, dtype=torch.float64, requires_grad=True) for x in [np.max(data[0])] * self.nstars + [0, 0, 1, 0, 1]]
+		return [torch.tensor(x, dtype=torch.float64, requires_grad=True) for x in [np.max(data[0])] * self.nstars + [0, 0, 1, 0, 1, self.bkg0]]
 
 	def set_fixed_params(self, xc, yc, nstars, bkg0):
 		self.xc = xc
@@ -64,8 +64,8 @@ class Gaussian(Model):
 
 	def get_mean(self, params, set_mean=True):
 		flux = params[:self.nstars]
-		xshift, yshift, a, b, c = params[self.nstars:]
-		self.mean = torch.stack(tuple(self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, a, b, c) for j in range(self.nstars))).sum(dim=0) + self.bkg0
+		xshift, yshift, a, b, c, bkg = params[self.nstars:]
+		self.mean = torch.stack(tuple(self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, a, b, c) for j in range(self.nstars))).sum(dim=0) + bkg
 		return self.mean
 
 	def evaluate(self, flux, xo, yo, a, b, c):
@@ -76,7 +76,7 @@ class Gaussian(Model):
 		flux : torch.tensor
 		xo, yo : torch.tensor, torch.tensor
 			Center coordinates of the Gaussian.
-		a, b, c : 
+		a, b, c : scalar
 			Parameters that control the rotation angle
 			and the stretch along the major axis of the Gaussian,
 			such that the matrix M = [a b ; b c] is positive-definite.

@@ -904,17 +904,20 @@ class TargetData(object):
         var_list = list(params)
         
         if model_name == 'Gaussian':
-            bounds = np.array([
-                [0, np.infty],
-                [-1.0, 1.0],
-                [-1.0, 1.0],
-                [0, np.infty],
-                [-0.5, 0.5],
-                [-0.5, 0.5]
-            ])
+            bounds = np.vstack((
+                np.tile([0, np.infty], (nstars, 1)),
+                np.array([
+                    [-1.0, 1.0],
+                    [-1.0, 1.0],
+                    [0, np.infty],
+                    [-0.5, 0.5],
+                    [0, np.infty],
+                    [0, np.infty]
+                ])
+            ))
 
         elif model_name == 'Moffat':
-            bounds = np.array([
+            bounds = np.concatenate(np.array([0, np.infty] * nstars), np.array([
                 [0, np.infty],
                 [-2.0, 2.0],
                 [-2.0, 2.0],
@@ -922,7 +925,7 @@ class TargetData(object):
                 [-0.5, 0.5],
                 [0., 3.0],
                 [0, 10]
-            ])
+            ]))
 
         elif model_name == 'zernike':
             num_params = 120
@@ -970,22 +973,35 @@ class TargetData(object):
         llout = np.zeros(len(data_arr))
         params_out = np.zeros((len(data_arr), len(var_list) - 1 - nstars)) 
 
-        import torch # strictly temporary!
+        def gaussian_model_scipy(flux, xshift, yshift, a, b, c, bkg):
+            mean = np.zeros_like(data_arr[0])
+            for j in range(nstars):
+                dx = model.x - (xc[j] + xshift)
+                dy = model.y - (yc[j] + yshift)
+                psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+                psf_sum = np.sum(psf)
+                mean += flux[j] * psf / psf_sum
+            return mean + bkg
+
+        get_mean_scipy = lambda p: gaussian_model_scipy(p[:nstars], *p[nstars:])
+
+        def gaussian_loss_scipy(p, i):
+            bad = False
+            for j, param in enumerate(p):
+                if not(bounds[j, 0] <= param and param <= bounds[j, 1]):
+                    return np.infty
+            return np.sum((get_mean_scipy(p) - data_arr[i]) ** 2 / err_arr[i])
+
+        par = np.array([np.max(data_arr[0])] * nstars + [0., 0., 1., 0., 1., bkg0])
         for i in tqdm(range(len(data_arr))):
-            optimizer.set_data_and_loss(data_arr, err_arr, bkg_arr)
+            # optimizer.set_data_and_loss(data_arr, err_arr, bkg_arr)
             # optimizer.minimize()
-            get_mean_scipy = lambda p: model.get_mean([torch.tensor(x, dtype=torch.float64, requires_grad=True) for x in p], False)
-            obj = lambda p: optimizer.loss(get_mean_scipy(p)).detach().numpy()
-            par0 = np.array([np.max(data_arr[0])] * nstars + [1., 0., 1., 0., 0.])
-            popt = minimize(obj, par0).x
-            fout[i] = popt[:nstars]
-            params_out[i] = popt[nstars:-1]
-            bkgout[i] = popt[-1]
-            llout[i] = obj(popt)
-            
-        plt.plot(llout, label='ll')
-        plt.legend()
-        plt.show()
+            res = minimize(gaussian_loss_scipy, par, i, method='TNC', tol=1e-8)
+            par = res.x
+            fout[i] = par[:nstars]
+            params_out[i] = par[nstars:-1]
+            bkgout[i] = par[-1]
+            llout[i] = gaussian_loss_scipy(par, i)
 
         self.psf_flux = fout[:,star_idx_to_fit]
 
