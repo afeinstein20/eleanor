@@ -964,21 +964,30 @@ class TargetData(object):
                 model.mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
                 model.mean = np.sum(model.mean, axis=0)
 
-        optimizer = OptimizerAPI(model, variables=var_list, bounds=bounds, loss_name=likelihood)
+        optimizer = OptimizerAPI(model, variables=var_list, bounds=bounds, likelihood=likelihood)
     
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))
         params_out = np.zeros((len(data_arr), len(var_list) - 1 - nstars)) 
 
+        import torch # strictly temporary!
         for i in tqdm(range(len(data_arr))):
-            optimizer.set_data_and_bkg(data_arr[i], err_arr[i], bkg_arr[i])
-            optimizer.minimize()
-            fout[i] = var_list[:nstars]
-            params_out[i] = var_list[nstars:-1]
-            bkgout[i] = var_list[-1]
-            llout[i] = optimizer.loss(model.mean)
+            optimizer.set_data_and_loss(data_arr, err_arr, bkg_arr)
+            # optimizer.minimize()
+            obj = lambda p: optimizer.loss([torch.tensor(x, dtype=torch.float64, requires_grad=True) for x in p])
+            par0 = np.array([np.max(data_arr[0])] * nstars + [1., 0., 1., 0., 0.])
+            print(par0)
+            popt = minimize(obj, par0, data_arr).x
+            fout[i] = popt[:nstars]
+            params_out[i] = popt[nstars:-1]
+            bkgout[i] = popt[-1]
+            llout[i] = optimizer.loss(obj(popt))
             
+        plt.plot(llout, label='ll')
+        plt.legend()
+        plt.show()
+
         self.psf_flux = fout[:,star_idx_to_fit]
 
         if self.language == 'Australian':

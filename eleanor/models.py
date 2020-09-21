@@ -54,7 +54,7 @@ class Model(ABC):
 class Gaussian(Model):
 	def default_params(self, data):
 		# [flux, xshift, yshift, a, b, c, bkg]
-		return torch.tensor([np.max(data[0])] * self.nstars + [0, 0, 1, 0, 1], dtype=torch.float64, requires_grad=True)
+		return [torch.tensor(x, dtype=torch.float64, requires_grad=True) for x in [np.max(data[0])] * self.nstars + [0, 0, 1, 0, 1]]
 
 	def set_fixed_params(self, xc, yc, nstars, bkg0):
 		self.xc = xc
