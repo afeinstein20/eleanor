@@ -12,6 +12,7 @@ from astropy.wcs import WCS
 from astropy.stats import SigmaClip, sigma_clip
 from time import strftime
 from astropy.io import fits
+import astropy.units as u
 from scipy.stats import mode
 from scipy.signal import savgol_filter
 from urllib.request import urlopen
@@ -856,13 +857,16 @@ class TargetData(object):
         if data_arr is None:
             data_arr = self.tpf + 0.0
             data_arr[np.isnan(data_arr)] = 0.0
+        data_arr /= (u.electron / u.s)
         if err_arr is None:
             if err_method == True:
                 err_arr = (self.tpf_err + 0.0) ** 2
             else:
                 err_arr = np.ones_like(data_arr)
+        err_arr /= (u.electron / u.s)
         if bkg_arr is None:
             bkg_arr = self.flux_bkg + 0.0
+        bkg_arr /= (u.electron / u.s)
 
         if yc is None:
             yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
