@@ -994,14 +994,9 @@ class TargetData(object):
                 mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
                 mean = np.sum(mean, axis=0)
 
-        params_out = np.zeros((len(data_arr), len(var_list) - 1)) 
+        par = np.concatenate((np.max(data_arr[0]) * np.ones(nstars,), np.array([0, 0, 1, 0, 1, bkg_arr[0]])))
+        params_out = np.zeros((len(data_arr), len(par) - 1 - nstars)) 
         mean += bkg
-
-        data = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
-        derr = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
-        bkgval = tf.placeholder(dtype=tf.float64)
-
-        sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
 
         def model_gaussian(flux, xo, yo, a, b, c):
             dx = model.x - xo
@@ -1014,43 +1009,20 @@ class TargetData(object):
             return np.sum([model_gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)], axis=0) + bg
 
         def nll_gaussian(params, i):
-            # a slow NLL
             flux = params[:nstars]
             return np.sum((mean_gaussian(flux, *params[nstars:]) - data_arr[i]) ** 2 / err_arr[i])
-
-        if likelihood == 'gaussian':
-            nll = tf.reduce_sum(tf.truediv(tf.squared_difference(mean, data), derr))
-        elif likelihood == 'poisson':
-            nll = tf.reduce_sum(tf.subtract(mean+bkgval, tf.multiply(data+bkgval, tf.log(mean+bkgval))))
-        else:
-            raise ValueError("likelihood argument {0} not supported".format(likelihood))
-
-        grad = tf.gradients(nll, var_list)
-
-        sess.run(tf.global_variables_initializer())
-
-        optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
 
         llout = np.zeros(len(data_arr))
-
-        par = np.concatenate((np.max(data_arr[0]) * np.ones(nstars,), np.array([0, 0, 1, 0, 1, bkg_arr[0]])))
         
         for i in tqdm(range(len(data_arr))):
-            optim = optimizer.minimize(session=sess, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]}) # we could also pass a pointing model here
-                                                                           # and just fit a single offset in all frames                                                        
             par = minimize(nll_gaussian, par, i, method='TNC', tol=1e-4).x
-            
-            fout[i] = sess.run(flux)
-            bkgout[i] = sess.run(bkg)
-
-            for j, v in enumerate(var_list[nstars:]):
-                params_out[i][j] = sess.run(v)
-            llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-
-        sess.close()
+            fout[i] = par[:nstars]
+            bkgout[i] = par[-1]
+            params_out[i] = par[nstars:-1]
+            llout[i] = nll_gaussian(par, i)
 
         self.psf_flux = fout[:,0]
 
