@@ -845,17 +845,13 @@ class TargetData(object):
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
-        import tensorflow as tf
-        from .optimizer import OptimizerAPI
-        from .models import Gaussian, Moffat, Zernike, Lygos
+        from .models import Gaussian, Moffat
         from tqdm import tqdm
 
-        implemented_models = ['Gaussian', 'Moffat', 'Zernike', 'Lygos']
+        implemented_models = ['Gaussian', 'Moffat']
 
         star_idx_to_fit = 0
         assert star_idx_to_fit < nstars
-
-        tf.logging.set_verbosity(tf.logging.ERROR)
 
         if data_arr is None:
             data_arr = self.tpf + 0.0
@@ -887,11 +883,6 @@ class TargetData(object):
 
         assert len(xc) == nstars and len(yc) == nstars, "xc and yc must have length nstars"
 
-        flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
-        bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
-        xshift = tf.Variable(0.0, dtype=tf.float64)
-        yshift = tf.Variable(0.0, dtype=tf.float64)
-
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
             model_name = 'Gaussian'
@@ -905,30 +896,26 @@ class TargetData(object):
             nstars = nstars,
             bkg0 = bkg_arr[0]
         )
-        
-        if model_name == 'Moffat':
-            a = tf.Variable(initial_value=1., dtype=tf.float64)
-            b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
-            beta = tf.Variable(initial_value=1., dtype=tf.float64)
-
-            var_to_bounds = {
-                flux : (0, np.infty),
-                xshift : (-2.0, 2.0),
-                yshift : (-2.0, 2.0),
-                a : (0., 3.0),
-                b : (-0.5, 0.5),
-                c : (0., 3.0),
-                beta : (0, 10)
-            }
 
         par = np.concatenate((np.max(data_arr[0]) * np.ones(nstars,), np.array([0, 0, bkg_arr[0], 1, 0, 1])))
         params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
 
-        def nll_gaussian(params, i):
-            flux = params[:nstars]
+        if likelihood == "gaussian":
+            loss = lambda mean_val, i: np.sum((mean_val - data_arr[i]) ** 2 / err_arr[i])
+        elif likelihood == "poisson":
+            loss = lambda mean_val, i: np.sum(mean_val + bkg_arr[i] - (data_arr[i] + bkg_arr[i]) * np.log(mean_val + bkg_arr[i]))
+        else:
+            raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
+
+        def nll(params, i):
+            for j, p in enumerate(params):
+                if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
+                    return np.infty
+            fluxes = params[:nstars]
             xshift, yshift, bkg = params[nstars:nstars+3]
-            return np.sum((model.mean(flux, xshift, yshift, bkg, params[nstars+3:]) - data_arr[i]) ** 2 / err_arr[i])
+            optpars = params[nstars+3:]
+            mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
+            return loss(mean_val, i)
 
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
@@ -936,11 +923,11 @@ class TargetData(object):
         llout = np.zeros(len(data_arr))
         
         for i in tqdm(range(len(data_arr))):
-            par = minimize(nll_gaussian, par, i, method='TNC', tol=1e-4).x
+            par = minimize(nll, par, i, method='TNC', tol=1e-4).x
             fout[i] = par[:nstars]
             bkgout[i] = par[-1]
             params_out[i] = par[nstars:-1]
-            llout[i] = nll_gaussian(par, i)
+            llout[i] = nll(par, i)
 
         self.psf_flux = fout[:,0]
 
