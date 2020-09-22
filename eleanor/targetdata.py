@@ -1460,15 +1460,20 @@ class TargetData(object):
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
 
 
-        if self.source_info.tc == False:
 
-            if os.path.isfile(self.source_info.postcard_path) == True:
-                post_fn = self.source_info.postcard_path.split('/')[-1]
-                post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
-                self.post_obj = Postcard(filename=post_fn, location=post_path)
-        else:
-            self.post_obj =Postcard_tesscut(self.source_info.cutout,
-                                            location=self.source_info.postcard_path)
+        try:
+            if self.source_info.tc == False:
+                if os.path.isfile(self.source_info.postcard_path) == True:
+                    post_fn = self.source_info.postcard_path.split('/')[-1]
+                    post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
+                    self.post_obj = Postcard(filename=post_fn, location=post_path)
+            else:
+                self.post_obj =Postcard_tesscut(self.source_info.cutout,
+                                                location=self.source_info.postcard_path)
+
+        except TypeError:
+            print("No postcard object will be created for this target.")
+            pass
 
 
         self.get_cbvs()
