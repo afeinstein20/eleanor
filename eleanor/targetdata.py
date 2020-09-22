@@ -895,7 +895,7 @@ class TargetData(object):
             xc = xc,
             yc = yc,
             nstars = nstars,
-            bkg0 = bkg_arr[0],
+            bkg0 = bkg_arr[0]
         )
 
         if model_name == 'Moffat':
@@ -914,8 +914,9 @@ class TargetData(object):
                 beta : (0, 10)
             }
 
-        par = np.concatenate((np.max(data_arr[0]) * np.ones(nstars,), np.array([0, 0, bkg_arr[0], 1, 0, 1])))
-        
+        par = model.get_default_par(np.max(data_arr[0]))
+        params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
+
         def nll(params, i):
             for j, p in enumerate(params):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
@@ -932,13 +933,12 @@ class TargetData(object):
             else:
                 raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
-        params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))
         
         for i in tqdm(range(len(data_arr))):
-            par = minimize(nll, par, i, method='TNC', tol=1e-4).x
+            par = minimize(nll, par, i, method='TNC', tol=1e-5).x
             fout[i] = par[:nstars]
             bkgout[i] = par[-1]
             params_out[i] = par[nstars:-1]

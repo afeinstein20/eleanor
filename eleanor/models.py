@@ -38,8 +38,11 @@ class Model(ABC):
 		s1, s2 = self.shape
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
-	def mean(self, flux, xshift, yshift, bg, params):
-		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, *params) for j in range(self.nstars)], axis=0) + bg
+	def mean(self, flux, xshift, yshift, bkg, optpars):
+		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, *optpars) for j in range(self.nstars)], axis=0) + bkg
+
+	def get_default_par(self, d0):
+		return np.concatenate((np.max(d0) * np.ones(self.nstars,), np.array([0, 0, self.bkg0], self.get_default_optpars())))
 
 class Gaussian(Model):
 	def __init__(self, **kwargs):
@@ -55,6 +58,9 @@ class Gaussian(Model):
 					[0, np.infty]
 				])
 			))
+
+	def get_default_optpars(self):
+		return np.array([1, 0, 1], dtype=np.float64)
 
 	def evaluate(self, flux, xo, yo, a, b, c):
 		"""
