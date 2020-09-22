@@ -845,7 +845,6 @@ class TargetData(object):
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
-        import tensorflow as tf
         from .optimizer import OptimizerAPI
         from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
@@ -854,8 +853,6 @@ class TargetData(object):
 
         star_idx_to_fit = 0
         assert star_idx_to_fit < nstars
-
-        tf.logging.set_verbosity(tf.logging.ERROR)
 
         if data_arr is None:
             data_arr = self.tpf + 0.0
@@ -887,11 +884,6 @@ class TargetData(object):
 
         assert len(xc) == nstars and len(yc) == nstars, "xc and yc must have length nstars"
 
-        flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
-        bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
-        xshift = tf.Variable(0.0, dtype=tf.float64)
-        yshift = tf.Variable(0.0, dtype=tf.float64)
-
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
             model_name = 'Gaussian'
@@ -900,48 +892,17 @@ class TargetData(object):
             shape=data_arr.shape[1:], 
             col_ref=0, 
             row_ref=0, 
-            directory = self.fetch_dir(),
-            num_params = 30,
-            star_coords = [xc[star_idx_to_fit], yc[star_idx_to_fit]]
+            xc = xc,
+            yc = yc,
+            nstars = nstars,
+            bkg0 = bkg_arr[0],
         )
-        # directory, num_params, star_coords are currently only for Zernike, and do not affect the others as they get passed in as kwargs and discarded.
-        # potential todo: condense into parameter lookup + kwargs call to avoid specifying var_list and var_to_bounds/mean model
-        
-        if model_name == 'Gaussian':
-            a = tf.Variable(initial_value=1., dtype=tf.float64)
-            b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
 
-            if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
-            else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
-
-            var_list = [flux, xshift, yshift, a, b, c, bkg]
-
-            var_to_bounds = {
-                flux : (0, np.infty),
-                xshift : (-1.0, 1.0),
-                yshift : (-1.0, 1.0),
-                a : (0, np.infty),
-                b : (-0.5, 0.5),
-                c : (0, np.infty)
-            }
-
-        elif model_name == 'Moffat':
+        if model_name == 'Moffat':
             a = tf.Variable(initial_value=1., dtype=tf.float64)
             b = tf.Variable(initial_value=0., dtype=tf.float64)
             c = tf.Variable(initial_value=1., dtype=tf.float64)
             beta = tf.Variable(initial_value=1., dtype=tf.float64)
-
-            if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
-            else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
-
-            var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
 
             var_to_bounds = {
                 flux : (0, np.infty),
@@ -953,76 +914,35 @@ class TargetData(object):
                 beta : (0, 10)
             }
 
-        elif model_name == 'Zernike':
-            num_params = 120
-            weights = [tf.Variable(initial_value=[np.random.randn()], dtype=tf.float64) for i in range(num_params)]
-
-            var_list = [flux] + weights
-            var_to_bounds = {
-                flux : (0, np.infty),
-            }.update({
-                weights[i] : (-10, 10) for i in range(num_params)
-            })
-
-            if nstars == 1:
-                mean = model(flux, weights)
+        par = np.concatenate((np.max(data_arr[0]) * np.ones(nstars,), np.array([0, 0, bkg_arr[0], 1, 0, 1])))
+        
+        def nll(params, i):
+            for j, p in enumerate(params):
+                if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
+                    return np.infty
+            fluxes = params[:nstars]
+            xshift, yshift, bkg = params[nstars:nstars+3]
+            optpars = params[nstars+3:]
+            mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
+            if likelihood == "gaussian":
+                return np.sum((mean_val - data_arr[i]) ** 2 / err_arr[i])
+            elif likelihood == "poisson":
+                mean_val += bkg_arr[i]
+                return np.sum(mean_val - (data_arr[i] + bkg_arr[i]) * np.log(mean_val))
             else:
-                mean = [model(flux[j], weights) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
+                raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
-        elif model_name == 'Lygos':
-            num_params = 13
-            coeffs = [tf.Variable(initial_value=[np.random.randn()], dtype=tf.float64) for _ in range(num_params)]
-            
-            var_list = [flux, xshift, yshift] + coeffs
-
-            var_to_bounds = {
-                flux : (0, np.infty),
-                coeffs[0] : (-1, 1),
-                coeffs[1] : (-1, 1),
-                coeffs[2] : (-0.5, 0.5),
-                coeffs[3] : (-0.5, 0.5),
-                coeffs[9] : (-10, 10),
-                coeffs[10] : (0.01, 1000),
-                coeffs[11] : (-10, 10),
-                coeffs[12] : (0.01, 1000)
-            }
-
-            if nstars == 1:
-                mean = model(flux, xc[0]+xshift, yc[0]+yshift, var_list[3:])
-            else:
-                mean = [model(flux[j], xc[j]+xshift, yc[j]+yshift, var_list[3:]) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
-
-        par = np.concatenate((np.max(data_arr[0]) * np.ones(nstars,), np.array([0, 0, 1, 0, 1, bkg_arr[0]])))
-        params_out = np.zeros((len(data_arr), len(par) - 1 - nstars)) 
-        mean += bkg
-
-        def model_gaussian(flux, xo, yo, a, b, c):
-            dx = model.x - xo
-            dy = model.y - yo
-            psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
-            psf_sum = np.sum(psf)
-            return flux * psf / psf_sum
-
-        def mean_gaussian(flux, xshift, yshift, a, b, c, bg):
-            return np.sum([model_gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)], axis=0) + bg
-
-        def nll_gaussian(params, i):
-            flux = params[:nstars]
-            return np.sum((mean_gaussian(flux, *params[nstars:]) - data_arr[i]) ** 2 / err_arr[i])
-
+        params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
-
         llout = np.zeros(len(data_arr))
         
         for i in tqdm(range(len(data_arr))):
-            par = minimize(nll_gaussian, par, i, method='TNC', tol=1e-4).x
+            par = minimize(nll, par, i, method='TNC', tol=1e-4).x
             fout[i] = par[:nstars]
             bkgout[i] = par[-1]
             params_out[i] = par[nstars:-1]
-            llout[i] = nll_gaussian(par, i)
+            llout[i] = nll(par, i)
 
         self.psf_flux = fout[:,0]
 
@@ -1037,11 +957,6 @@ class TargetData(object):
             if nstars > 1:
                 self.all_psf = fout
         return
-
-    def gaussian_to_lygos(self, *args):
-        self.psf_lightcurve(model_name='gaussian', *args)
-        p = self.psf_params
-        a, b, c = np.mode(p, axis=0)
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """

@@ -3,6 +3,7 @@ import os
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
+import warnings
 import tensorflow as tf
 from abc import ABC
 
@@ -19,10 +20,14 @@ class Model(ABC):
 		column and row coordinates of the bottom
 		left corner of the TPF
 	"""
-	def __init__(self, shape, col_ref, row_ref, **kwargs):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, nstars, bkg0, **kwargs):
 		self.shape = shape
 		self.col_ref = col_ref
 		self.row_ref = row_ref
+		self.xc = xc
+		self.yc = yc
+		self.nstars = nstars
+		self.bkg0 = bkg0
 		self._init_grid()
 
 	def __call__(self, *params):
@@ -33,13 +38,30 @@ class Model(ABC):
 		s1, s2 = self.shape
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
+	def mean(self, flux, xshift, yshift, bg, params):
+		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, *params) for j in range(self.nstars)], axis=0) + bg
+
 class Gaussian(Model):
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
+		self.bounds = np.vstack((
+				np.tile([0, np.infty], (self.nstars, 1)),
+				np.array([
+					[-1.0, 1.0],
+					[-1.0, 1.0],
+					[0, np.infty],
+					[-0.5, 0.5],
+					[0, np.infty],
+					[0, np.infty]
+				])
+			))
+
 	def evaluate(self, flux, xo, yo, a, b, c):
 		"""
 		Evaluate the Gaussian model
 		Parameters
 		----------
-		flux : tf.Variable
+		flux : np.ndarray, (nstars,)
 		xo, yo : tf.Variable, tf.Variable
 			Center coordinates of the Gaussian.
 		a, b, c : tf.Variable, tf.Variable
@@ -52,11 +74,11 @@ class Gaussian(Model):
 		"""
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = tf.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
-		psf_sum = tf.reduce_sum(psf)
+		psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 
-
+	
 class Moffat(Model):
 	def evaluate(self, flux, xo, yo, a, b, c, beta):
 		dx = self.x - xo
@@ -64,25 +86,13 @@ class Moffat(Model):
 		psf = tf.divide(1., tf.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
 		psf_sum = tf.reduce_sum(psf)
 		return flux * psf / psf_sum
-
-class MoffatAltTest(Model):
-	def __init__(self, shape, col_ref, row_ref, **kwargs):
-		super().__init__(shape, col_ref, row_ref)
-		print('This is Moffat alternate, with variable unpacking')
-
-	def evaluate(self, flux, xo, yo, params, beta):
-		dx = self.x - xo
-		dy = self.y - yo
-		terms = tf.concat([[dx ** 2], [2 * dx * dy], [dy ** 2]], axis=0)
-		psf_denom = tf.pow(1. + tf.transpose(tf.reduce_sum(tf.multiply(tf.transpose(terms), params))), beta)
-		psf = tf.divide(1., psf_denom)
-		return flux * psf / tf.reduce_sum(psf)
 		
 class Zernike(Model):
 	'''
 	Use the Zernike polynomials with weights given by 'weights'; the number of polynomials = the number of weights passed in.
 	'''
 	def __init__(self, shape, col_ref, row_ref, directory, num_params, star_coords, apply_prior=True):
+		warnings.warn("This is an experimental fitting method and is not guaranteed to function correctly yet.")
 		super().__init__(shape, col_ref, row_ref)
 		self.cache = {}
 		self.directory = directory
@@ -191,6 +201,7 @@ class Lygos(Model):
 	TODO figure out citation if this ends up getting used
 	'''
 	def __init__(self, shape, col_ref, row_ref, **kwargs):
+		warnings.warn("This is an experimental fitting method and is not guaranteed to function correctly yet.")
 		super().__init__(shape, col_ref, row_ref, **kwargs)
 		self.num_params = 13
 
