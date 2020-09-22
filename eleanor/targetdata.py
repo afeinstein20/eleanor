@@ -1040,8 +1040,7 @@ class TargetData(object):
         
         for i in tqdm(range(len(data_arr))):
             optim = optimizer.minimize(session=sess, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]}) # we could also pass a pointing model here
-                                                                           # and just fit a single offset in all frames
-            tqdm.write(str([sess.run(v) for v in var_list[nstars:]]))                                                          
+                                                                           # and just fit a single offset in all frames                                                        
             par = minimize(nll_gaussian, par, i, method='TNC', tol=1e-4).x
             
             fout[i] = sess.run(flux)
@@ -1049,7 +1048,6 @@ class TargetData(object):
 
             for j, v in enumerate(var_list[nstars:]):
                 params_out[i][j] = sess.run(v)
-            print(par, params_out[i])
             llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
 
         sess.close()
