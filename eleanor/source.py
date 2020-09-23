@@ -453,7 +453,7 @@ class Source(object):
                                                                                   self.camera,
                                                                                   self.chip,
                                                                                   ra, dec,
-                                                                                  self.tesscut_size[0], self.tesscut_size[1])
+                                                                                  self.tesscut_size, self.tesscut_size)
         local_path = os.path.join(download_dir, tesscut_fn)
         if os.path.isfile(local_path):
             return local_path
