@@ -75,7 +75,7 @@ class Visualize(object):
         self.youtube = videos
 
 
-    def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, **kwargs):
+    def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, ax=None, **kwargs):
         """
         Overplots the countour of an aperture on a target pixel file.
         Contribution from Gijs Mulders.
@@ -90,14 +90,16 @@ class Visualize(object):
             Default is red.
         ap_linewidth : int, optional
             The linewidth of the aperture contour. Default is 4.
+        ax : matplotlib.axes._subplots.AxesSubplot, optional
+            Axes to plot on. 
         """
-
-        fig = plt.figure()
+        if ax == None:
+            fig, ax = plt.subplots(nrows=1)
 
         if aperture is None:
             aperture = self.obj.aperture
 
-        plt.imshow(self.obj.tpf[0], **kwargs)
+        ax.imshow(self.obj.tpf[0], **kwargs)
 
         f = lambda x,y: aperture[int(y),int(x) ]
         g = np.vectorize(f)
@@ -107,10 +109,11 @@ class Visualize(object):
         X, Y= np.meshgrid(x[:-1],y[:-1])
         Z = g(X[:-1],Y[:-1])
 
-        plt.contour(Z[::-1], [0.5], colors=ap_color, linewidths=[ap_linewidth],
+        ax.contour(Z[::-1], [0.5], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
 
-        return fig
+        if ax == None:
+            return fig
 
 
 
