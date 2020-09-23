@@ -647,11 +647,17 @@ class TargetData(object):
                 stds_2d[ap_size > 8] = 1.0
 
 
-        if self.source_info.tess_mag < 8.5:
-            tpf_stds[ap_size < 8] = 1.0
-            pc_stds[ap_size < 8]  = 1.0
+        if self.source_info.tess_mag < 10.5:
+            tpf_stds[ap_size < 10] = 1.0
+            pc_stds[ap_size < 10]  = 1.0
             if self.source_info.tc == False:
-                stds_2d[ap_size < 8] = 1.0
+                stds_2d[ap_size < 10] = 1.0
+
+        if self.source_info.tess_mag < 7:
+            tpf_stds[ap_size < 20] = 1.0
+            pc_stds[ap_size < 20]  = 1.0
+            if self.source_info.tc == False:
+                stds_2d[ap_size < 20] = 1.0
 
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
         best_ind_pc  = np.where(pc_stds == np.nanmin(pc_stds))[0][0]
