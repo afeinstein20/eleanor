@@ -647,11 +647,17 @@ class TargetData(object):
                 stds_2d[ap_size > 8] = 1.0
 
 
-        if self.source_info.tess_mag < 8.5:
-            tpf_stds[ap_size < 8] = 1.0
-            pc_stds[ap_size < 8]  = 1.0
+        if self.source_info.tess_mag < 10.5:
+            tpf_stds[ap_size < 10] = 1.0
+            pc_stds[ap_size < 10]  = 1.0
             if self.source_info.tc == False:
-                stds_2d[ap_size < 8] = 1.0
+                stds_2d[ap_size < 10] = 1.0
+
+        if self.source_info.tess_mag < 7:
+            tpf_stds[ap_size < 20] = 1.0
+            pc_stds[ap_size < 20]  = 1.0
+            if self.source_info.tc == False:
+                stds_2d[ap_size < 20] = 1.0
 
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
         best_ind_pc  = np.where(pc_stds == np.nanmin(pc_stds))[0][0]
@@ -1460,15 +1466,20 @@ class TargetData(object):
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
 
 
-        if self.source_info.tc == False:
 
-            if os.path.isfile(self.source_info.postcard_path) == True:
-                post_fn = self.source_info.postcard_path.split('/')[-1]
-                post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
-                self.post_obj = Postcard(filename=post_fn, location=post_path)
-        else:
-            self.post_obj =Postcard_tesscut(self.source_info.cutout,
-                                            location=self.source_info.postcard_path)
+        try:
+            if self.source_info.tc == False:
+                if os.path.isfile(self.source_info.postcard_path) == True:
+                    post_fn = self.source_info.postcard_path.split('/')[-1]
+                    post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
+                    self.post_obj = Postcard(filename=post_fn, location=post_path)
+            else:
+                self.post_obj =Postcard_tesscut(self.source_info.cutout,
+                                                location=self.source_info.postcard_path)
+
+        except TypeError:
+            print("No postcard object will be created for this target.")
+            pass
 
 
         self.get_cbvs()

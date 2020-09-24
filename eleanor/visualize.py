@@ -75,7 +75,7 @@ class Visualize(object):
         self.youtube = videos
 
 
-    def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, **kwargs):
+    def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, ax=None, **kwargs):
         """
         Overplots the countour of an aperture on a target pixel file.
         Contribution from Gijs Mulders.
@@ -90,14 +90,16 @@ class Visualize(object):
             Default is red.
         ap_linewidth : int, optional
             The linewidth of the aperture contour. Default is 4.
+        ax : matplotlib.axes._subplots.AxesSubplot, optional
+            Axes to plot on. 
         """
-
-        fig = plt.figure()
+        if ax == None:
+            fig, ax = plt.subplots(nrows=1)
 
         if aperture is None:
             aperture = self.obj.aperture
 
-        plt.imshow(self.obj.tpf[0], **kwargs)
+        ax.imshow(self.obj.tpf[0], **kwargs)
 
         f = lambda x,y: aperture[int(y),int(x) ]
         g = np.vectorize(f)
@@ -107,16 +109,19 @@ class Visualize(object):
         X, Y= np.meshgrid(x[:-1],y[:-1])
         Z = g(X[:-1],Y[:-1])
 
-        plt.contour(Z[::-1], [0.5], colors=ap_color, linewidths=[ap_linewidth],
+        ax.contour(Z, [0.05], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
 
-        return fig
+        if ax == None:
+            return fig
 
 
 
     def pixel_by_pixel(self, colrange=None, rowrange=None, cmap='viridis',
                        data_type="corrected", mask=None, xlim=None,
-                       ylim=None, color_by_pixel=False, freq_range=[1/20., 1/0.1]):
+                       ylim=None, color_by_pixel=False, color_by_aperture=True,
+                       freq_range=[1/20., 1/0.1], aperture=None, ap_color='r',
+                       ap_linewidth=2):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
         Contribution from Oliver Hall.
@@ -179,19 +184,40 @@ class Visualize(object):
 
 
         ## PLOTS TARGET PIXEL FILE ##
+            
         ax = plt.subplot(outer[0])
+        
+        if aperture is None:
+            aperture = self.obj.aperture
 
-        c = ax.imshow(self.flux[100, rowrange[0]:rowrange[1],
-                                colrange[0]:colrange[1]],
-                      vmax=np.percentile(self.flux[100], 95),
+        plotflux = np.nanmedian(self.flux[:, rowrange[0]:rowrange[1], 
+                                          colrange[0]:colrange[1]], axis=0)
+        c = ax.imshow(plotflux,
+                      vmax=np.percentile(plotflux, 95),
                       cmap=cmap)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.15)
         plt.colorbar(c, cax=cax, orientation='vertical')
+            
+        f = lambda x,y: aperture[int(y),int(x) ]
+        g = np.vectorize(f)
+
+        x = np.linspace(colrange[0],colrange[1], nrows*100)
+        y = np.linspace(rowrange[0],rowrange[1], ncols*100)
+        X, Y= np.meshgrid(x[:-1],y[:-1])
+        Z = g(X[:-1],Y[:-1])
+
+        ax.contour(Z, [0.05], 
+                   colors=ap_color, linewidths=[ap_linewidth],
+                    extent=[0-0.5, nrows-0.5,0-0.5, ncols-0.5])
 
         ## PLOTS PIXEL LIGHT CURVES ##
         for ind in range( int(nrows * ncols) ):
-            ax = plt.Subplot(figure, inner[ind])
+            if ind == 0:                
+                ax = plt.Subplot(figure, inner[ind])
+                origax = ax
+            else:
+                ax = plt.Subplot(figure, inner[ind], sharex=origax)
 
             flux = self.flux[:,i,j]
             time = self.obj.time
@@ -225,6 +251,11 @@ class Visualize(object):
                 color = matplotlib.colors.rgb2hex(rgb)
 
             ax.plot(x, y, c=color)
+            
+            if color_by_aperture and aperture[i,j] > 0:
+                for iax in ['top', 'bottom', 'left', 'right']:
+                    ax.spines[iax].set_color(ap_color)
+                    ax.spines[iax].set_linewidth(ap_linewidth)
 
             j += 1
             if j == colrange[1]:

@@ -12,7 +12,7 @@ import sys
 import urllib.parse as urlparse
 import requests
 from bs4 import BeautifulSoup
-
+from requests import HTTPError
 
 eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 if not os.path.exists(eleanorpath):
@@ -79,39 +79,43 @@ class Update(object):
     def __init__(self, sector=None):
 
         if sector is None:
-            print('Please pass a sector into eleanor.Update()!')
+            print('Please pass a sector into eleanor.Update().')
             return
 
-        self.sector = sector
+        success = 0
 
-        try:
-            os.mkdir(eleanorpath + '/metadata/s{:04d}'.format(sector))
+        self.sector = sector
+        self.metadata_path = os.path.join(eleanorpath, 'metadata/s{0:04d}'.format(self.sector))
+        lastfile = 'cbv_components_s{0:04d}_0004_0004.txt'.format(self.sector)
+
+        # Checks to see if directory contains all necessary files first
+        if os.path.isdir(self.metadata_path) == True:
+            if lastfile in os.listdir(self.metadata_path):
+                print('This directory already exists!')
+                sys.exit()
+            else:
+                pass
+
+        self.tic_north_cvz = 198237770
+        self.tic_south_cvz = 38846515
+        self.north_coords = SkyCoord('16:35:50.667 +63:54:39.87', unit=(u.hourangle, u.deg))
+        self.south_coords = coord = SkyCoord('04:35:50.330 -64:01:37.33', unit=(u.hourangle, u.deg)) 
+        
+        if self.sector < 14 or self.sector > 26:
+            manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
             success = 1
-        except FileExistsError:
-            print('Sector {:d} metadata directory exists already!'.format(sector))
-            success = 0
+        else:
+            manifest = Tesscut.download_cutouts(self.north_coords, 31, sector=self.sector)
+            success = 1
 
         if success == 1:
 
-            tic_north_cvz = 198237770
-            tic_south_cvz = 38846515
-
-            if self.sector < 13.5:
-                self.tic = tic_south_cvz
-            elif self.sector < 26.5:
-                self.tic = tic_north_cvz
-            else:
-                self.tic = tic_south_cvz
-
-            if self.tic == 198237770:
-                coord = SkyCoord('16:35:50.667 +63:54:39.87', unit=(u.hourangle, u.deg))
-            elif self.tic == 38846515:
-                coord = SkyCoord('04:35:50.330 -64:01:37.33', unit=(u.hourangle, u.deg))
-
-            sector_table = Tesscut.get_sectors(coord)
-
-
-            manifest = Tesscut.download_cutouts(coord, 31, sector = self.sector)
+            try:
+                os.mkdir(eleanorpath + '/metadata/s{:04d}'.format(sector))
+            except FileExistsError:
+                print('Sector {:d} metadata directory exists already.'.format(sector))
+                print('If you are still having issues, check "{0}" to make sure all files are there.'.format(self.metadata_path))
+                sys.exit()
 
             self.cutout = fits.open(manifest['Local Path'][0])
 
