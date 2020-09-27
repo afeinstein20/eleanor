@@ -102,11 +102,29 @@ class Update(object):
                                      unit=(u.hourangle, u.deg))
 
         if self.sector < 14 or self.sector > 26:
-            manifest = Tesscut.download_cutouts(self.south_coords, 31,
-                                                sector=self.sector)
+          
+            try:
+                manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
+                success = 1
+            except HTTPError:
+                print("This sector isn't available yet.")
+                sys.exit()
         else:
-            manifest = Tesscut.download_cutouts(self.north_coords, 31,
-                                                sector=self.sector)
+            try:
+                manifest = Tesscut.download_cutouts(self.north_coords, 31, sector=self.sector)
+                success = 1
+            except HTTPError:
+                print("This sector isn't available yet.")
+                sys.exit()
+
+        if success == 1:
+
+            try:
+                os.mkdir(eleanorpath + '/metadata/s{:04d}'.format(sector))
+            except FileExistsError:
+                print('Sector {:d} metadata directory exists already.'.format(sector))
+                print('If you are still having issues, check "{0}" to make sure all files are there.'.format(self.metadata_path))
+                sys.exit()
 
         try:
             os.mkdir(eleanorpath + '/metadata/s{:04d}'.format(sector))
