@@ -101,8 +101,8 @@ class Update(object):
         self.south_coords = SkyCoord('04:35:50.330 -64:01:37.33',
                                      unit=(u.hourangle, u.deg))
 
+
         if self.sector < 14 or self.sector > 26:
-          
             try:
                 manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
                 success = 1
@@ -118,22 +118,10 @@ class Update(object):
                 sys.exit()
 
         if success == 1:
-
-            try:
-                os.mkdir(eleanorpath + '/metadata/s{:04d}'.format(sector))
-            except FileExistsError:
-                print('Sector {:d} metadata directory exists already.'.format(sector))
-                print('If you are still having issues, check "{0}" to make sure all files are there.'.format(self.metadata_path))
-                sys.exit()
-
-        try:
-            os.mkdir(eleanorpath + '/metadata/s{:04d}'.format(sector))
-        except FileExistsError:
-            print('Sector {:d} metadata directory exists '
-                  'already.'.format(sector))
-            print('If you are still having issues, check "{0}" to make sure '
-                  'all files are there.'.format(self.metadata_path))
-            sys.exit()
+            if os.path.isdir(self.metadata_path) == True:
+                pass
+            else:
+                os.mkdir(self.metadata_path)
 
         self.cutout = fits.open(manifest['Local Path'][0])
 
@@ -161,7 +149,8 @@ class Update(object):
             year = 2019
         else:
             year = 2020
-
+            
+        print(self.sector, year)
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
         directs = []
@@ -173,6 +162,7 @@ class Update(object):
         for file in listFD(directs[0]):
             subdirects.append(file)
         subdirects = np.sort(subdirects)[1:-4]
+        
         for i in range(len(subdirects)):
             file = listFD(subdirects[i], ext='cbv.fits')[0]
             os.system('curl -O -L {}'.format(file))
@@ -276,7 +266,10 @@ class Update(object):
         shortCad_fn = eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector)
 
         # Binary string for values which apply to the FFIs
-        ffi_apply = int('100000000010101111', 2)
+        if self.sector > 26:
+            ffi_apply = int('100000000010101111', 2)
+        else:
+            ffi_apply = int('100010101111', 2)
 
         # Obtains information for 2-minute target
         twoMin     = fits.open(shortCad_fn)
