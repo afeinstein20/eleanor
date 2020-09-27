@@ -102,11 +102,19 @@ class Update(object):
         self.south_coords = coord = SkyCoord('04:35:50.330 -64:01:37.33', unit=(u.hourangle, u.deg)) 
         
         if self.sector < 14 or self.sector > 26:
-            manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
-            success = 1
+            try:
+                manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
+                success = 1
+            except HTTPError:
+                print("This sector isn't available yet.")
+                sys.exit()
         else:
-            manifest = Tesscut.download_cutouts(self.north_coords, 31, sector=self.sector)
-            success = 1
+            try:
+                manifest = Tesscut.download_cutouts(self.north_coords, 31, sector=self.sector)
+                success = 1
+            except HTTPError:
+                print("This sector isn't available yet.")
+                sys.exit()
 
         if success == 1:
 
