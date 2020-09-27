@@ -449,11 +449,20 @@ class Source(object):
         ra = format(coords.ra.deg, '.6f')
         dec = format(coords.dec.deg, '.6f')
 
-        tesscut_fn = "tess-s{0:04d}-{1}-{2}_{3}_{4}_{5}x{6}_astrocut.fits".format(self.sector,
+        if isinstance(self.tesscut_size, int):
+            tesscut_fn = "tess-s{0:04d}-{1}-{2}_{3}_{4}_{5}x{6}_astrocut.fits".format(self.sector,
                                                                                   self.camera,
                                                                                   self.chip,
                                                                                   ra, dec,
                                                                                   self.tesscut_size, self.tesscut_size)
+        else:
+            tesscut_fn = "tess-s{0:04d}-{1}-{2}_{3}_{4}_{5}x{6}_astrocut.fits".format(self.sector,
+                                                                                  self.camera,
+                                                                                  self.chip,
+                                                                                  ra, dec,
+                                                                                  self.tesscut_size[1],
+                                                                                  self.tesscut_size[0])
+
         local_path = os.path.join(download_dir, tesscut_fn)
         if os.path.isfile(local_path):
             return local_path
