@@ -101,21 +101,21 @@ class Update(object):
         self.south_coords = SkyCoord('04:35:50.330 -64:01:37.33',
                                      unit=(u.hourangle, u.deg))
 
-
         if self.sector < 14 or self.sector > 26:
             try:
                 manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
                 success = 1
-            except HTTPError:
+            except:
                 print("This sector isn't available yet.")
                 sys.exit()
         else:
             try:
                 manifest = Tesscut.download_cutouts(self.north_coords, 31, sector=self.sector)
                 success = 1
-            except HTTPError:
+            except:
                 print("This sector isn't available yet.")
                 sys.exit()
+
 
         if success == 1:
             if os.path.isdir(self.metadata_path) == True:
@@ -150,7 +150,6 @@ class Update(object):
         else:
             year = 2020
             
-        print(self.sector, year)
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
         directs = []
