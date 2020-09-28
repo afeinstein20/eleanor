@@ -1238,7 +1238,7 @@ class TargetData(object):
 
 
 
-    def set_header(self):
+    def set_header(self, lite):
         """Defines the header for the TPF."""
         self.header = copy.deepcopy(self.post_obj.header)
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
@@ -1252,6 +1252,8 @@ class TargetData(object):
                                      comment='Filter keyword'))
         self.header.append(fits.Card(keyword='VERSION', value=eleanor.__version__,
                                      comment='eleanor version used for light curve production'))
+        self.header.append(fits.Card(keyword='LITE', value=lite,
+                                     comment='eleanor-lite keyword for saving light curves'))
         self.header.append(fits.Card(keyword='TIC_ID', value=self.source_info.tic,
                                      comment='TESS Input Catalog ID'))
         self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag,
@@ -1324,7 +1326,7 @@ class TargetData(object):
         if self.language == 'Australian':
             raise ValueError("These light curves are upside down. Please don't save them ...")
 
-        self.set_header()
+        self.set_header(lite=lite)
 
         # if the user did not specify a directory, set it to default
         if directory is None:
