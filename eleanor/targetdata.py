@@ -1303,10 +1303,6 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='PCORIGIN', value=record_val,
                                      comment='Provenance of eleanor Postcard'))
 
-        #if self.modes is not None:
-        #    self.header.append(fits.Card(keyword='MODES', value=self.modes,
-        #                                 comment='Number of modes used in PCA analysis'))
-
 
     def save(self, output_fn=None, directory=None, lite=False):
         """Saves a created TPF object to a FITS file.
