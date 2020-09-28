@@ -163,13 +163,13 @@ class Update(object):
         subdirects = np.sort(subdirects)[1:-4]
         
         for i in range(len(subdirects)):
-            file = listFD(subdirects[i], ext='cbv.fits')[0]
+            file = listFD(subdirects[i], ext='_cbv.fits')[0]
             os.system('curl -O -L {}'.format(file))
 
         time = self.cutout[1].data['TIME'] - self.cutout[1].data['TIMECORR']
 
         files = os.listdir('.')
-        files = [i for i in files if i.endswith('cbv.fits') and
+        files = [i for i in files if i.endswith('_cbv.fits') and
                  's{0:04d}'.format(self.sector) in i]
 
         for c in range(len(files)):
@@ -193,7 +193,7 @@ class Update(object):
                     convolved[i, j] = np.mean(cbv[1].data[index][cads])
             np.savetxt(new_fn, convolved)
             cbv.close()
-        files = [i for i in files if i.endswith('cbv.fits') and
+        files = [i for i in files if i.endswith('_cbv.fits') and
                  's{0:04d}'.format(self.sector) in i]
         for c in range(len(files)):
             os.remove(files[c])
