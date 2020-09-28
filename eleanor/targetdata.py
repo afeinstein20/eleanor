@@ -1306,7 +1306,7 @@ class TargetData(object):
         #                                 comment='Number of modes used in PCA analysis'))
 
 
-    def save(self, output_fn=None, directory=None):
+    def save(self, output_fn=None, directory=None, lite=False):
         """Saves a created TPF object to a FITS file.
 
         Parameters
@@ -1315,6 +1315,11 @@ class TargetData(object):
             Filename to save output as. Overrides default naming.
         directory : str, optional
             Directory to save file into.
+        lite: bool, optional
+            Whether to only save the light curve and not the target pixel data.
+            Will reduce file size by a factor of ~19x by removing all pixel
+            information and all light curves except the optimal one selected
+            by eleanor.
         """
         if self.language == 'Australian':
             raise ValueError("These light curves are upside down. Please don't save them ...")
@@ -1333,8 +1338,9 @@ class TargetData(object):
         ext1 = Table()
         ext1['TIME']       = self.time
         ext1['BARYCORR']   = self.barycorr
-        ext1['TPF']        = self.tpf
-        ext1['TPF_ERR']    = self.tpf_err
+        if not lite:
+            ext1['TPF']        = self.tpf
+            ext1['TPF_ERR']    = self.tpf_err
         ext1['RAW_FLUX']   = self.raw_flux
         ext1['CORR_FLUX']  = self.corr_flux
         ext1['FLUX_ERR']   = self.flux_err
@@ -1359,8 +1365,16 @@ class TargetData(object):
 
         # Creates table for second extension (all apertures)
         ext2 = Table()
-        for i in range(len(self.all_apertures)):
-            ext2[self.aperture_names[i]] = self.all_apertures[i]
+        # only save the aperture actually used
+        if lite:
+            ext2[self.aperture_names[self.best_ind]] = self.all_apertures[self.best_ind]
+            # put the TPF and TPF_err summary here since it's the same shape
+            # and that appears the easiest way to do this in fits formats
+            ext2['TPF'] = np.nanmedian(self.tpf, axis=0)
+            ext2['TPF_ERR'] = np.nanmedian(self.tpf_err, axis=0)
+        else:
+            for i in range(len(self.all_apertures)):
+                ext2[self.aperture_names[i]] = self.all_apertures[i]
 
         # Creates table for third extention (all raw & corrected fluxes and errors)
         ext3 = Table()
@@ -1375,7 +1389,11 @@ class TargetData(object):
 
         # Writes TPF to FITS file
         primary_hdu = fits.PrimaryHDU(header=self.header)
-        data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
+        if lite:
+            # the third extension is unnecessary for just working with the best light curve
+            data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2)]
+        else:
+            data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
 
         if output_fn == None:
@@ -1412,8 +1430,16 @@ class TargetData(object):
         cols  = hdu[1].columns.names
         table = hdu[1].data
         self.time        = table['TIME']
-        self.tpf         = table['TPF']
-        self.tpf_err     = table['TPF_ERR']
+        # saved in the full format
+        if 'TPF' in cols:
+            self.tpf         = table['TPF']
+            self.tpf_err     = table['TPF_ERR']
+        # saved in lite format
+        else:
+            # make it a 1x15x15 array so the dimensions are as expected in a
+            # subsequent usages
+            self.tpf         = np.array([hdu[2].data['TPF']])
+            self.tpf_err     = np.array([hdu[2].data['TPF_ERR']])
         self.raw_flux    = table['RAW_FLUX']
         self.corr_flux   = table['CORR_FLUX']
         self.flux_err    = table['FLUX_ERR']
@@ -1438,29 +1464,40 @@ class TargetData(object):
         for i in cols:
             if i == 'custom':
                 self.custom_aperture = table[i]
-            elif i == hdr['aperture']:
-                self.aperture = table[i]
-            else:
+            # ignore the TPFs if saved in lite mode
+            elif i not in ['TPF', 'TPF_ERR']:
                 self.all_apertures.append(table[i])
+            # include the chosen aperture in all_apertures as well as selecting
+            # it here
+            if i == hdr['aperture']:
+                self.aperture = table[i]
 
-        # Loads in remaining light curves from third extension
-        cols  = hdu[3].columns.names
-        table = hdu[3].data
-        self.all_raw_flux  = []
-        self.all_corr_flux = []
-        self.all_flux_err  = []
-
-        names = []
-        for i in cols:
-            name = ('_').join(i.split('_')[0:-1])
-            names.append(name)
-
-            if i[-4::] == 'corr':
-                self.all_corr_flux.append(table[i])
-            elif i[-3::] == 'err':
-                self.all_flux_err.append(table[i])
-            else:
-                self.all_raw_flux.append(table[i])
+        # Loads in remaining light curves from third extension if the file
+        # wasn't created in lite mode
+        if len(hdu) >= 4:
+            cols  = hdu[3].columns.names
+            table = hdu[3].data
+            self.all_raw_flux  = []
+            self.all_corr_flux = []
+            self.all_flux_err  = []
+    
+            names = []
+            for i in cols:
+                name = ('_').join(i.split('_')[0:-1])
+                names.append(name)
+    
+                if i[-4::] == 'corr':
+                    self.all_corr_flux.append(table[i])
+                elif i[-3::] == 'err':
+                    self.all_flux_err.append(table[i])
+                else:
+                    self.all_raw_flux.append(table[i])
+        else:
+            self.all_raw_flux  = [self.raw_flux]
+            self.all_corr_flux = [self.corr_flux]
+            self.all_flux_err  = [self.flux_err]
+            names = [hdr['aperture']]
+            
 
         self.aperture_names = np.unique(names)
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
