@@ -43,11 +43,13 @@ class TargetData(object):
         Width in pixels of TPF to retrieve. Default value is 13 pixels. Must be an odd number,
         or else will return an aperture one pixel wider than requested so target
         falls on central pixel.
+    aperture_mode : str, optional
+        If `small`, will only consider apertures 8 pixels in size or small. If `large`, will only consider
+        apertures larger than 9 pixels in size. If `normal` all apertures will be considered. `small` and `large`
+        can often be useful for faint stars/stars in crowded fields or bright stars, respectively.
     bkg_size : int, optional
         Size of box to use for background estimation. If not set, will default to the width of the
         target pixel file.
-    crowded_field : bool, optional
-        If true, will return a light curve built using a small aperture (not more than 8 pixels in size).
     do_pca : bool, optional
         If true, will return a PCA-corrected light curve.
     do_psf : bool, optional
@@ -60,6 +62,7 @@ class TargetData(object):
     regressors : numpy.ndarray or str
         Extra data to regress against in the correction. Should be shape (len(data.time), N) or `'corner'`.
         If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
+
 
     Attributes
     ----------
@@ -141,7 +144,7 @@ class TargetData(object):
     """
 
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False,
-                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True, regressors = None,
+                 bkg_size=None, aperture_mode='normal', cal_cadences=None, try_load=True, regressors = None,
                  language='English'):
 
         self.source_info = source
@@ -186,13 +189,16 @@ class TargetData(object):
 
                 # Uses the contamination ratio for crowded field if available and
                 # not already set by the user
-                if crowded_field is True:
-                    self.crowded_field = 1
+                if aperture_mode.lower() == 'large':
+                    self.aperture_mode = 2
+                elif aperture_mode.lower() == 'small':
+                    self.aperture_mode = 1
+                elif aperture_mode.lower() == 'normal':
+                    self.aperture_mode = 0
                 else:
-                    if self.source_info.contratio is not None:
-                        self.crowded_field = self.source_info.contratio
-                    else:
-                        self.crowded_field = 0
+                    warnings.warn(
+                        'Aperture Mode not understood, defaulting to normal.')
+                    self.aperture_mode = 0
 
 
                 if cal_cadences is None:
@@ -375,9 +381,12 @@ class TargetData(object):
         summed_tpf = np.nansum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
         if np.abs(mpix[0] - x_length) > 1:
-            self.crowded_field = 1
+            self.aperture_mode = 1
         if np.abs(mpix[1] - y_length) > 1:
-            self.crowded_field = 1
+            self.aperture_mode = 1
+
+        if self.source_info.tess_mag < 8.2:
+            self.aperture_mode = 2
 
 
         self.tpf = self.tpf
@@ -531,7 +540,7 @@ class TargetData(object):
                 lc[cad]     = np.nansum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.nansum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc)
-            self.corr_flux  = self.corrected_flux(flux=lc, skip=50)
+            self.corr_flux  = self.corrected_flux(flux=lc, skip=30)
             self.flux_err   = np.array(lc_err)
             return
 
@@ -639,18 +648,18 @@ class TargetData(object):
 
 
 
-        if self.crowded_field > 0.15:
+        if self.aperture_mode == 1:
             tpf_stds[ap_size > 8] = 1.0
             pc_stds[ap_size > 8] = 1.0
             if self.source_info.tc == False:
                 stds_2d[ap_size > 8] = 1.0
 
-
-        if self.source_info.tess_mag < 8.5:
+        if self.aperture_mode == 2:
             tpf_stds[ap_size < 8] = 1.0
-            pc_stds[ap_size < 8]  = 1.0
+            pc_stds[ap_size < 8] = 1.0
             if self.source_info.tc == False:
                 stds_2d[ap_size < 8] = 1.0
+
 
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
         best_ind_pc  = np.where(pc_stds == np.nanmin(pc_stds))[0][0]
@@ -1218,11 +1227,10 @@ class TargetData(object):
         f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
 
         lc_pred = calc_corr(f, cx, cy, skip)
-
-        corr_f = flux[f]/lc_pred * med
+        corr_f = flux[f]-lc_pred + med
 
         lc_pred = calc_corr(s, cx, cy, skip)
-        corr_s = flux[s]/lc_pred * med
+        corr_s = flux[s]-lc_pred + med
 
         if pca==True:
             self.pca_flux = np.append(corr_f, corr_s)
