@@ -467,7 +467,6 @@ class TargetData(object):
                 all_apertures.append(rmask)
                 aperture_names.append(rname)
 
-
             deg += 90
 
 
@@ -553,7 +552,6 @@ class TargetData(object):
             print("G'day Mate! ʕ •ᴥ•ʔ Your light curves are being translated ...")
 
 
-
         if self.aperture is not None:
             if np.shape(self.all_apertures[0]) != np.shape(self.aperture):
                 raise ValueError(
@@ -621,25 +619,11 @@ class TargetData(object):
 
             q = self.quality == 0
 
-            # lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-            #                                    flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-            # flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-            # tpf_stds[a] =  np.std(flat_lc_tpf.flux)
             tpf_stds[a] = get_flattened_sigma(all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-
-            # lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-            #                                   flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-            # flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-            # pc_stds[a] = np.std(flat_lc_pc.flux)
             pc_stds[a] = get_flattened_sigma(all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
             if self.source_info.tc == False:
-                # lc_2d_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                #                                   flux = all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                # flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-                # stds_2d[a] = np.std(flat_lc_2d.flux)
                 stds_2d[a] = get_flattened_sigma(all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-
                 all_corr_lc_tpf_2d_sub[a] = all_corr_lc_tpf_2d_sub[a] * np.nanmedian(all_raw_lc_tpf_2d_sub[a])
 
 
@@ -647,25 +631,23 @@ class TargetData(object):
             all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
 
 
-
-
         if self.aperture_mode == 1:
-            tpf_stds[ap_size > 8] = 1.0
-            pc_stds[ap_size > 8] = 1.0
+            tpf_stds[ap_size > 8] = 10.0
+            pc_stds[ap_size > 8] = 10.0
             if self.source_info.tc == False:
-                stds_2d[ap_size > 8] = 1.0
+                stds_2d[ap_size > 8] = 10.0
 
         if self.aperture_mode == 2:
-            tpf_stds[ap_size < 8] = 1.0
-            pc_stds[ap_size < 8] = 1.0
+            tpf_stds[ap_size < 8] = 10.0
+            pc_stds[ap_size < 8] = 10.0
             if self.source_info.tc == False:
-                stds_2d[ap_size < 8] = 1.0
+                stds_2d[ap_size < 8] = 10.0
 
         if self.source_info.tess_mag < 7:
-            tpf_stds[ap_size < 15] = 1.0
-            pc_stds[ap_size < 15]  = 1.0
+            tpf_stds[ap_size < 15] = 10.0
+            pc_stds[ap_size < 15]  = 10.0
             if self.source_info.tc == False:
-                stds_2d[ap_size < 15] = 1.0
+                stds_2d[ap_size < 15] = 10.0
 
 
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
@@ -681,7 +663,7 @@ class TargetData(object):
                              tpf_stds[best_ind_tpf],
                              stds_2d[best_ind_2d]])
             std_inds = np.array([best_ind_pc, best_ind_tpf, best_ind_2d])
-            types = np.array(['PC_LEVEL', 'TPF_LEVEL', 'TPF_2D_LEVEL'])
+            types = np.array(['PC_LEVEL', 'TPF_LEVEL', '2D_BKG_MODEL'])
 
         else:
             stds = np.array([pc_stds[best_ind_pc],
@@ -692,10 +674,6 @@ class TargetData(object):
         best_ind = std_inds[np.argmin(stds)]
         self.bkg_type = types[np.argmin(stds)]
 
-        ## Checks if postcard or tpf level bkg subtraction is better ##
-        ## Prints bkg_type to TPF header ##
-#            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
-#                best_ind = best_ind_pc
         if self.bkg_type == 'PC_LEVEL':
             self.all_raw_flux  = np.array(all_raw_lc_pc_sub)
             self.all_corr_flux = np.array(all_corr_lc_pc_sub)
@@ -705,7 +683,7 @@ class TargetData(object):
             self.all_raw_flux  = np.array(all_raw_lc_tpf_sub)
             self.all_corr_flux = np.array(all_corr_lc_tpf_sub)
 
-        elif self.bkg_type == 'TPF_2D_LEVEL':
+        elif self.bkg_type == '2D_BKG_MODEL':
             self.all_raw_flux  = np.array(all_raw_lc_tpf_2d_sub)
             self.all_corr_flux = np.array(all_corr_lc_tpf_2d_sub)
 
@@ -966,9 +944,6 @@ class TargetData(object):
         sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
         sess.run(tf.global_variables_initializer())
 
-
-
-
         optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
         fout = np.zeros((len(data_arr), nstars))
@@ -1126,10 +1101,14 @@ class TargetData(object):
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         Parameters
         ----------
-        skip: float
+        skip: float, optional
             The length of time in days at the start of each orbit to skip in determining optimal model weights.
-        modes: int
+            Default is 0.62 days.
+        modes: int, optional
             If doing a PCA-based correction, the number of cotrending basis vectors to regress against.
+            Default is 3.
+        pca : bool, optional
+            Allows users to decide whether or not to use PCA analysis. Default is False.
         regressors : numpy.ndarray or str
             Extra data to regress against in the correction. Should be shape (len(data.time), N) or `'corner'`.
             If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
@@ -1223,7 +1202,6 @@ class TargetData(object):
                     cm_full = np.column_stack((cm_full, regressors[mask]))
 
             else:
-
                 cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((vv, np.ones_like(t[mask])))
 
