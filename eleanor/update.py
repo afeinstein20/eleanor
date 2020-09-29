@@ -7,12 +7,9 @@ from astropy import units as u
 from astroquery.mast import Tesscut
 from astropy.io import fits
 import numpy as np
-from lightkurve import TessLightCurveFile, search_targetpixelfile
 import sys
-import urllib.parse as urlparse
 import requests
 from bs4 import BeautifulSoup
-
 
 eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 if not os.path.exists(eleanorpath):
@@ -21,12 +18,15 @@ if not os.path.exists(eleanorpath):
     except OSError:
         eleanorpath = os.path.dirname(__file__)
 
-def hmsm_to_days(hour=0,min=0,sec=0,micro=0):
+
+def hmsm_to_days(hour=0, min=0, sec=0, micro=0):
     days = sec + (micro / 1.e6)
     days = min + (days / 60.)
     days = hour + (days / 60.)
     return days / 24.
-def date_to_jd(year,month,day):
+
+
+def date_to_jd(year, month, day):
     if month == 1 or month == 2:
         yearp = year - 1
         monthp = month + 12
@@ -36,9 +36,8 @@ def date_to_jd(year,month,day):
 
     # this checks where we are in relation to October 15, 1582, the beginning
     # of the Gregorian calendar.
-    if ((year < 1582) or
-        (year == 1582 and month < 10) or
-        (year == 1582 and month == 10 and day < 15)):
+    if ((year < 1582) or (year == 1582 and month < 10) or
+            (year == 1582 and month == 10 and day < 15)):
         # before start of Gregorian calendar
         B = 0
     else:
@@ -53,16 +52,21 @@ def date_to_jd(year,month,day):
 
     D = math.trunc(30.6001 * (monthp + 1))
 
-    jd = B + C + D + day + 1720994.5 + 0.0008  # including leap second correction
+    # including leap second correction
+    jd = B + C + D + day + 1720994.5 + 0.0008
 
     return jd
+
 
 def listFD(url, ext=''):
     page = requests.get(url).text
     soup = BeautifulSoup(page, 'html.parser')
-    return [url + node.get('href') for node in soup.find_all('a') if node.get('href').endswith(ext)]
+    return [url + node.get('href') for node in soup.find_all('a') if
+            node.get('href').endswith(ext)]
 
-__all__  = ['Update', 'update_all']
+
+__all__ = ['Update', 'update_all']
+
 
 def update_all():
     sector = 1
@@ -74,60 +78,69 @@ def update_all():
             good = 0
         sector += 1
 
-class Update(object):
 
+class Update(object):
     def __init__(self, sector=None):
 
         if sector is None:
-            print('Please pass a sector into eleanor.Update()!')
+            print('Please pass a sector into eleanor.Update().')
             return
 
         self.sector = sector
+        self.metadata_path = os.path.join(eleanorpath, 'metadata/s{0:04d}'.format(self.sector))
+        lastfile = 'cbv_components_s{0:04d}_0004_0004.txt'.format(self.sector)
 
-        try:
-            os.mkdir(eleanorpath + '/metadata/s{:04d}'.format(sector))
-            success = 1
-        except FileExistsError:
-            print('Sector {:d} metadata directory exists already!'.format(sector))
-            success = 0
+        # Checks to see if directory contains all necessary files first
+        if os.path.isdir(self.metadata_path):
+            if lastfile in os.listdir(self.metadata_path):
+                print('This directory already exists!')
+                sys.exit()
+
+        self.north_coords = SkyCoord('16:35:50.667 +63:54:39.87',
+                                     unit=(u.hourangle, u.deg))
+        self.south_coords = SkyCoord('04:35:50.330 -64:01:37.33',
+                                     unit=(u.hourangle, u.deg))
+
+        if self.sector < 14 or self.sector > 26:
+            try:
+                manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
+                success = 1
+            except:
+                print("This sector isn't available yet.")
+                sys.exit()
+        else:
+            try:
+                manifest = Tesscut.download_cutouts(self.north_coords, 31, sector=self.sector)
+                success = 1
+            except:
+                print("This sector isn't available yet.")
+                sys.exit()
+
 
         if success == 1:
-
-            tic_north_cvz = 198237770
-            tic_south_cvz = 38846515
-
-            if self.sector < 13.5:
-                self.tic = tic_south_cvz
-            elif self.sector < 26.5:
-                self.tic = tic_north_cvz
+            if os.path.isdir(self.metadata_path) == True:
+                pass
             else:
-                self.tic = tic_south_cvz
+                os.mkdir(self.metadata_path)
 
-            if self.tic == 198237770:
-                coord = SkyCoord('16:35:50.667 +63:54:39.87', unit=(u.hourangle, u.deg))
-            elif self.tic == 38846515:
-                coord = SkyCoord('04:35:50.330 -64:01:37.33', unit=(u.hourangle, u.deg))
+        self.cutout = fits.open(manifest['Local Path'][0])
 
-            sector_table = Tesscut.get_sectors(coord)
-
-
-            manifest = Tesscut.download_cutouts(coord, 31, sector = self.sector)
-
-            self.cutout = fits.open(manifest['Local Path'][0])
-
-            print('This is the first light curve you have made for this sector. Getting eleanor metadata products for Sector {0:2d}...'.format(self.sector))
-            print('This will only take a minute, and only needs to be done once. Any other light curves you make in this sector will be faster.')
-            self.get_target()
-            print('Target Acquired')
-            self.get_cadences()
-            print('Cadences Calculated')
-            self.get_quality()
-            print('Quality Flags Assured')
-            self.get_cbvs()
-            print('CBVs Made')
-            print('Success! Sector {:2d} now available.'.format(self.sector))
-            os.remove(manifest['Local Path'][0])
-            self.try_next_sector()
+        print('This is the first light curve you have made for this sector. '
+              'Getting eleanor metadata products for '
+              'Sector {0:2d}...'.format(self.sector))
+        print('This will only take a minute, and only needs to be done once. '
+              'Any other light curves you make in this sector will be faster.')
+        self.get_target()
+        print('Target Acquired')
+        self.get_cadences()
+        print('Cadences Calculated')
+        self.get_quality()
+        print('Quality Flags Assured')
+        self.get_cbvs()
+        print('CBVs Made')
+        print('Success! Sector {:2d} now available.'.format(self.sector))
+        os.remove(manifest['Local Path'][0])
+        self.try_next_sector()
 
     def get_cbvs(self):
         if self.sector <= 6:
@@ -136,8 +149,7 @@ class Update(object):
             year = 2019
         else:
             year = 2020
-
-
+            
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
         directs = []
@@ -149,14 +161,16 @@ class Update(object):
         for file in listFD(directs[0]):
             subdirects.append(file)
         subdirects = np.sort(subdirects)[1:-4]
+        
         for i in range(len(subdirects)):
-            file = listFD(subdirects[i], ext='cbv.fits')[0]
+            file = listFD(subdirects[i], ext='_cbv.fits')[0]
             os.system('curl -O -L {}'.format(file))
 
         time = self.cutout[1].data['TIME'] - self.cutout[1].data['TIMECORR']
 
         files = os.listdir('.')
-        files = [i for i in files if i.endswith('cbv.fits') and 's{0:04d}'.format(self.sector) in i]
+        files = [i for i in files if i.endswith('_cbv.fits') and
+                 's{0:04d}'.format(self.sector) in i]
 
         for c in range(len(files)):
             cbv      = fits.open(files[c])
@@ -167,19 +181,22 @@ class Update(object):
             new_fn = eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.sector, camera, ccd)
 
             convolved = np.zeros((len(time), 16))
-            inds = np.array([], dtype=int)
             for i in range(len(time)):
-                g = np.argmin( np.abs(time[i] -cbv_time) )
+                g = np.argmin(np.abs(time[i] - cbv_time))
                 for j in range(16):
                     index = 'VECTOR_{0}'.format(j+1)
-                    cads  = np.arange(g-7, g+8,1)
-                    convolved[i,j] = np.mean(cbv[1].data[index][cads])
+                    if self.sector < 27:
+                        cads = np.arange(g-7, g+8, 1)
+                    else:
+                        # XXX: need to test when TESSCut becomes available
+                        cads = np.arange(g-2, g+3, 1)
+                    convolved[i, j] = np.mean(cbv[1].data[index][cads])
             np.savetxt(new_fn, convolved)
             cbv.close()
-        files = [i for i in files if i.endswith('cbv.fits') and 's{0:04d}'.format(self.sector) in i]
+        files = [i for i in files if i.endswith('_cbv.fits') and
+                 's{0:04d}'.format(self.sector) in i]
         for c in range(len(files)):
             os.remove(files[c])
-
 
     def try_next_sector(self):
         codepath = os.path.dirname(__file__)
@@ -190,7 +207,6 @@ class Update(object):
             f.write('maxsector = {:2d}'.format(self.sector))
             f.close()
 
-
     def get_target(self):
         filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_lc.sh'.
                            format(self.sector))
@@ -199,17 +215,25 @@ class Update(object):
                 import shutil
                 os.system(str(line)[2:-3])
                 fn = str(line)[2:-3].split()[5]
-                shutil.move(fn, eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector, self.sector))
+                shutil.move(fn, eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector))
                 break
         return
 
     def get_cadences(self):
-        index_zeropoint = 12680
-        index_t0 = 1491.625533688852
+        if self.sector < 27:
+            # these come from the first FFI cadence of S7, in particular
+            # Camera 1, CCD 1 for the t0. The t0s vary by ~1 minute because of
+            # barycentric corrections on different cameras
+            index_zeropoint = 12680
+            index_t0 = 1491.625533688852
+        else:
+            # first FFI cadence of S27 from Cam 1, CCD 1
+            index_zeropoint = 116470
+            index_t0 = 2036.283350837239
 
         times = np.array([], dtype=int)
         filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_ffic.sh'.
-                          format(self.sector))
+                           format(self.sector))
         for line in filelist:
             if len(str(line)) > 30:
                 times = np.append(times, int(str(line).split('tess')[1][0:13]))
@@ -219,14 +243,17 @@ class Update(object):
         outarr = np.zeros_like(times)
         for i in range(len(times)):
             date = datetime.strptime(str(times[i]), '%Y%j%H%M%S')
-            days = date.day + hmsm_to_days(date.hour,date.minute,date.second,date.microsecond)
-            tjd = date_to_jd(date.year,date.month,days) - 2457000
-            cad = (tjd - index_t0)/(30./1440.)
+            days = date.day + hmsm_to_days(date.hour, date.minute,
+                                           date.second, date.microsecond)
+            tjd = date_to_jd(date.year, date.month, days) - 2457000
+            if self.sector < 27:
+                cad = (tjd - index_t0)/(30./1440.)
+            else:
+                cad = (tjd - index_t0)/(10./1440.)
             outarr[i] = (int(np.round(cad))+index_zeropoint)
 
-        np.savetxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(self.sector, self.sector), outarr, fmt='%i')
+        np.savetxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(self.sector), outarr, fmt='%i')
         return
-
 
     def get_quality(self):
         """ Uses the quality flags in a 2-minute target to create quality flags
@@ -235,11 +262,13 @@ class Update(object):
 
         ffi_time = self.cutout[1].data['TIME'] - self.cutout[1].data['TIMECORR']
 
-
         shortCad_fn = eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector)
 
         # Binary string for values which apply to the FFIs
-        ffi_apply = int('100010101111', 2)
+        if self.sector > 26:
+            ffi_apply = int('100000000010101111', 2)
+        else:
+            ffi_apply = int('100010101111', 2)
 
         # Obtains information for 2-minute target
         twoMin     = fits.open(shortCad_fn)
@@ -251,25 +280,26 @@ class Update(object):
         twoMinQual = twoMinQual[finite]
 
         convolve_ffi = []
-        nodata = np.zeros_like(ffi_time)
         for i in range(len(ffi_time)):
             where = np.where(np.abs(ffi_time[i] - twoMinTime) == np.min(np.abs(ffi_time[i] - twoMinTime)))[0][0]
 
             sflux = np.sum(self.cutout[1].data['FLUX'][i])
+            nodata = 0
             if sflux == 0:
-                nodata[i] = 4096
+                nodata = 131072
 
             if (ffi_time[i] > 1420) and (ffi_time[i] < 1424):
-                nodata[i] = 4096
+                nodata = 131072
 
-            v = np.bitwise_or.reduce(twoMinQual[where-7:where+8])
-            convolve_ffi.append(v)
-
+            if self.sector < 27:
+                v = np.bitwise_or.reduce(twoMinQual[where-7:where+8])
+            else:
+                # XXX: need to test when TESSCut is available in S27
+                v = np.bitwise_or.reduce(twoMinQual[where - 2:where + 3])
+            convolve_ffi.append(np.bitwise_or(v, nodata))
 
         convolve_ffi = np.array(convolve_ffi)
 
-        flags    = np.bitwise_and(convolve_ffi, ffi_apply)
+        flags = np.bitwise_and(convolve_ffi, ffi_apply)
 
-        np.savetxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector), flags+nodata, fmt='%i')
-
-        return
+        np.savetxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector), flags, fmt='%i')

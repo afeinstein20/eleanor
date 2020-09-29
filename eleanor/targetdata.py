@@ -367,12 +367,13 @@ class TargetData(object):
 
 
         else:
-            if (height > 31) or (width > 31):
-                raise ValueError("Maximum allowed TPF size when using TessCut is 31 x 31 pixels.")
+            post_x_length, post_y_length = post_flux.shape[2], post_flux.shape[1]
+            if (height > post_y_length) or (width > post_x_length):
+                raise ValueError("Maximum allowed TPF size should less than the TessCut size.")
 
-            self.tpf     = post_flux[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
+            self.tpf = post_flux[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
             self.bkg_tpf = post_flux
-            self.tpf_err = post_err[:, 15-y_length:15+y_length+1, 15-x_length:15+x_length+1]
+            self.tpf_err = post_err[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
             self.bkg_subtraction()
 
@@ -659,6 +660,12 @@ class TargetData(object):
             pc_stds[ap_size < 8] = 1.0
             if self.source_info.tc == False:
                 stds_2d[ap_size < 8] = 1.0
+
+        if self.source_info.tess_mag < 7:
+            tpf_stds[ap_size < 15] = 1.0
+            pc_stds[ap_size < 15]  = 1.0
+            if self.source_info.tc == False:
+                stds_2d[ap_size < 15] = 1.0
 
 
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
@@ -1239,7 +1246,7 @@ class TargetData(object):
 
 
 
-    def set_header(self):
+    def set_header(self, lite):
         """Defines the header for the TPF."""
         self.header = copy.deepcopy(self.post_obj.header)
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
@@ -1253,6 +1260,8 @@ class TargetData(object):
                                      comment='Filter keyword'))
         self.header.append(fits.Card(keyword='VERSION', value=eleanor.__version__,
                                      comment='eleanor version used for light curve production'))
+        self.header.append(fits.Card(keyword='LITE', value=lite,
+                                     comment='eleanor-lite keyword for saving light curves'))
         self.header.append(fits.Card(keyword='TIC_ID', value=self.source_info.tic,
                                      comment='TESS Input Catalog ID'))
         self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag,
@@ -1302,12 +1311,8 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='PCORIGIN', value=record_val,
                                      comment='Provenance of eleanor Postcard'))
 
-        #if self.modes is not None:
-        #    self.header.append(fits.Card(keyword='MODES', value=self.modes,
-        #                                 comment='Number of modes used in PCA analysis'))
 
-
-    def save(self, output_fn=None, directory=None):
+    def save(self, output_fn=None, directory=None, lite=False):
         """Saves a created TPF object to a FITS file.
 
         Parameters
@@ -1316,11 +1321,16 @@ class TargetData(object):
             Filename to save output as. Overrides default naming.
         directory : str, optional
             Directory to save file into.
+        lite: bool, optional
+            Whether to only save the light curve and not the target pixel data.
+            Will reduce file size by a factor of ~19x by removing all pixel
+            information and all light curves except the optimal one selected
+            by eleanor.
         """
         if self.language == 'Australian':
             raise ValueError("These light curves are upside down. Please don't save them ...")
 
-        self.set_header()
+        self.set_header(lite=lite)
 
         # if the user did not specify a directory, set it to default
         if directory is None:
@@ -1334,8 +1344,9 @@ class TargetData(object):
         ext1 = Table()
         ext1['TIME']       = self.time
         ext1['BARYCORR']   = self.barycorr
-        ext1['TPF']        = self.tpf
-        ext1['TPF_ERR']    = self.tpf_err
+        if not lite:
+            ext1['TPF']        = self.tpf
+            ext1['TPF_ERR']    = self.tpf_err
         ext1['RAW_FLUX']   = self.raw_flux
         ext1['CORR_FLUX']  = self.corr_flux
         ext1['FLUX_ERR']   = self.flux_err
@@ -1360,8 +1371,16 @@ class TargetData(object):
 
         # Creates table for second extension (all apertures)
         ext2 = Table()
-        for i in range(len(self.all_apertures)):
-            ext2[self.aperture_names[i]] = self.all_apertures[i]
+        # only save the aperture actually used
+        if lite:
+            ext2[self.aperture_names[self.best_ind]] = self.all_apertures[self.best_ind]
+            # put the TPF and TPF_err summary here since it's the same shape
+            # and that appears the easiest way to do this in fits formats
+            ext2['TPF'] = np.nanmedian(self.tpf, axis=0)
+            ext2['TPF_ERR'] = np.nanmedian(self.tpf_err, axis=0)
+        else:
+            for i in range(len(self.all_apertures)):
+                ext2[self.aperture_names[i]] = self.all_apertures[i]
 
         # Creates table for third extention (all raw & corrected fluxes and errors)
         ext3 = Table()
@@ -1376,7 +1395,11 @@ class TargetData(object):
 
         # Writes TPF to FITS file
         primary_hdu = fits.PrimaryHDU(header=self.header)
-        data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
+        if lite:
+            # the third extension is unnecessary for just working with the best light curve
+            data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2)]
+        else:
+            data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
 
         if output_fn == None:
@@ -1413,8 +1436,16 @@ class TargetData(object):
         cols  = hdu[1].columns.names
         table = hdu[1].data
         self.time        = table['TIME']
-        self.tpf         = table['TPF']
-        self.tpf_err     = table['TPF_ERR']
+        # saved in the full format
+        if 'TPF' in cols:
+            self.tpf         = table['TPF']
+            self.tpf_err     = table['TPF_ERR']
+        # saved in lite format
+        else:
+            # make it a 1x15x15 array so the dimensions are as expected in a
+            # subsequent usages
+            self.tpf         = np.array([hdu[2].data['TPF']])
+            self.tpf_err     = np.array([hdu[2].data['TPF_ERR']])
         self.raw_flux    = table['RAW_FLUX']
         self.corr_flux   = table['CORR_FLUX']
         self.flux_err    = table['FLUX_ERR']
@@ -1439,43 +1470,59 @@ class TargetData(object):
         for i in cols:
             if i == 'custom':
                 self.custom_aperture = table[i]
-            elif i == hdr['aperture']:
-                self.aperture = table[i]
-            else:
+            # ignore the TPFs if saved in lite mode
+            elif i not in ['TPF', 'TPF_ERR']:
                 self.all_apertures.append(table[i])
+            # include the chosen aperture in all_apertures as well as selecting
+            # it here
+            if i == hdr['aperture']:
+                self.aperture = table[i]
 
-        # Loads in remaining light curves from third extension
-        cols  = hdu[3].columns.names
-        table = hdu[3].data
-        self.all_raw_flux  = []
-        self.all_corr_flux = []
-        self.all_flux_err  = []
-
-        names = []
-        for i in cols:
-            name = ('_').join(i.split('_')[0:-1])
-            names.append(name)
-
-            if i[-4::] == 'corr':
-                self.all_corr_flux.append(table[i])
-            elif i[-3::] == 'err':
-                self.all_flux_err.append(table[i])
-            else:
-                self.all_raw_flux.append(table[i])
+        # Loads in remaining light curves from third extension if the file
+        # wasn't created in lite mode
+        if len(hdu) >= 4:
+            cols  = hdu[3].columns.names
+            table = hdu[3].data
+            self.all_raw_flux  = []
+            self.all_corr_flux = []
+            self.all_flux_err  = []
+    
+            names = []
+            for i in cols:
+                name = ('_').join(i.split('_')[0:-1])
+                names.append(name)
+    
+                if i[-4::] == 'corr':
+                    self.all_corr_flux.append(table[i])
+                elif i[-3::] == 'err':
+                    self.all_flux_err.append(table[i])
+                else:
+                    self.all_raw_flux.append(table[i])
+        else:
+            self.all_raw_flux  = [self.raw_flux]
+            self.all_corr_flux = [self.corr_flux]
+            self.all_flux_err  = [self.flux_err]
+            names = [hdr['aperture']]
+            
 
         self.aperture_names = np.unique(names)
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
 
 
-        if self.source_info.tc == False:
 
-            if os.path.isfile(self.source_info.postcard_path) == True:
-                post_fn = self.source_info.postcard_path.split('/')[-1]
-                post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
-                self.post_obj = Postcard(filename=post_fn, location=post_path)
-        else:
-            self.post_obj =Postcard_tesscut(self.source_info.cutout,
-                                            location=self.source_info.postcard_path)
+        try:
+            if self.source_info.tc == False:
+                if os.path.isfile(self.source_info.postcard_path) == True:
+                    post_fn = self.source_info.postcard_path.split('/')[-1]
+                    post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
+                    self.post_obj = Postcard(filename=post_fn, location=post_path)
+            else:
+                self.post_obj =Postcard_tesscut(self.source_info.cutout,
+                                                location=self.source_info.postcard_path)
+
+        except TypeError:
+            print("No postcard object will be created for this target.")
+            pass
 
 
         self.get_cbvs()
