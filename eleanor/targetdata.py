@@ -541,7 +541,7 @@ class TargetData(object):
                 lc[cad]     = np.nansum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.nansum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc)
-            self.corr_flux  = self.corrected_flux(flux=lc, skip=30)
+            self.corr_flux  = self.corrected_flux(flux=lc, skip=0.62)
             self.flux_err   = np.array(lc_err)
             return
 
@@ -1121,13 +1121,13 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False, bkg=None, regressors=None):
+    def corrected_flux(self, flux=None, skip=0.62, modes=3, pca=False, bkg=None, regressors=None):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         Parameters
         ----------
-        skip: int
-            The number of cadences at the start of each orbit to skip in determining optimal model weights.
+        skip: float
+            The length of time in days at the start of each orbit to skip in determining optimal model weights.
         modes: int
             If doing a PCA-based correction, the number of cotrending basis vectors to regress against.
         regressors : numpy.ndarray or str
@@ -1135,6 +1135,10 @@ class TargetData(object):
             If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
         """
         self.modes = modes
+
+        tdelt = np.median(np.diff(self.time))
+        skip = int(np.ceil(skip/tdelt))
+
 
         if type(regressors) == str:
             if regressors == 'corner':
@@ -1164,7 +1168,7 @@ class TargetData(object):
         cy = self.centroid_ys
         t  = self.time-self.time[0]
 
-        def calc_corr(mask, cx, cy, skip=50):
+        def calc_corr(mask, cx, cy, skip):
             nonlocal quality, flux, bkg, regressors
 
             badx = np.where(np.abs(cx - np.nanmedian(cx)) > 3*np.std(cx))[0]
@@ -1246,7 +1250,7 @@ class TargetData(object):
 
 
 
-    def set_header(self, lite):
+    def set_header(self, lite=False):
         """Defines the header for the TPF."""
         self.header = copy.deepcopy(self.post_obj.header)
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
