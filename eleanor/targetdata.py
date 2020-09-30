@@ -44,8 +44,10 @@ class TargetData(object):
         or else will return an aperture one pixel wider than requested so target
         falls on central pixel.
     aperture_mode : str, optional
-        If `small`, will only consider apertures 8 pixels in size or small. If `large`, will only consider
-        apertures larger than 9 pixels in size. If `normal` all apertures will be considered. `small` and `large`
+        If `small`, will only consider apertures 8 pixels in size or smaller. If `large`, will only consider
+        apertures larger than 8 pixels in size. If `all` all apertures will be considered.
+        If `normal` will test many different apertures, following rules based on the magnitude of the
+        target star and the contamination ratio recorded in the TIC. `small` and `large`
         can often be useful for faint stars/stars in crowded fields or bright stars, respectively.
     bkg_size : int, optional
         Size of box to use for background estimation. If not set, will default to the width of the
@@ -83,6 +85,8 @@ class TargetData(object):
         WCS and eleanor's corrected pointing.
     tpf_err : np.ndarray
         Errors on fluxes in `tpf`.
+    aperture_mode : int
+        Integer corresponding to the used aperture mode as input by the user.
     centroid_xs : np.ndarray
         Position of the source in `x` inferred from pointing model; has same length as `time`.
         Position is relative to the pixel coordinate system of the postcard.
@@ -195,6 +199,8 @@ class TargetData(object):
                     self.aperture_mode = 1
                 elif aperture_mode.lower() == 'normal':
                     self.aperture_mode = 0
+                elif aperture_mode.lower() == 'all':
+                    self.aperture_mode = 3
                 else:
                     warnings.warn(
                         'Aperture Mode not understood, defaulting to normal.')
@@ -381,13 +387,21 @@ class TargetData(object):
 
         summed_tpf = np.nansum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
-        if np.abs(mpix[0] - x_length) > 1:
-            self.aperture_mode = 1
-        if np.abs(mpix[1] - y_length) > 1:
-            self.aperture_mode = 1
 
-        if self.source_info.tess_mag < 8.2:
-            self.aperture_mode = 2
+        if self.aperture_mode == 0:
+            if np.abs(mpix[0] - x_length) > 1:
+                self.aperture_mode = 1
+            if np.abs(mpix[1] - y_length) > 1:
+                self.aperture_mode = 1
+
+            if self.source_info.tess_mag < 8.2:
+                self.aperture_mode = 2
+
+            if self.source_info.contratio is not None:
+                if self.source_info.contratio > 0.15:
+                    self.aperture_mode = 1
+
+
 
 
         self.tpf = self.tpf
@@ -540,7 +554,7 @@ class TargetData(object):
                 lc[cad]     = np.nansum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.nansum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc)
-            self.corr_flux  = self.corrected_flux(flux=lc, skip=0.62)
+            self.corr_flux  = self.corrected_flux(flux=lc, skip=0.25)
             self.flux_err   = np.array(lc_err)
             return
 
@@ -643,11 +657,12 @@ class TargetData(object):
             if self.source_info.tc == False:
                 stds_2d[ap_size < 8] = 10.0
 
-        if self.source_info.tess_mag < 7:
-            tpf_stds[ap_size < 15] = 10.0
-            pc_stds[ap_size < 15]  = 10.0
-            if self.source_info.tc == False:
-                stds_2d[ap_size < 15] = 10.0
+        if self.aperture_mode == 0:
+            if self.source_info.tess_mag < 7:
+                tpf_stds[ap_size < 15] = 10.0
+                pc_stds[ap_size < 15]  = 10.0
+                if self.source_info.tc == False:
+                    stds_2d[ap_size < 15] = 10.0
 
 
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
@@ -686,6 +701,7 @@ class TargetData(object):
         elif self.bkg_type == '2D_BKG_MODEL':
             self.all_raw_flux  = np.array(all_raw_lc_tpf_2d_sub)
             self.all_corr_flux = np.array(all_corr_lc_tpf_2d_sub)
+            self.flux_bkg = np.array(np.nansum(self.bkg_tpf*self.all_apertures[best_ind], axis=(1,2)))
 
         if self.language == 'Australian':
             for i in range(len(self.all_raw_flux)):
@@ -1096,7 +1112,7 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def corrected_flux(self, flux=None, skip=0.62, modes=3, pca=False, bkg=None, regressors=None):
+    def corrected_flux(self, flux=None, skip=0.25, modes=3, pca=False, bkg=None, regressors=None):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         Parameters
