@@ -1401,14 +1401,16 @@ class TargetData(object):
         hdu = fits.HDUList(data_list)
 
         if output_fn == None:
-            path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(
+            if lite:
+                path = os.path.join(directory, 'hlsp_eleanor-lite_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(
+                    self.source_info.tic, self.source_info.sector, eleanor.__version__))
+            else:
+                path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(
                     self.source_info.tic, self.source_info.sector, eleanor.__version__))
         else:
             path = os.path.join(directory, output_fn)
 
         hdu.writeto(path, overwrite=True)
-
-
 
 
     def load(self, directory=None, fn=None):
@@ -1434,16 +1436,19 @@ class TargetData(object):
         cols  = hdu[1].columns.names
         table = hdu[1].data
         self.time        = table['TIME']
+
+        self.lite = self.header['LITE']
+
         # saved in the full format
-        if 'TPF' in cols:
+        if self.header['LITE'] == False:
             self.tpf         = table['TPF']
             self.tpf_err     = table['TPF_ERR']
+
         # saved in lite format
         else:
-            # make it a 1x15x15 array so the dimensions are as expected in a
-            # subsequent usages
             self.tpf         = np.array([hdu[2].data['TPF']])
             self.tpf_err     = np.array([hdu[2].data['TPF_ERR']])
+
         self.raw_flux    = table['RAW_FLUX']
         self.corr_flux   = table['CORR_FLUX']
         self.flux_err    = table['FLUX_ERR']
@@ -1478,7 +1483,7 @@ class TargetData(object):
 
         # Loads in remaining light curves from third extension if the file
         # wasn't created in lite mode
-        if len(hdu) >= 4:
+        if self.header['LITE'] == False:
             cols  = hdu[3].columns.names
             table = hdu[3].data
             self.all_raw_flux  = []
@@ -1497,9 +1502,9 @@ class TargetData(object):
                 else:
                     self.all_raw_flux.append(table[i])
         else:
-            self.all_raw_flux  = [self.raw_flux]
-            self.all_corr_flux = [self.corr_flux]
-            self.all_flux_err  = [self.flux_err]
+            self.all_raw_flux  = None#[self.raw_flux]
+            self.all_corr_flux = None#[self.corr_flux]
+            self.all_flux_err  = None#[self.flux_err]
             names = [hdr['aperture']]
             
 

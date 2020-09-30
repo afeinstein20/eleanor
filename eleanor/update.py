@@ -94,7 +94,7 @@ class Update(object):
         if os.path.isdir(self.metadata_path):
             if lastfile in os.listdir(self.metadata_path):
                 print('This directory already exists!')
-                sys.exit()
+                return
 
         self.north_coords = SkyCoord('16:35:50.667 +63:54:39.87',
                                      unit=(u.hourangle, u.deg))
@@ -107,14 +107,14 @@ class Update(object):
                 success = 1
             except:
                 print("This sector isn't available yet.")
-                sys.exit()
+                return
         else:
             try:
                 manifest = Tesscut.download_cutouts(self.north_coords, 31, sector=self.sector)
                 success = 1
             except:
                 print("This sector isn't available yet.")
-                sys.exit()
+                return
 
 
         if success == 1:

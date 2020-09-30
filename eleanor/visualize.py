@@ -1,3 +1,4 @@
+import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -35,7 +36,6 @@ class Visualize(object):
     def __init__(self, object, obj_type="tpf"):
         self.obj      = object
         self.obj_type = obj_type.lower()
-        self.get_youtube_links()
 
         if self.obj_type == "tpf":
             self.flux   = self.obj.tpf
@@ -46,33 +46,6 @@ class Visualize(object):
             self.flux   = self.obj.flux
             self.center = self.obj.center_xy
             self.dimensions = self.obj.dimensions
-
-
-    def get_youtube_links(self):
-        """
-        Scrapes the YouTube links to Ethan Kruse's TESS: The Movie videos.
-
-        Parameters
-        ----------
-
-        Attributes
-        ----------
-        youtube : dict
-
-        """
-        url = "https://www.youtube.com/user/ethank18/videos"
-        paths = BeautifulSoup(requests.get(url).text, "lxml").find_all('a')
-
-        videos = {}
-
-        for direct in paths:
-            name = str(direct.get('title'))
-            if 'TESS: The Movie.' in name:
-                sector = int(name.split(',')[0].split('.')[-1].split(' ')[-1])
-                link = direct.get('href')
-                link_path = "https://www.youtube.com/" + link
-                videos[sector] = link_path
-        self.youtube = videos
 
 
     def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, ax=None, **kwargs):
@@ -156,6 +129,11 @@ class Visualize(object):
              periodogram. Only used if data_type = 'periodogram'. If None,
              default = [1/20., 1/0.1].
         """
+        if self.obj.lite:
+            print('This is an eleanor-lite object. No pixel_by_pixel visualization can be created.')
+            print('Please create a regular eleanor.TargetData object (lite=False) to use this tool.')
+            return
+
         if colrange is None:
             colrange = [0, self.dimensions[1]]
 
@@ -278,8 +256,6 @@ class Visualize(object):
                 ax.set_ylim(y.min(), y.max())
                 ax.set_xlim(np.min(x),
                             np.max(x))
-#                ax.set_xticks([])
-#                ax.set_yticks([])
 
             ax.set_xticks([])
             ax.set_yticks([])
@@ -313,17 +289,45 @@ class Visualize(object):
                 return 'terminal'
 
         sector = self.obj.source_info.sector
-        self.movie_url = self.youtube[sector]
 
-        call_location = type_of_script()
+        base="https://www.youtube.com/results?search_query="
+        query="TESS+the+movie+sector+{0}+ethankruse".format(sector)
 
-        if (call_location == 'terminal') or (call_location == 'ipython'):
-            os.system('python -m webbrowser -t "{0}"'.format(self.movie_url))
+        soup = BeautifulSoup(requests.get(base+query).text, "html.parser").find_all('script')[26]
 
-        elif (call_location == 'jupyter'):
-            from IPython.display import YouTubeVideo
-            id = self.movie_url.split('=')[-1]
-            return YouTubeVideo(id=id, width=900, height=500)
+        items = soup.text
+        items = items.split('\n')[1].split('title')
+
+        good_sector=0
+
+        for subitem in items:
+            j = subitem.find('Sector')
+            if j > 0 and 'TESS: The Movie' in subitem:
+                
+                sect = subitem[j:j+100].split(',')[0].split(' ')[-1]
+                
+                if int(sect) == int(sector):
+                    i = subitem.find('/watch?v')
+                    ext = subitem[i:i+100].split('"')[0]
+                    good_sector=1
+                    break
+
+        if good_sector == 1:
+            self.movie_url = 'https://www.youtube.com{0}'.format(ext)
+            
+            call_location = type_of_script()
+            
+            if (call_location == 'terminal') or (call_location == 'ipython'):
+                os.system('python -m webbrowser -t "{0}"'.format(self.movie_url))
+
+            elif (call_location == 'jupyter'):
+                from IPython.display import YouTubeVideo
+                id = self.movie_url.split('=')[-1]
+                return YouTubeVideo(id=id, width=900, height=500)
+
+        else:
+            print('No movie is available yet.')
+            return
 
 
     def plot_gaia_overlay(self, tic=None, tpf=None, magnitude_limit=18):
