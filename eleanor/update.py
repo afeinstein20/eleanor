@@ -21,9 +21,9 @@ if not os.path.exists(eleanorpath):
     except OSError:
         eleanorpath = os.path.dirname(__file__)
 
-def hmsm_to_days(hour=0,min=0,sec=0,micro=0):
+def hmsm_to_days(hour=0,mins=0,sec=0,micro=0):
     days = sec + (micro / 1.e6)
-    days = min + (days / 60.)
+    days = mins + (days / 60.)
     days = hour + (days / 60.)
     return days / 24.
 def date_to_jd(year,month,day):

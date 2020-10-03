@@ -16,6 +16,7 @@ import astropy.units as u
 from scipy.stats import mode
 from scipy.signal import savgol_filter
 from urllib.request import urlopen
+from functools import reduce
 import os, sys, copy
 import os.path
 import warnings
@@ -25,6 +26,7 @@ import eleanor
 
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
+from .mast import crossmatch_by_position
 
 __all__  = ['TargetData']
 
@@ -160,9 +162,7 @@ class TargetData(object):
             # Checks to see if file exists already
             if try_load==True:
                 try:
-                    default_fn = 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(self.source_info.tic,
-                                                                                                  self.source_info.sector,
-                                                                                                  eleanor.__version__)
+                    default_fn = 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(self.source_info.tic, self.source_info.sector, eleanor.__version__)
                     self.load(fn=default_fn)
                     print('Loading file {0} found on disk'.format(default_fn))
                     fnf = False
@@ -249,13 +249,11 @@ class TargetData(object):
         self.time = t0 + ltt_bary
         self.barycorr = ltt_bary
 
-    def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard, source):
-        """Gets TPF from postcard."""
-
-        self.tpf         = None
-        self.centroid_xs = None
-        self.centroid_ys = None
-
+    def get_tpf_coords(self, pos, height, width, bkg_size, source):
+        """
+        Gets the coordinates on `self.post_obj` for a TPF including `source`.
+        Helper function for `get_tpf_from_postcard`.
+        """
         xy = WCS(self.post_obj.header, naxis=2).all_world2pix(pos[0], pos[1], 1)
         # Apply the pointing model to each cadence to find the centroids
 
@@ -264,8 +262,8 @@ class TargetData(object):
             self.centroid_ys = np.zeros_like(self.post_obj.time)
         else:
             centroid_xs, centroid_ys = [], []
-            for i in range(len(self.pointing_model)):
-                new_coords = use_pointing_model(np.array(xy), self.pointing_model[i])
+            for p in self.pointing_model:
+                new_coords = use_pointing_model(np.array(xy), p)
                 centroid_xs.append(new_coords[0][0])
                 centroid_ys.append(new_coords[0][1])
             self.centroid_xs = np.array(centroid_xs)
@@ -273,14 +271,11 @@ class TargetData(object):
 
         # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
-
         med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
 
         if source.tc == False:
             post_flux = self.post_obj.flux
             post_err  = self.post_obj.flux_err
-            post_bkg2d = self.post_obj.background2d
-            post_bkg   = self.post_obj.bkg
         else:
             post_flux = self.post_obj.flux + 0.0
             post_err  = self.post_obj.flux_err + 0.0
@@ -303,7 +298,7 @@ class TargetData(object):
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
 
-        post_y_upp, post_x_upp = self.post_obj.dimensions[1], self.post_obj.dimensions[2]
+        post_y_upp, post_x_upp = self.post_obj.dimensions[1:3]
 
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
@@ -327,6 +322,7 @@ class TargetData(object):
         if self.tpf_star_x == 0:
             self.tpf_star_x = int(height/2)
 
+        # not sure what these variables do
         if y_low_bkg <= 0:
             y_low_bkg = 0
             y_upp_bkg = med_y + width + y_low_bkg
@@ -340,12 +336,50 @@ class TargetData(object):
             x_upp_bkg = post_x_upp+1
             x_low_bkg = med_x - height + (post_x_upp - med_x)
 
+        return x_low_lim, x_upp_lim, y_low_lim, y_upp_lim, med_x, med_y
+
+    def get_stars_in_tpf(self, pos, height, width, tmag_cut=14):
+        """
+        Gets all the stars in the TPF under a certain magnitude.
+        """
+        # postcard radius = 0.5, scaled proportionally to just the TPF times a safety factor
+        mast_search_radius = 0.5 * max(np.array([height, width]) / self.post_obj.dimensions[1:3]) * 2.0
+        result = crossmatch_by_position(pos, mast_search_radius, 'Mast.Tic.Crossmatch').to_pandas()
+        matchra = 'MatchRA' if 'MatchRA' in result.columns else 'MatchRa'
+        matchdec = 'MatchDEC' if 'MatchDEC' in result.columns else 'MatchDec'
+        result = result[['MatchID', matchra, matchdec, 'pmRA', 'pmDEC', 'Tmag']]
+        result.columns = ['TessID', 'RA', 'Dec', 'pmRA', 'pmDEC', 'Tmag']
+        coords = np.array(WCS(self.post_obj.header, naxis=2).all_world2pix(result.RA, result.Dec, 1)).T
+        xl, _, yl, _, _, _ = self.get_tpf_coords(pos, height, width, width, self.source_info)
+        coords -= np.array([xl, yl])
+        star_idxs_to_keep = reduce(np.bitwise_and, [coords[:,0] >= 0.0, coords[:,0] <= width, coords[:,1] >= 0.0, coords[:,1] <= height])
+        result = result[star_idxs_to_keep]
+        if tmag_cut is None:
+            return result
+        return result[result.Tmag < tmag_cut]
+
+    def get_coords_stars_in_tpf(self, pos, height, width, tmag_cut=14):
+        """
+        Gets the coordinates (in TPF pixels) of all the stars in the TPF.
+        """
+        stars = self.get_stars_in_tpf(pos, height, width, tmag_cut)
+        
+        # 'coords' is in pixel coordinates, changing to TPF coordinates:
+
+        return coords
+
+    def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard, source):
+        """Gets TPF from postcard."""
+        y_length, x_length = int(np.floor(height/2.)), int(np.floor(width/2.))
+        post_y_upp, post_x_upp = self.post_obj.dimensions[1:3]
+        x_low_lim, x_upp_lim, y_low_lim, y_upp_lim, med_x, med_y = self.get_tpf_coords(pos, height, width, bkg_size, source)
+
         if source.tc == False:
             if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
                 warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
                 warnings.warn("WARNING: Your postage stamp may not be centered.")
 
-            self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            self.tpf = self.post_obj.flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
 
             h, w = self.tpf.shape[1], self.tpf.shape[2]
             self.tpf_star_y = w + (med_y - y_upp_lim)
@@ -356,20 +390,20 @@ class TargetData(object):
             if med_y == int((y_upp_lim - y_low_lim)/2 + y_low_lim):
                 self.tpf_star_y = int(height/2)
 
-            self.bkg_tpf = post_bkg2d[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
-            self.tpf_flux_bkg = self.bkg_subtraction() + post_bkg
-            self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            self.bkg_tpf = self.post_obj.background2d[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            self.tpf_flux_bkg = self.bkg_subtraction() + self.post_obj.bkg
+            self.tpf_err = self.post_obj.flux_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
 
 
         else:
-            post_x_length, post_y_length = post_flux.shape[2], post_flux.shape[1]
+            post_x_length, post_y_length = self.post_obj.flux.shape[2], self.post_obj.flux.shape[1]
             if (height > post_y_length) or (width > post_x_length):
                 raise ValueError("Maximum allowed TPF size should less than the TessCut size.")
 
-            self.tpf = post_flux[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
-            self.bkg_tpf = post_flux
-            self.tpf_err = post_err[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
+            self.tpf = self.post_obj.flux[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
+            self.bkg_tpf = self.post_obj.flux
+            self.tpf_err = self.post_obj.flux_err[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
             self.bkg_subtraction()
 
@@ -377,13 +411,11 @@ class TargetData(object):
 
         summed_tpf = np.nansum(self.tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
+        
         if np.abs(mpix[0] - x_length) > 1:
             self.crowded_field = 1
         if np.abs(mpix[1] - y_length) > 1:
             self.crowded_field = 1
-
-
-        self.tpf = self.tpf
 
         if save_postcard == False:
             try:
@@ -857,16 +889,16 @@ class TargetData(object):
         if data_arr is None:
             data_arr = self.tpf + 0.0
             data_arr[np.isnan(data_arr)] = 0.0
-        data_arr /= (u.electron / u.s)
+        # data_arr /= (u.electron / u.s)
         if err_arr is None:
             if err_method == True:
                 err_arr = (self.tpf_err + 0.0) ** 2
             else:
                 err_arr = np.ones_like(data_arr)
-        err_arr /= (u.electron / u.s)
+        # err_arr /= (u.electron / u.s)
         if bkg_arr is None:
             bkg_arr = self.flux_bkg + 0.0
-        bkg_arr /= (u.electron / u.s)
+        # bkg_arr /= (u.electron / u.s)
 
         if yc is None:
             yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]

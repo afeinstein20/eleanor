@@ -33,7 +33,7 @@ class Postcard(object):
     Attributes
     ----------
     dimensions : tuple
-        (`x`, `y`, `time`) dimensions of postcard.
+        (`time`, `x`, `y`) dimensions of postcard.
     flux, flux_err : numpy.ndarray
         Arrays of shape `postcard.dimensions` containing flux or error on flux 
         for each pixel.
@@ -122,7 +122,7 @@ class Postcard(object):
             All the sources in a postcard with TIC IDs or Gaia IDs.
         """
         result = crossmatch_by_position(self.center_radec, 0.5, 'Mast.Tic.Crossmatch').to_pandas()
-        result = result[['MatchID', 'MatchRA', 'MatchDEC', 'pmRA', 'pmDEC', 'Tmag']]
+        result = result[['MatchID', 'MatchRa', 'MatchDEC', 'pmRA', 'pmDEC', 'Tmag']]
         result.columns = ['TessID', 'RA', 'Dec', 'pmRA', 'pmDEC', 'Tmag']
         return result
 
