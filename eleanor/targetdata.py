@@ -354,19 +354,11 @@ class TargetData(object):
         coords -= np.array([xl, yl])
         star_idxs_to_keep = reduce(np.bitwise_and, [coords[:,0] >= 0.0, coords[:,0] <= width, coords[:,1] >= 0.0, coords[:,1] <= height])
         result = result[star_idxs_to_keep]
+        result['coords_x'] = coords[star_idxs_to_keep,0]
+        result['coords_y'] = coords[star_idxs_to_keep,1]
         if tmag_cut is None:
             return result
         return result[result.Tmag < tmag_cut]
-
-    def get_coords_stars_in_tpf(self, pos, height, width, tmag_cut=14):
-        """
-        Gets the coordinates (in TPF pixels) of all the stars in the TPF.
-        """
-        stars = self.get_stars_in_tpf(pos, height, width, tmag_cut)
-        
-        # 'coords' is in pixel coordinates, changing to TPF coordinates:
-
-        return coords
 
     def get_tpf_from_postcard(self, pos, postcard, height, width, bkg_size, save_postcard, source):
         """Gets TPF from postcard."""
@@ -802,8 +794,6 @@ class TargetData(object):
 
         return
 
-
-
     def set_quality(self):
         """ Reads in quality flags set in the postcard
         """
@@ -811,28 +801,6 @@ class TargetData(object):
 
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
-
-    def tess_star_field(self, ticid):
-        '''
-        Uses tess-point to set up the crowded star field, to use as input to psf_lightcurve.
-
-        Parameters
-        ----------
-        target_id : str
-            The unique target ID for the catalog (currently only TIC).
-        
-        Returns
-        -------
-        xc, yc, tmag : list
-            The coordinates and magnitude for each star in the field.
-        '''
-
-        ## TODO figure out how to actually get this info out of tess-point
-        from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
-        from .mast import cone_search
-
-        ra, dec = 0.0, 0.0 # dinosaur
-        stars_in_field = cone_search()
 
 
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian',
@@ -877,7 +845,7 @@ class TargetData(object):
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
 
-        from .optimizer import OptimizerAPI
+        # from .optimizer import OptimizerAPI
         from .models import Gaussian, Moffat, Zernike, Lygos
         from tqdm import tqdm
 
@@ -954,7 +922,7 @@ class TargetData(object):
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
             return loss(mean_val, i)
 
-        optimizer = OptimizerAPI(model, variables=var_list, bounds=bounds, likelihood=likelihood)
+        #optimizer = OptimizerAPI(model, variables=var_list, bounds=bounds, likelihood=likelihood)
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))
