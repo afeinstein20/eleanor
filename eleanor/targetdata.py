@@ -812,29 +812,6 @@ class TargetData(object):
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
 
-    def tess_star_field(self, ticid):
-        '''
-        Uses tess-point to set up the crowded star field, to use as input to psf_lightcurve.
-
-        Parameters
-        ----------
-        target_id : str
-            The unique target ID for the catalog (currently only TIC).
-        
-        Returns
-        -------
-        xc, yc, tmag : list
-            The coordinates and magnitude for each star in the field.
-        '''
-
-        ## TODO figure out how to actually get this info out of tess-point
-        from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
-        from .mast import cone_search
-
-        ra, dec = 0.0, 0.0 # dinosaur
-        stars_in_field = cone_search()
-
-
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
                        xc=None, yc=None, verbose=True,
                        err_method=True, ignore_pixels=None,
@@ -889,16 +866,22 @@ class TargetData(object):
         if data_arr is None:
             data_arr = self.tpf + 0.0
             data_arr[np.isnan(data_arr)] = 0.0
-        # data_arr /= (u.electron / u.s)
+            # de-dimensionalize: may want more sophisticated processing later
+        if isinstance(data_arr, u.quantity.Quantity):
+            data_arr = data_arr.value
+        
         if err_arr is None:
             if err_method == True:
                 err_arr = (self.tpf_err + 0.0) ** 2
             else:
                 err_arr = np.ones_like(data_arr)
-        # err_arr /= (u.electron / u.s)
+        if isinstance(err_arr, u.quantity.Quantity):
+            err_arr = err_arr.value
+        
         if bkg_arr is None:
             bkg_arr = self.flux_bkg + 0.0
-        # bkg_arr /= (u.electron / u.s)
+        if isinstance(bkg_arr, u.quantity.Quantity):
+            bkg_arr = bkg_arr.value
 
         if yc is None:
             yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
