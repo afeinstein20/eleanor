@@ -47,11 +47,15 @@ class TargetData(object):
         Width in pixels of TPF to retrieve. Default value is 13 pixels. Must be an odd number,
         or else will return an aperture one pixel wider than requested so target
         falls on central pixel.
+    aperture_mode : str, optional
+        If `small`, will only consider apertures 8 pixels in size or smaller. If `large`, will only consider
+        apertures larger than 8 pixels in size. If `all` all apertures will be considered.
+        If `normal` will test many different apertures, following rules based on the magnitude of the
+        target star and the contamination ratio recorded in the TIC. `small` and `large`
+        can often be useful for faint stars/stars in crowded fields or bright stars, respectively.
     bkg_size : int, optional
         Size of box to use for background estimation. If not set, will default to the width of the
         target pixel file.
-    crowded_field : bool, optional
-        If true, will return a light curve built using a small aperture (not more than 8 pixels in size).
     do_pca : bool, optional
         If true, will return a PCA-corrected light curve.
     do_psf : bool, optional
@@ -64,6 +68,7 @@ class TargetData(object):
     regressors : numpy.ndarray or str
         Extra data to regress against in the correction. Should be shape (len(data.time), N) or `'corner'`.
         If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
+
 
     Attributes
     ----------
@@ -84,6 +89,8 @@ class TargetData(object):
         WCS and eleanor's corrected pointing.
     tpf_err : np.ndarray
         Errors on fluxes in `tpf`.
+    aperture_mode : int
+        Integer corresponding to the used aperture mode as input by the user.
     centroid_xs : np.ndarray
         Position of the source in `x` inferred from pointing model; has same length as `time`.
         Position is relative to the pixel coordinate system of the postcard.
@@ -145,7 +152,7 @@ class TargetData(object):
     """
 
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False,
-                 bkg_size=None, crowded_field=False, cal_cadences=None, try_load=True, regressors = None,
+                 bkg_size=None, aperture_mode='normal', cal_cadences=None, try_load=True, regressors = None,
                  language='English'):
 
         self.source_info = source
@@ -188,13 +195,18 @@ class TargetData(object):
 
                 # Uses the contamination ratio for crowded field if available and
                 # not already set by the user
-                if crowded_field is True:
-                    self.crowded_field = 1
+                if aperture_mode.lower() == 'large':
+                    self.aperture_mode = 2
+                elif aperture_mode.lower() == 'small':
+                    self.aperture_mode = 1
+                elif aperture_mode.lower() == 'normal':
+                    self.aperture_mode = 0
+                elif aperture_mode.lower() == 'all':
+                    self.aperture_mode = 3
                 else:
-                    if self.source_info.contratio is not None:
-                        self.crowded_field = self.source_info.contratio
-                    else:
-                        self.crowded_field = 0
+                    warnings.warn(
+                        'Aperture Mode not understood, defaulting to normal.')
+                    self.aperture_mode = 0
 
 
                 if cal_cadences is None:
@@ -409,6 +421,24 @@ class TargetData(object):
         if np.abs(mpix[1] - y_length) > 1:
             self.crowded_field = 1
 
+        if self.aperture_mode == 0:
+            if np.abs(mpix[0] - x_length) > 1:
+                self.aperture_mode = 1
+            if np.abs(mpix[1] - y_length) > 1:
+                self.aperture_mode = 1
+
+            if self.source_info.tess_mag < 8.2:
+                self.aperture_mode = 2
+
+            if self.source_info.tess_mag > 13.3:
+                self.aperture_mode = 1
+
+            if self.source_info.contratio is not None:
+                if self.source_info.contratio > 0.15:
+                    self.aperture_mode = 1
+
+
+
         if save_postcard == False:
             try:
                 if self.source_info.tc == False:
@@ -484,7 +514,6 @@ class TargetData(object):
                 all_apertures.append(rmask)
                 aperture_names.append(rname)
 
-
             deg += 90
 
 
@@ -558,7 +587,7 @@ class TargetData(object):
                 lc[cad]     = np.nansum( self.tpf[cad] * mask)
                 lc_err[cad] = np.sqrt( np.nansum( self.tpf_err[cad]**2 * mask))
             self.raw_flux   = np.array(lc)
-            self.corr_flux  = self.corrected_flux(flux=lc, skip=50)
+            self.corr_flux  = self.corrected_flux(flux=lc, skip=0.25)
             self.flux_err   = np.array(lc_err)
             return
 
@@ -568,7 +597,6 @@ class TargetData(object):
 
         if self.language == 'Australian':
             print("G'day Mate! ʕ •ᴥ•ʔ Your light curves are being translated ...")
-
 
 
         if self.aperture is not None:
@@ -638,25 +666,11 @@ class TargetData(object):
 
             q = self.quality == 0
 
-            # lc_obj_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-            #                                    flux = all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-            # flat_lc_tpf = lc_obj_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-            # tpf_stds[a] =  np.std(flat_lc_tpf.flux)
             tpf_stds[a] = get_flattened_sigma(all_corr_lc_tpf_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-
-            # lc_obj_pc = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-            #                                   flux = all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-            # flat_lc_pc = lc_obj_pc.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-            # pc_stds[a] = np.std(flat_lc_pc.flux)
             pc_stds[a] = get_flattened_sigma(all_corr_lc_pc_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
 
             if self.source_info.tc == False:
-                # lc_2d_tpf = lightcurve.LightCurve(time = self.time[q][self.cal_cadences[0]:self.cal_cadences[1]],
-                #                                   flux = all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-                # flat_lc_2d = lc_2d_tpf.flatten(polyorder=2, window_length=51).remove_outliers(sigma=4)
-                # stds_2d[a] = np.std(flat_lc_2d.flux)
                 stds_2d[a] = get_flattened_sigma(all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
-
                 all_corr_lc_tpf_2d_sub[a] = all_corr_lc_tpf_2d_sub[a] * np.nanmedian(all_raw_lc_tpf_2d_sub[a])
 
 
@@ -664,20 +678,25 @@ class TargetData(object):
             all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
 
 
-
-
-        if self.crowded_field > 0.15:
-            tpf_stds[ap_size > 8] = 1.0
-            pc_stds[ap_size > 8] = 1.0
+        if self.aperture_mode == 1:
+            tpf_stds[ap_size > 8] = 10.0
+            pc_stds[ap_size > 8] = 10.0
             if self.source_info.tc == False:
-                stds_2d[ap_size > 8] = 1.0
+                stds_2d[ap_size > 8] = 10.0
 
-
-        if self.source_info.tess_mag < 8.5:
-            tpf_stds[ap_size < 8] = 1.0
-            pc_stds[ap_size < 8]  = 1.0
+        if self.aperture_mode == 2:
+            tpf_stds[ap_size < 8] = 10.0
+            pc_stds[ap_size < 8] = 10.0
             if self.source_info.tc == False:
-                stds_2d[ap_size < 8] = 1.0
+                stds_2d[ap_size < 8] = 10.0
+
+        if self.aperture_mode == 0:
+            if self.source_info.tess_mag < 7:
+                tpf_stds[ap_size < 15] = 10.0
+                pc_stds[ap_size < 15]  = 10.0
+                if self.source_info.tc == False:
+                    stds_2d[ap_size < 15] = 10.0
+
 
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
         best_ind_pc  = np.where(pc_stds == np.nanmin(pc_stds))[0][0]
@@ -692,7 +711,7 @@ class TargetData(object):
                              tpf_stds[best_ind_tpf],
                              stds_2d[best_ind_2d]])
             std_inds = np.array([best_ind_pc, best_ind_tpf, best_ind_2d])
-            types = np.array(['PC_LEVEL', 'TPF_LEVEL', 'TPF_2D_LEVEL'])
+            types = np.array(['PC_LEVEL', 'TPF_LEVEL', '2D_BKG_MODEL'])
 
         else:
             stds = np.array([pc_stds[best_ind_pc],
@@ -703,10 +722,6 @@ class TargetData(object):
         best_ind = std_inds[np.argmin(stds)]
         self.bkg_type = types[np.argmin(stds)]
 
-        ## Checks if postcard or tpf level bkg subtraction is better ##
-        ## Prints bkg_type to TPF header ##
-#            if pc_stds[best_ind_pc] <= tpf_stds[best_ind_tpf]:
-#                best_ind = best_ind_pc
         if self.bkg_type == 'PC_LEVEL':
             self.all_raw_flux  = np.array(all_raw_lc_pc_sub)
             self.all_corr_flux = np.array(all_corr_lc_pc_sub)
@@ -716,9 +731,10 @@ class TargetData(object):
             self.all_raw_flux  = np.array(all_raw_lc_tpf_sub)
             self.all_corr_flux = np.array(all_corr_lc_tpf_sub)
 
-        elif self.bkg_type == 'TPF_2D_LEVEL':
+        elif self.bkg_type == '2D_BKG_MODEL':
             self.all_raw_flux  = np.array(all_raw_lc_tpf_2d_sub)
             self.all_corr_flux = np.array(all_corr_lc_tpf_2d_sub)
+            self.flux_bkg = np.array(np.nansum(self.bkg_tpf*self.all_apertures[best_ind], axis=(1,2)))
 
         if self.language == 'Australian':
             for i in range(len(self.all_raw_flux)):
@@ -802,9 +818,16 @@ class TargetData(object):
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
 
+<<<<<<< HEAD
 
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian',
                        xc=None, yc=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None):
+=======
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
+                       xc=None, yc=None, verbose=True,
+                       err_method=True, ignore_pixels=None,
+                       initial_params=None):
+>>>>>>> tf2
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -857,16 +880,22 @@ class TargetData(object):
         if data_arr is None:
             data_arr = self.tpf + 0.0
             data_arr[np.isnan(data_arr)] = 0.0
-        # data_arr /= (u.electron / u.s)
+            # de-dimensionalize: may want more sophisticated processing later
+        if isinstance(data_arr, u.quantity.Quantity):
+            data_arr = data_arr.value
+        
         if err_arr is None:
             if err_method == True:
                 err_arr = (self.tpf_err + 0.0) ** 2
             else:
                 err_arr = np.ones_like(data_arr)
-        # err_arr /= (u.electron / u.s)
+        if isinstance(err_arr, u.quantity.Quantity):
+            err_arr = err_arr.value
+        
         if bkg_arr is None:
             bkg_arr = self.flux_bkg + 0.0
-        # bkg_arr /= (u.electron / u.s)
+        if isinstance(bkg_arr, u.quantity.Quantity):
+            bkg_arr = bkg_arr.value
 
         if yc is None:
             yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
@@ -1035,20 +1064,28 @@ class TargetData(object):
         return np.append(corr_lc_obj_1.flux, corr_lc_obj_2.flux)
 
 
-    def corrected_flux(self, flux=None, skip=30, modes=3, pca=False, bkg=None, regressors=None):
+    def corrected_flux(self, flux=None, skip=0.25, modes=3, pca=False, bkg=None, regressors=None):
         """
         Corrects for jitter in the light curve by quadratically regressing with centroid position.
         Parameters
         ----------
-        skip: int
-            The number of cadences at the start of each orbit to skip in determining optimal model weights.
-        modes: int
+        skip: float, optional
+            The length of time in days at the start of each orbit to skip in determining optimal model weights.
+            Default is 0.62 days.
+        modes: int, optional
             If doing a PCA-based correction, the number of cotrending basis vectors to regress against.
+            Default is 3.
+        pca : bool, optional
+            Allows users to decide whether or not to use PCA analysis. Default is False.
         regressors : numpy.ndarray or str
             Extra data to regress against in the correction. Should be shape (len(data.time), N) or `'corner'`.
             If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
         """
         self.modes = modes
+
+        tdelt = np.median(np.diff(self.time))
+        skip = int(np.ceil(skip/tdelt))
+
 
         if type(regressors) == str:
             if regressors == 'corner':
@@ -1078,7 +1115,7 @@ class TargetData(object):
         cy = self.centroid_ys
         t  = self.time-self.time[0]
 
-        def calc_corr(mask, cx, cy, skip=50):
+        def calc_corr(mask, cx, cy, skip):
             nonlocal quality, flux, bkg, regressors
 
             badx = np.where(np.abs(cx - np.nanmedian(cx)) > 3*np.std(cx))[0]
@@ -1133,7 +1170,6 @@ class TargetData(object):
                     cm_full = np.column_stack((cm_full, regressors[mask]))
 
             else:
-
                 cm = np.column_stack((vv[qm][skip:], np.ones_like(t[mask][qm][skip:])))
                 cm_full = np.column_stack((vv, np.ones_like(t[mask])))
 
@@ -1148,11 +1184,10 @@ class TargetData(object):
         f   = np.arange(0, brk, 1); s = np.arange(brk, len(self.time), 1)
 
         lc_pred = calc_corr(f, cx, cy, skip)
-
-        corr_f = flux[f]/lc_pred * med
+        corr_f = flux[f]-lc_pred + med
 
         lc_pred = calc_corr(s, cx, cy, skip)
-        corr_s = flux[s]/lc_pred * med
+        corr_s = flux[s]-lc_pred + med
 
         if pca==True:
             self.pca_flux = np.append(corr_f, corr_s)
@@ -1161,7 +1196,7 @@ class TargetData(object):
 
 
 
-    def set_header(self):
+    def set_header(self, lite=False):
         """Defines the header for the TPF."""
         self.header = copy.deepcopy(self.post_obj.header)
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
@@ -1175,6 +1210,8 @@ class TargetData(object):
                                      comment='Filter keyword'))
         self.header.append(fits.Card(keyword='VERSION', value=eleanor.__version__,
                                      comment='eleanor version used for light curve production'))
+        self.header.append(fits.Card(keyword='LITE', value=lite,
+                                     comment='eleanor-lite keyword for saving light curves'))
         self.header.append(fits.Card(keyword='TIC_ID', value=self.source_info.tic,
                                      comment='TESS Input Catalog ID'))
         self.header.append(fits.Card(keyword='TMAG', value=self.source_info.tess_mag,
@@ -1224,12 +1261,8 @@ class TargetData(object):
         self.header.append(fits.Card(keyword='PCORIGIN', value=record_val,
                                      comment='Provenance of eleanor Postcard'))
 
-        #if self.modes is not None:
-        #    self.header.append(fits.Card(keyword='MODES', value=self.modes,
-        #                                 comment='Number of modes used in PCA analysis'))
 
-
-    def save(self, output_fn=None, directory=None):
+    def save(self, output_fn=None, directory=None, lite=False):
         """Saves a created TPF object to a FITS file.
 
         Parameters
@@ -1238,11 +1271,16 @@ class TargetData(object):
             Filename to save output as. Overrides default naming.
         directory : str, optional
             Directory to save file into.
+        lite: bool, optional
+            Whether to only save the light curve and not the target pixel data.
+            Will reduce file size by a factor of ~19x by removing all pixel
+            information and all light curves except the optimal one selected
+            by eleanor.
         """
         if self.language == 'Australian':
             raise ValueError("These light curves are upside down. Please don't save them ...")
 
-        self.set_header()
+        self.set_header(lite=lite)
 
         # if the user did not specify a directory, set it to default
         if directory is None:
@@ -1256,8 +1294,9 @@ class TargetData(object):
         ext1 = Table()
         ext1['TIME']       = self.time
         ext1['BARYCORR']   = self.barycorr
-        ext1['TPF']        = self.tpf
-        ext1['TPF_ERR']    = self.tpf_err
+        if not lite:
+            ext1['TPF']        = self.tpf
+            ext1['TPF_ERR']    = self.tpf_err
         ext1['RAW_FLUX']   = self.raw_flux
         ext1['CORR_FLUX']  = self.corr_flux
         ext1['FLUX_ERR']   = self.flux_err
@@ -1282,8 +1321,16 @@ class TargetData(object):
 
         # Creates table for second extension (all apertures)
         ext2 = Table()
-        for i in range(len(self.all_apertures)):
-            ext2[self.aperture_names[i]] = self.all_apertures[i]
+        # only save the aperture actually used
+        if lite:
+            ext2[self.aperture_names[self.best_ind]] = self.all_apertures[self.best_ind]
+            # put the TPF and TPF_err summary here since it's the same shape
+            # and that appears the easiest way to do this in fits formats
+            ext2['TPF'] = np.nanmedian(self.tpf, axis=0)
+            ext2['TPF_ERR'] = np.nanmedian(self.tpf_err, axis=0)
+        else:
+            for i in range(len(self.all_apertures)):
+                ext2[self.aperture_names[i]] = self.all_apertures[i]
 
         # Creates table for third extention (all raw & corrected fluxes and errors)
         ext3 = Table()
@@ -1298,18 +1345,24 @@ class TargetData(object):
 
         # Writes TPF to FITS file
         primary_hdu = fits.PrimaryHDU(header=self.header)
-        data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
+        if lite:
+            # the third extension is unnecessary for just working with the best light curve
+            data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2)]
+        else:
+            data_list = [primary_hdu, fits.BinTableHDU(ext1), fits.BinTableHDU(ext2), fits.BinTableHDU(ext3)]
         hdu = fits.HDUList(data_list)
 
         if output_fn == None:
-            path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(
+            if lite:
+                path = os.path.join(directory, 'hlsp_eleanor-lite_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(
+                    self.source_info.tic, self.source_info.sector, eleanor.__version__))
+            else:
+                path = os.path.join(directory, 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(
                     self.source_info.tic, self.source_info.sector, eleanor.__version__))
         else:
             path = os.path.join(directory, output_fn)
 
         hdu.writeto(path, overwrite=True)
-
-
 
 
     def load(self, directory=None, fn=None):
@@ -1335,8 +1388,19 @@ class TargetData(object):
         cols  = hdu[1].columns.names
         table = hdu[1].data
         self.time        = table['TIME']
-        self.tpf         = table['TPF']
-        self.tpf_err     = table['TPF_ERR']
+
+        self.lite = self.header['LITE']
+
+        # saved in the full format
+        if self.header['LITE'] == False:
+            self.tpf         = table['TPF']
+            self.tpf_err     = table['TPF_ERR']
+
+        # saved in lite format
+        else:
+            self.tpf         = np.array([hdu[2].data['TPF']])
+            self.tpf_err     = np.array([hdu[2].data['TPF_ERR']])
+
         self.raw_flux    = table['RAW_FLUX']
         self.corr_flux   = table['CORR_FLUX']
         self.flux_err    = table['FLUX_ERR']
@@ -1361,43 +1425,59 @@ class TargetData(object):
         for i in cols:
             if i == 'custom':
                 self.custom_aperture = table[i]
-            elif i == hdr['aperture']:
-                self.aperture = table[i]
-            else:
+            # ignore the TPFs if saved in lite mode
+            elif i not in ['TPF', 'TPF_ERR']:
                 self.all_apertures.append(table[i])
+            # include the chosen aperture in all_apertures as well as selecting
+            # it here
+            if i == hdr['aperture']:
+                self.aperture = table[i]
 
-        # Loads in remaining light curves from third extension
-        cols  = hdu[3].columns.names
-        table = hdu[3].data
-        self.all_raw_flux  = []
-        self.all_corr_flux = []
-        self.all_flux_err  = []
-
-        names = []
-        for i in cols:
-            name = ('_').join(i.split('_')[0:-1])
-            names.append(name)
-
-            if i[-4::] == 'corr':
-                self.all_corr_flux.append(table[i])
-            elif i[-3::] == 'err':
-                self.all_flux_err.append(table[i])
-            else:
-                self.all_raw_flux.append(table[i])
+        # Loads in remaining light curves from third extension if the file
+        # wasn't created in lite mode
+        if self.header['LITE'] == False:
+            cols  = hdu[3].columns.names
+            table = hdu[3].data
+            self.all_raw_flux  = []
+            self.all_corr_flux = []
+            self.all_flux_err  = []
+    
+            names = []
+            for i in cols:
+                name = ('_').join(i.split('_')[0:-1])
+                names.append(name)
+    
+                if i[-4::] == 'corr':
+                    self.all_corr_flux.append(table[i])
+                elif i[-3::] == 'err':
+                    self.all_flux_err.append(table[i])
+                else:
+                    self.all_raw_flux.append(table[i])
+        else:
+            self.all_raw_flux  = None#[self.raw_flux]
+            self.all_corr_flux = None#[self.corr_flux]
+            self.all_flux_err  = None#[self.flux_err]
+            names = [hdr['aperture']]
+            
 
         self.aperture_names = np.unique(names)
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
 
 
-        if self.source_info.tc == False:
 
-            if os.path.isfile(self.source_info.postcard_path) == True:
-                post_fn = self.source_info.postcard_path.split('/')[-1]
-                post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
-                self.post_obj = Postcard(filename=post_fn, location=post_path)
-        else:
-            self.post_obj =Postcard_tesscut(self.source_info.cutout,
-                                            location=self.source_info.postcard_path)
+        try:
+            if self.source_info.tc == False:
+                if os.path.isfile(self.source_info.postcard_path) == True:
+                    post_fn = self.source_info.postcard_path.split('/')[-1]
+                    post_path = '/'.join(self.source_info.postcard_path.split('/')[0:-1])
+                    self.post_obj = Postcard(filename=post_fn, location=post_path)
+            else:
+                self.post_obj =Postcard_tesscut(self.source_info.cutout,
+                                                location=self.source_info.postcard_path)
+
+        except TypeError:
+            print("No postcard object will be created for this target.")
+            pass
 
 
         self.get_cbvs()
