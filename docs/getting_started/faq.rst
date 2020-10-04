@@ -39,7 +39,7 @@ Frequently Asked Questions
 	If these checks don't turn up anything and you suspect a problem with the code, feel free to open a `Git Issue`_.
 
 * How do I cite eleanor in a published work?
-    If you find eleanor light curves useful for your work, please cite Feinstein et al. 2019, PASP in press. A preprint can be found at arXiv:`1903.09152`_.
+    If you find eleanor light curves useful for your work, please cite Feinstein et al. 2019, PASP, 131, 1003. A preprint can be found at arXiv:`1903.09152`_.
 
 
 .. _Git Issue: http://github.com/afeinstein20/eleanor/issues

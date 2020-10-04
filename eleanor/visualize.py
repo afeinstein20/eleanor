@@ -1,3 +1,4 @@
+import sys
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -35,7 +36,6 @@ class Visualize(object):
     def __init__(self, object, obj_type="tpf"):
         self.obj      = object
         self.obj_type = obj_type.lower()
-        self.get_youtube_links()
 
         if self.obj_type == "tpf":
             self.flux   = self.obj.tpf
@@ -48,34 +48,7 @@ class Visualize(object):
             self.dimensions = self.obj.dimensions
 
 
-    def get_youtube_links(self):
-        """
-        Scrapes the YouTube links to Ethan Kruse's TESS: The Movie videos.
-
-        Parameters
-        ----------
-
-        Attributes
-        ----------
-        youtube : dict
-
-        """
-        url = "https://www.youtube.com/user/ethank18/videos"
-        paths = BeautifulSoup(requests.get(url).text, "lxml").find_all('a')
-
-        videos = {}
-
-        for direct in paths:
-            name = str(direct.get('title'))
-            if 'TESS: The Movie.' in name:
-                sector = int(name.split(',')[0].split('.')[-1].split(' ')[-1])
-                link = direct.get('href')
-                link_path = "https://www.youtube.com/" + link
-                videos[sector] = link_path
-        self.youtube = videos
-
-
-    def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, **kwargs):
+    def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, ax=None, **kwargs):
         """
         Overplots the countour of an aperture on a target pixel file.
         Contribution from Gijs Mulders.
@@ -90,14 +63,16 @@ class Visualize(object):
             Default is red.
         ap_linewidth : int, optional
             The linewidth of the aperture contour. Default is 4.
+        ax : matplotlib.axes._subplots.AxesSubplot, optional
+            Axes to plot on. 
         """
-
-        fig = plt.figure()
+        if ax == None:
+            fig, ax = plt.subplots(nrows=1)
 
         if aperture is None:
             aperture = self.obj.aperture
 
-        plt.imshow(self.obj.tpf[0], **kwargs)
+        ax.imshow(self.obj.tpf[0], **kwargs)
 
         f = lambda x,y: aperture[int(y),int(x) ]
         g = np.vectorize(f)
@@ -107,16 +82,19 @@ class Visualize(object):
         X, Y= np.meshgrid(x[:-1],y[:-1])
         Z = g(X[:-1],Y[:-1])
 
-        plt.contour(Z[::-1], [0.5], colors=ap_color, linewidths=[ap_linewidth],
+        ax.contour(Z, [0.05], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
 
-        return fig
+        if ax == None:
+            return fig
 
 
 
     def pixel_by_pixel(self, colrange=None, rowrange=None, cmap='viridis',
                        data_type="corrected", mask=None, xlim=None,
-                       ylim=None, color_by_pixel=False, freq_range=[1/20., 1/0.1]):
+                       ylim=None, color_by_pixel=False, color_by_aperture=True,
+                       freq_range=[1/20., 1/0.1], aperture=None, ap_color='r',
+                       ap_linewidth=2):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
         Contribution from Oliver Hall.
@@ -151,6 +129,11 @@ class Visualize(object):
              periodogram. Only used if data_type = 'periodogram'. If None,
              default = [1/20., 1/0.1].
         """
+        if self.obj.lite:
+            print('This is an eleanor-lite object. No pixel_by_pixel visualization can be created.')
+            print('Please create a regular eleanor.TargetData object (lite=False) to use this tool.')
+            return
+
         if colrange is None:
             colrange = [0, self.dimensions[1]]
 
@@ -179,19 +162,40 @@ class Visualize(object):
 
 
         ## PLOTS TARGET PIXEL FILE ##
+            
         ax = plt.subplot(outer[0])
+        
+        if aperture is None:
+            aperture = self.obj.aperture
 
-        c = ax.imshow(self.flux[100, rowrange[0]:rowrange[1],
-                                colrange[0]:colrange[1]],
-                      vmax=np.percentile(self.flux[100], 95),
+        plotflux = np.nanmedian(self.flux[:, rowrange[0]:rowrange[1], 
+                                          colrange[0]:colrange[1]], axis=0)
+        c = ax.imshow(plotflux,
+                      vmax=np.percentile(plotflux, 95),
                       cmap=cmap)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.15)
         plt.colorbar(c, cax=cax, orientation='vertical')
+            
+        f = lambda x,y: aperture[int(y),int(x) ]
+        g = np.vectorize(f)
+
+        x = np.linspace(colrange[0],colrange[1], nrows*100)
+        y = np.linspace(rowrange[0],rowrange[1], ncols*100)
+        X, Y= np.meshgrid(x[:-1],y[:-1])
+        Z = g(X[:-1],Y[:-1])
+
+        ax.contour(Z, [0.05], 
+                   colors=ap_color, linewidths=[ap_linewidth],
+                    extent=[0-0.5, nrows-0.5,0-0.5, ncols-0.5])
 
         ## PLOTS PIXEL LIGHT CURVES ##
         for ind in range( int(nrows * ncols) ):
-            ax = plt.Subplot(figure, inner[ind])
+            if ind == 0:                
+                ax = plt.Subplot(figure, inner[ind])
+                origax = ax
+            else:
+                ax = plt.Subplot(figure, inner[ind], sharex=origax)
 
             flux = self.flux[:,i,j]
             time = self.obj.time
@@ -225,6 +229,11 @@ class Visualize(object):
                 color = matplotlib.colors.rgb2hex(rgb)
 
             ax.plot(x, y, c=color)
+            
+            if color_by_aperture and aperture[i,j] > 0:
+                for iax in ['top', 'bottom', 'left', 'right']:
+                    ax.spines[iax].set_color(ap_color)
+                    ax.spines[iax].set_linewidth(ap_linewidth)
 
             j += 1
             if j == colrange[1]:
@@ -247,8 +256,6 @@ class Visualize(object):
                 ax.set_ylim(y.min(), y.max())
                 ax.set_xlim(np.min(x),
                             np.max(x))
-#                ax.set_xticks([])
-#                ax.set_yticks([])
 
             ax.set_xticks([])
             ax.set_yticks([])
@@ -282,17 +289,45 @@ class Visualize(object):
                 return 'terminal'
 
         sector = self.obj.source_info.sector
-        self.movie_url = self.youtube[sector]
 
-        call_location = type_of_script()
+        base="https://www.youtube.com/results?search_query="
+        query="TESS+the+movie+sector+{0}+ethankruse".format(sector)
 
-        if (call_location == 'terminal') or (call_location == 'ipython'):
-            os.system('python -m webbrowser -t "{0}"'.format(self.movie_url))
+        soup = BeautifulSoup(requests.get(base+query).text, "html.parser").find_all('script')[26]
 
-        elif (call_location == 'jupyter'):
-            from IPython.display import YouTubeVideo
-            id = self.movie_url.split('=')[-1]
-            return YouTubeVideo(id=id, width=900, height=500)
+        items = soup.text
+        items = items.split('\n')[1].split('title')
+
+        good_sector=0
+
+        for subitem in items:
+            j = subitem.find('Sector')
+            if j > 0 and 'TESS: The Movie' in subitem:
+                
+                sect = subitem[j:j+100].split(',')[0].split(' ')[-1]
+                
+                if int(sect) == int(sector):
+                    i = subitem.find('/watch?v')
+                    ext = subitem[i:i+100].split('"')[0]
+                    good_sector=1
+                    break
+
+        if good_sector == 1:
+            self.movie_url = 'https://www.youtube.com{0}'.format(ext)
+            
+            call_location = type_of_script()
+            
+            if (call_location == 'terminal') or (call_location == 'ipython'):
+                os.system('python -m webbrowser -t "{0}"'.format(self.movie_url))
+
+            elif (call_location == 'jupyter'):
+                from IPython.display import YouTubeVideo
+                id = self.movie_url.split('=')[-1]
+                return YouTubeVideo(id=id, width=900, height=500)
+
+        else:
+            print('No movie is available yet.')
+            return
 
 
     def plot_gaia_overlay(self, tic=None, tpf=None, magnitude_limit=18):
