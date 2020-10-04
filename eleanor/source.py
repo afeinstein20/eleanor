@@ -247,7 +247,10 @@ class Source(object):
                 self.tess_mag = self.tess_mag[0] 
                 
             self.locate_on_tess()
-            self.tesscut_size = tesscut_size
+            if isinstance(tesscut_size, list):
+                self.tesscut_size = tesscut_size
+            elif isinstance(tesscut_size, int):
+                self.tesscut_size = [tesscut_size, tesscut_size]
             
             if not os.path.isdir(self.metadata_path + '/metadata/s{:04d}'.format(self.sector)):
                 Update(sector=self.sector)
