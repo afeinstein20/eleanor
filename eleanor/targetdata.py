@@ -818,16 +818,9 @@ class TargetData(object):
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
 
-<<<<<<< HEAD
 
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian',
-                       xc=None, yc=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None):
-=======
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
-                       xc=None, yc=None, verbose=True,
-                       err_method=True, ignore_pixels=None,
-                       initial_params=None):
->>>>>>> tf2
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, verbose=True, err_method=True, ignore_pixels=None, 
+    initial_params=None):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -868,11 +861,10 @@ class TargetData(object):
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
 
-        # from .optimizer import OptimizerAPI
-        from .models import Gaussian, Moffat, Zernike, Lygos
+        from .models import Gaussian, Moffat, Zernike, Lygos, MultiGaussian
         from tqdm import tqdm
 
-        implemented_models = ['Gaussian', 'Moffat', 'Zernike', 'Lygos']
+        implemented_models = ['Gaussian', 'Moffat', 'MultiGaussian', 'Zernike', 'Lygos']
 
         star_idx_to_fit = 0
         assert star_idx_to_fit < nstars
@@ -902,6 +894,7 @@ class TargetData(object):
         if xc is None:
             xc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[0]
 
+
         dsum = np.nansum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
         if len(modepix[0]) > 2.5:
@@ -928,10 +921,15 @@ class TargetData(object):
             xc = xc,
             yc = yc,
             nstars = nstars,
+            fit_idx = star_idx_to_fit,
             bkg0 = bkg_arr[0]
         )
 
-        par = np.concatenate((np.max(data_arr[0]) * np.ones(nstars,), np.array([0, 0, bkg_arr[0], 1, 0, 1])))
+        par = np.concatenate((
+            np.max(data_arr[0]) * np.ones(nstars,), 
+            np.array([0, 0, bkg_arr[0]]), 
+            model.get_default_optpars() 
+        ))
         params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
 
         if likelihood == "gaussian":
@@ -951,7 +949,6 @@ class TargetData(object):
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
             return loss(mean_val, i)
 
-        #optimizer = OptimizerAPI(model, variables=var_list, bounds=bounds, likelihood=likelihood)
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))

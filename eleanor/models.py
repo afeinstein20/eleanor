@@ -21,13 +21,14 @@ class Model(ABC):
 		column and row coordinates of the bottom
 		left corner of the TPF
 	"""
-	def __init__(self, shape, col_ref, row_ref, xc, yc, nstars, bkg0, **kwargs):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, nstars, fit_idx, bkg0, **kwargs):
 		self.shape = shape
 		self.col_ref = col_ref
 		self.row_ref = row_ref
 		self.xc = xc
 		self.yc = yc
 		self.nstars = nstars
+		self.fit_idx = fit_idx
 		self.bkg0 = bkg0
 		self._init_grid()
 
@@ -35,12 +36,6 @@ class Model(ABC):
 		return self.evaluate(*params)
 
 	def default_params(self, *args):
-		pass
-
-	def set_fixed_params(self, *args):
-		pass
-
-	def mean_model(self, *args):
 		pass
 
 	def evaluate(self, *args):
@@ -52,7 +47,7 @@ class Model(ABC):
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
 	def mean(self, flux, xshift, yshift, bkg, optpars):
-		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, *optpars) for j in range(self.nstars)], axis=0) + bkg
+		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(self.nstars)], axis=0) + bkg
 
 	def get_default_par(self, d0):
 		return np.concatenate((np.max(d0) * np.ones(self.nstars,), np.array([0, 0, self.bkg0], self.get_default_optpars())))
@@ -75,7 +70,7 @@ class Gaussian(Model):
 	def get_default_optpars(self):
 		return np.array([1, 0, 1], dtype=np.float64)
 
-	def evaluate(self, flux, xo, yo, a, b, c):
+	def evaluate(self, flux, xo, yo, params):
 		"""
 		Evaluate the Gaussian model
 		Parameters
@@ -91,6 +86,7 @@ class Gaussian(Model):
 		----------
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
+		a, b, c = params
 		dx = self.x - xo
 		dy = self.y - yo
 		psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
@@ -104,7 +100,7 @@ class Gaussian(Model):
 		return flux * psf / psf_sum
 
 class Moffat(Model):
-	def default_params(self):
+	def get_default_optpars(self):
 		return np.array([1, 0, 1, 1], dtype=np.float64) # a, b, c, beta
 
 	def mean_model(self, flux, xc, yc, xshift, yshift, params, nstars):
@@ -244,33 +240,39 @@ class Lygos(Model):
 
 class MultiGaussian(Model):
 	"""
-	
+	Gaussians for N stars at a time, with a parameter for saturation.
+	model = sum_star (star_ampl) * min(exp(-(dx, dy) * Sigma_star_inv * (dx, dy), star_sat))
 	"""
 	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
+		# in order: flux, amplitude, a, b, c, saturation
+		n = self.nstars
 		self.bounds = np.vstack((
 				np.tile([0, np.infty], (self.nstars, 1)),
-				np.array([
-					[-1.0, 1.0],
-					[-1.0, 1.0],
-					[0, np.infty],
-					[0, np.infty],
-					[-0.5, 0.5],
-					[0, np.infty],
-				])
+				np.tile([-1.0, 1.0], (2, 1)),
+				np.array([0, np.infty]),
+				np.tile([0., 10.], (self.nstars, 1)),				
+				np.tile([0, np.infty], (self.nstars, 1)),
+				np.tile([0, np.infty], (self.nstars, 1)),
+				np.tile([-0.5, 0.5], (self.nstars, 1)),
+				np.tile([0., 9.9], (self.nstars, 1))
 			))
 
 	def get_default_optpars(self):
-		return np.array([1, 0, 1], dtype=np.float64)
+		# amplitude, a, b, c, saturation
+		return np.repeat(np.array([1, 1, 1, 0, 0.1], dtype=np.float64), self.nstars)
 
-	def evaluate(self, flux, xo, yo, a, b, c):
+	def mean(self, flux, xshift, yshift, bkg, optpars):
+		# due to multiple fits at once, this overrides the default mean
+		# as we don't want to average over all the star fits.
+		return self.evaluate(flux, self.xc[self.fit_idx]+xshift, self.yc[self.fit_idx]+yshift, optpars) + bkg
+
+	def evaluate(self, flux, xo, yo, params):
 		"""
 		Evaluate the Gaussian model
 		Parameters
 		----------
 		flux : np.ndarray, (nstars,)
-		xo, yo : tf.Variable, tf.Variable
-			Center coordinates of the Gaussian.
 		a, b, c : tf.Variable, tf.Variable
 			Parameters that control the rotation angle
 			and the stretch along the major axis of the Gaussian,
@@ -279,11 +281,19 @@ class MultiGaussian(Model):
 		----------
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
-		dx = self.x - xo
-		dy = self.y - yo
-		psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+		amplitudes, a, b, c, saturations = (params[i : i + self.nstars] for i in range(0, len(params), self.nstars))
+		psf = np.zeros_like(self.x)
+		for i in range(self.nstars):
+			if i == self.fit_idx:
+				# only consider motion of the target star for simplicity
+				xs, ys = xo, yo
+			else:
+				xs, ys = self.xc[i], self.yc[i]
+			dx = self.x - xs
+			dy = self.y - xs
+			psf += amplitudes[i] * np.minimum(saturations[i], np.exp(-(a[i] * dx ** 2 + 2 * b[i] * dx * dy + c[i] * dy ** 2)))
 		psf_sum = np.sum(psf)
-		return flux * psf / psf_sum
+		return flux[self.fit_idx] * psf / psf_sum
 
 	
 class Moffat(Model):
