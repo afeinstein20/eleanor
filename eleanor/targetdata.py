@@ -954,7 +954,7 @@ class TargetData(object):
         llout = np.zeros(len(data_arr))
         
         for i in tqdm(range(len(data_arr))):
-            par = minimize(nll, par, i, method='TNC', tol=1e-4).x
+            par = minimize(nll, par, i, method='Nelder-Mead').x
             fout[i] = par[:nstars]
             bkgout[i] = par[-1]
             params_out[i] = par[nstars:-1]

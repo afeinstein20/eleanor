@@ -246,22 +246,19 @@ class MultiGaussian(Model):
 	"""
 	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
-		# in order: flux, amplitude, a, b, c, saturation
 		n = self.nstars
 		self.bounds = np.vstack((
-				np.tile([0, np.infty], (self.nstars, 1)),
-				np.tile([-1.0, 1.0], (2, 1)),
-				np.array([0, np.infty]),
-				np.tile([0., 10.], (self.nstars, 1)),				
-				np.tile([0, np.infty], (self.nstars, 1)),
-				np.tile([0, np.infty], (self.nstars, 1)),
-				np.tile([-0.5, 0.5], (self.nstars, 1)),
-				np.tile([0., 9.9], (self.nstars, 1))
+				np.tile([0, np.infty], (self.nstars, 1)), # flux
+				np.tile([-1.0, 1.0], (2, 1)), # xshift, yshift
+				np.array([0, np.infty]), # bkg
+				np.tile([0, np.infty], (self.nstars, 1)), # a
+				np.tile([-0.5, 0.5], (self.nstars, 1)), # b
+				np.tile([0, np.infty], (self.nstars, 1)), # c
 			))
 
 	def get_default_optpars(self):
 		# amplitude, a, b, c, saturation
-		return np.repeat(np.array([1, 1, 1, 0, 0.1], dtype=np.float64), self.nstars)
+		return np.repeat(np.array([1, 0.1, 1], dtype=np.float64), self.nstars)
 
 	def mean(self, flux, xshift, yshift, bkg, optpars):
 		# due to multiple fits at once, this overrides the default mean
@@ -282,8 +279,9 @@ class MultiGaussian(Model):
 		----------
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
-		amplitudes, a, b, c, saturations = (params[i : i + self.nstars] for i in range(0, len(params), self.nstars))
-		psf = np.zeros_like(self.x)
+		a, b, c = (params[i : i + self.nstars] for i in range(0, len(params), self.nstars))
+		psf_flux = np.zeros_like(self.x)
+		psf_sum = 0
 		for i in range(self.nstars):
 			if i == self.fit_idx:
 				# only consider motion of the target star for simplicity
@@ -292,9 +290,10 @@ class MultiGaussian(Model):
 				xs, ys = self.xc[i], self.yc[i]
 			dx = self.x - xs
 			dy = self.y - xs
-			psf += np.exp(-(a[i] * dx ** 2 + 2 * b[i] * dx * dy + c[i] * dy ** 2))
-		psf_sum = np.sum(psf)
-		return flux[self.fit_idx] * psf / psf_sum
+			psf = np.exp(-(a[i] * dx ** 2 + 2 * b[i] * dx * dy + c[i] * dy ** 2))
+			psf_flux += flux[i] * psf / np.sum(psf)
+		
+		return psf_flux
 
 	
 class Moffat(Model):
