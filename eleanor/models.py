@@ -64,11 +64,12 @@ class Gaussian(Model):
 					[0, np.infty],
 					[-0.5, 0.5],
 					[0, np.infty],
+					[0.0, np.infty]
 				])
 			))
 
 	def get_default_optpars(self):
-		return np.array([1, 0, 1], dtype=np.float64)
+		return np.array([1, 0, 1, 1], dtype=np.float64)
 
 	def evaluate(self, flux, xo, yo, params):
 		"""
@@ -86,10 +87,10 @@ class Gaussian(Model):
 		----------
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
-		a, b, c = params
+		a, b, c, sat = params
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+		psf = np.minimum(sat, np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2)))
 		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 
