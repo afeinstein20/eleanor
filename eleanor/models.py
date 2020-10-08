@@ -292,7 +292,7 @@ class MultiGaussian(Model):
 				xs, ys = self.xc[i], self.yc[i]
 			dx = self.x - xs
 			dy = self.y - xs
-			psf += amplitudes[i] * np.minimum(saturations[i], np.exp(-(a[i] * dx ** 2 + 2 * b[i] * dx * dy + c[i] * dy ** 2)))
+			psf += np.exp(-(a[i] * dx ** 2 + 2 * b[i] * dx * dy + c[i] * dy ** 2))
 		psf_sum = np.sum(psf)
 		return flux[self.fit_idx] * psf / psf_sum
 
