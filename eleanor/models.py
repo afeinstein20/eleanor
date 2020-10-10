@@ -256,7 +256,7 @@ class MultiGaussian(Model):
 					[-0.5, 0.5],
 					[0, np.infty]
 				]), # center a, b, c
-				np.tile([-0.05, 0.05], (3 * (self.nstars - 1), 1)) # drifts on a, b, c
+				np.tile([-0.01, 0.01], (3 * (self.nstars - 1), 1)) # drifts on a, b, c
 			))
 
 	def get_default_optpars(self):
@@ -304,7 +304,7 @@ class MultiGaussian(Model):
 					drift_ind = 3 * i
 				else:
 					drift_ind = 3 * (i - 1)
-				a, b, c = params[:3]# + params[drift_ind:drift_ind+3]
+				a, b, c = params[:3] + params[drift_ind:drift_ind+3]
 			dx = self.x - xs
 			dy = self.y - ys
 			psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
