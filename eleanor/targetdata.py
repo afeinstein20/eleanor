@@ -939,14 +939,24 @@ class TargetData(object):
         else:
             raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
+        normalized_avg_tpf = np.mean(data_arr, axis=0)
+        normalized_avg_tpf /= np.sum(normalized_avg_tpf)
+
+        def psf_nll(optpars):
+            modelled_tpf = model(1, 0, 0, optpars)
+            modelled_tpf /= np.sum(modelled_tpf)
+            return np.sum((modelled_tpf - normalized_avg_tpf) ** 2)
+
+        best_optpars = minimize(psf_nll, model.get_default_optpars())
+
         def nll(params, i):
-            for j, p in enumerate(params):
+            for j, p in enumerate(params[:nstars+3]):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
+
             fluxes = params[:nstars]
             xshift, yshift, bkg = params[nstars:nstars+3]
-            optpars = params[nstars+3:]
-            mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
+            mean_val = model.mean(fluxes, xshift, yshift, bkg, best_optpars)
             return loss(mean_val, i)
 
         fout = np.zeros((len(data_arr), nstars))

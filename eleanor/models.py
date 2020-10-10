@@ -94,10 +94,46 @@ class Gaussian(Model):
 		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 
-		dx = torch.tensor(self.x - xo.detach().numpy())
-		dy = torch.tensor(self.y - yo.detach().numpy())
-		psf = torch.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
-		psf_sum = torch.sum(psf)
+class Gaussian(Model):
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
+		self.bounds = np.vstack((
+				np.tile([0, np.infty], (self.nstars, 1)),
+				np.array([
+					[-1.0, 1.0],
+					[-1.0, 1.0],
+					[0, np.infty],
+					[0, np.infty],
+					[-0.5, 0.5],
+					[0, np.infty],
+					[0.0, np.infty]
+				])
+			))
+
+	def get_default_optpars(self):
+		return np.array([1, 0, 1, 1], dtype=np.float64)
+
+	def evaluate(self, flux, xo, yo, params):
+		"""
+		Evaluate the Gaussian model
+		Parameters
+		----------
+		flux : np.ndarray, (nstars,)
+		xo, yo : scalar
+			Center coordinates of the Gaussian.
+		a, b, c : scalar
+			Parameters that control the rotation angle
+			and the stretch along the major axis of the Gaussian,
+			such that the matrix M = [a b ; b c] is positive-definite.
+		References
+		----------
+		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
+		"""
+		a, b, c, sat = params
+		dx = self.x - xo
+		dy = self.y - yo
+		psf = np.minimum(sat, np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2)))
+		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 
 class Moffat(Model):
