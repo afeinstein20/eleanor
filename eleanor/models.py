@@ -241,8 +241,8 @@ class Lygos(Model):
 
 class MultiGaussian(Model):
 	"""
-	Gaussians for N stars at a time, with a parameter for saturation.
-	model = sum_star (star_ampl) * min(exp(-(dx, dy) * Sigma_star_inv * (dx, dy), star_sat))
+	Gaussians for N stars at a time.
+	model = sum_star flux_star * min(exp(-(dx, dy) * Sigma_star_inv * (dx, dy), star_sat))
 	"""
 	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
@@ -251,14 +251,20 @@ class MultiGaussian(Model):
 				np.tile([0, np.infty], (self.nstars, 1)), # flux
 				np.tile([-1.0, 1.0], (2, 1)), # xshift, yshift
 				np.array([0, np.infty]), # bkg
-				np.tile([0, np.infty], (self.nstars, 1)), # a
-				np.tile([-0.5, 0.5], (self.nstars, 1)), # b
-				np.tile([0, np.infty], (self.nstars, 1)), # c
+				np.array([
+					[0, np.infty],
+					[-0.5, 0.5],
+					[0, np.infty]
+				]), # center a, b, c
+				np.tile([-0.05, 0.05], (3 * (self.nstars - 1), 1)) # drifts on a, b, c
 			))
 
 	def get_default_optpars(self):
-		# amplitude, a, b, c, saturation
-		return np.repeat(np.array([1, 0.1, 1], dtype=np.float64), self.nstars)
+		# a, b, c and the drifts on each
+		return np.concatenate((
+			np.array([1, 0.1, 1], dtype=np.float64),
+			np.repeat([0.], 3 * (self.nstars - 1))
+		))
 
 	def mean(self, flux, xshift, yshift, bkg, optpars):
 		# due to multiple fits at once, this overrides the default mean
@@ -270,27 +276,38 @@ class MultiGaussian(Model):
 		Evaluate the Gaussian model
 		Parameters
 		----------
-		flux : np.ndarray, (nstars,)
-		a, b, c : tf.Variable, tf.Variable
+		flux : np.ndarray, (self.nstars,)
+		xo, yo : scalar
+			The drift on the target star.
+		params : np.ndarray, (3 * self.nstars,)
+			params[0 : 3] - a, b, c
 			Parameters that control the rotation angle
 			and the stretch along the major axis of the Gaussian,
 			such that the matrix M = [a b ; b c] is positive-definite.
+			
+			params[3 : 3 * self.nstars]
+			Parameters representing the deviation from a, b, c on the other stars,
+			e.g. on the first background star, a = params[0] + params[3], b = params[1] + params[4]
 		References
 		----------
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
-		a, b, c = (params[i : i + self.nstars] for i in range(0, len(params), self.nstars))
 		psf_flux = np.zeros_like(self.x)
-		psf_sum = 0
 		for i in range(self.nstars):
 			if i == self.fit_idx:
 				# only consider motion of the target star for simplicity
 				xs, ys = xo, yo
+				a, b, c = params[:3]
 			else:
 				xs, ys = self.xc[i], self.yc[i]
+				if i > self.fit_idx:
+					drift_ind = 3 * i
+				else:
+					drift_ind = 3 * (i - 1)
+				a, b, c = params[:3]# + params[drift_ind:drift_ind+3]
 			dx = self.x - xs
-			dy = self.y - xs
-			psf = np.exp(-(a[i] * dx ** 2 + 2 * b[i] * dx * dy + c[i] * dy ** 2))
+			dy = self.y - ys
+			psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
 			psf_flux += flux[i] * psf / np.sum(psf)
 		
 		return psf_flux
