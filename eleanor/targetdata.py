@@ -4,7 +4,7 @@ from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from photutils import MMMBackground
 from lightkurve import SFFCorrector, lightcurve
-from scipy.optimize import minimize
+from scipy.optimize import minimize, differential_evolution
 from astropy import time, coordinates as coord, units as u
 from astropy.coordinates import SkyCoord, Angle
 from astropy.table import Table, Column
@@ -18,6 +18,9 @@ from scipy.signal import savgol_filter
 from urllib.request import urlopen
 from functools import reduce
 import os, sys, copy
+import requests
+import pandas as pd
+from io import BytesIO
 import os.path
 import warnings
 import pickle
@@ -349,6 +352,34 @@ class TargetData(object):
             x_low_bkg = med_x - height + (post_x_upp - med_x)
 
         return x_low_lim, x_upp_lim, y_low_lim, y_upp_lim, med_x, med_y
+
+    def get_pointings(self):
+        '''
+        Get the CSV for pointings in the current sector/cam/CCD combination, to query for neighbors.
+        TODO: currently, this only returns pointings of stars on the TESS target list, not the full TIC.
+        Needs to be enhanced to use CASjobs or similar,
+        or `get_stars_in_tpf` needs to be made to actually work.
+
+        Returns
+        ---------
+        pointings : pd.DataFrame
+            DataFrame consisting of all the stars sharing the same sector+cam+CCD as `self.source`.
+        '''
+        sector, cam, ccd = self.source_info.sector, self.source_info.camera, self.source_info.chip
+        pointpath = os.path.join(self.source_info.eleanorpath, "pointings")
+        if not os.path.exists(pointpath):
+            os.mkdir(pointpath)
+        fname = "tess_pointings_sec{}_camccd_{}_{}.csv".format(str(sector).zfill(2), cam, ccd)
+        fpath = os.path.join(pointpath, fname)
+        if os.path.isfile(fpath):
+            return pd.read_csv(fpath).drop(columns=["Unnamed: 0"])
+        else:
+            r = requests.get("https://aditya-sengupta.github.io/tesspointings/" + fname)
+            # stopgap for better host / create on the fly? this is ok for now
+            pointings = pd.read_csv(BytesIO(r.content)).drop(columns=["Unnamed: 0"])
+            pointings.to_csv(fpath)
+            return pointings
+            
 
     def get_stars_in_tpf(self, pos, height, width, tmag_cut=14):
         """
@@ -818,10 +849,9 @@ class TargetData(object):
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
 
-
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, verbose=True, err_method=True, ignore_pixels=None, 
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, 
     initial_params=None):
-        """
+        """_
         Performs PSF photometry for a selection of stars on a TPF.
 
         Parameters
@@ -848,6 +878,8 @@ class TargetData(object):
             The y-coordinates of stars in the zeroth cadence. Must have length `nstars`.
             While the positions of stars will be fit in all cadences, the relative positions of
             stars will be fixed following the delta values from this list.
+        magnitudes: list, optional
+            The magnitudes of stars. Must have length `nstars`.
         verbose: bool, optional
             If True, return information about the shape of the PSF at every cadence as well as the
             PSF-inferred centroid shape.
@@ -889,11 +921,28 @@ class TargetData(object):
         if isinstance(bkg_arr, u.quantity.Quantity):
             bkg_arr = bkg_arr.value
 
+        normalized_avg_tpf = np.mean(data_arr, axis=0)
+        normalized_avg_tpf /= np.sum(normalized_avg_tpf)
+
         if yc is None:
             yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
         if xc is None:
             xc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[0]
 
+        if magnitudes is None:
+            magnitudes = []
+            for x, y in zip(xc, yc):
+                x_f, x_c = int(np.floor(x)), int(np.ceil(x))
+                y_f, y_c = int(np.floor(y)), int(np.ceil(y))
+                xr, yr = x - x_f, y - y_f
+                edges = [normalized_avg_tpf[i,j] for (i,j) in [[x_f, y_f], [x_f, y_c], [x_c, y_f], [x_c, y_c]]]
+                wts = [(1 - xr) * (1 - yr), (1 - xr) * yr, xr * (1 - yr), xr * yr]
+                magnitudes.append(sum(w * e for w, e in zip(wts, edges)))
+
+            magnitudes = np.ones(nstars) 
+            # we only care about relative magnitude for now, so this is saying 
+            # all stars in the field are equally bright (usually not true)'''
+        # TODO fill in TIC/MAST lookup here
 
         dsum = np.nansum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
@@ -924,12 +973,13 @@ class TargetData(object):
             fit_idx = star_idx_to_fit,
             bkg0 = bkg_arr[0]
         )
+        
 
-        par = np.concatenate((
-            np.max(data_arr[0]) * np.ones(nstars,), 
-            np.array([0, 0, bkg_arr[0]]), 
-            model.get_default_optpars() 
-        ))
+        fluxes = np.max(data_arr[0]) * np.ones(nstars,) # flux of each star
+        globalpars = np.array([0, 0, bkg_arr[0]]) # xshift, yshift of target star; background
+        optpars = model.get_default_optpars() # model-specific optimization parameters
+
+        par = np.concatenate((fluxes, globalpars, optpars))
         params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
 
         if likelihood == "gaussian":
@@ -939,15 +989,18 @@ class TargetData(object):
         else:
             raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
-        normalized_avg_tpf = np.mean(data_arr, axis=0)
-        normalized_avg_tpf /= np.sum(normalized_avg_tpf)
-
         def psf_nll(optpars):
-            modelled_tpf = model(1, 0, 0, optpars)
+            for j, p in enumerate(optpars):
+                if not(model.bounds[j+nstars+3, 0] <= p and p <= model.bounds[j+nstars+3, 1]):
+                    return np.infty
+
+            modelled_tpf = model.mean(magnitudes, 0, 0, bkg_arr[0], optpars)
             modelled_tpf /= np.sum(modelled_tpf)
             return np.sum((modelled_tpf - normalized_avg_tpf) ** 2)
 
-        best_optpars = minimize(psf_nll, model.get_default_optpars())
+        best_optpars = minimize(psf_nll, optpars, method='Nelder-Mead').x
+        print("PSF optimum found", best_optpars)
+        par[-len(optpars):] = best_optpars
 
         def nll(params, i):
             for j, p in enumerate(params[:nstars+3]):
@@ -964,7 +1017,7 @@ class TargetData(object):
         llout = np.zeros(len(data_arr))
         
         for i in tqdm(range(len(data_arr))):
-            par = minimize(nll, par, i, method='Nelder-Mead', tol=1e-4).x
+            par = minimize(nll, par, i, method='TNC', tol=1e-4).x
             fout[i] = par[:nstars]
             bkgout[i] = par[-1]
             params_out[i] = par[nstars:-1]

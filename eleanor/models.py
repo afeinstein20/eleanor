@@ -111,7 +111,7 @@ class Gaussian(Model):
 			))
 
 	def get_default_optpars(self):
-		return np.array([1, 0, 1, 1], dtype=np.float64)
+		return np.array([1, 0, 1], dtype=np.float64)
 
 	def evaluate(self, flux, xo, yo, params):
 		"""
@@ -129,10 +129,10 @@ class Gaussian(Model):
 		----------
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
-		a, b, c, sat = params
+		a, b, c = params
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = np.minimum(sat, np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2)))
+		psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
 		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 
