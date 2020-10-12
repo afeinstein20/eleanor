@@ -1015,7 +1015,6 @@ class TargetData(object):
             fit_idx = star_idx_to_fit,
             bkg0 = bkg_arr[0]
         )
-        
 
         fluxes = np.max(data_arr[0]) * np.ones(nstars,) # flux of each star
         globalpars = np.array([0, 0, bkg_arr[0]]) # xshift, yshift of target star; background
@@ -1031,27 +1030,14 @@ class TargetData(object):
         else:
             raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
-        def psf_nll(optpars):
-            for j, p in enumerate(optpars):
-                if not(model.bounds[j+nstars+3, 0] <= p and p <= model.bounds[j+nstars+3, 1]):
-                    return np.infty
-
-            modelled_tpf = model.mean(magnitudes, 0, 0, bkg_arr[0], optpars)
-            modelled_tpf /= np.sum(modelled_tpf)
-            return np.sum((modelled_tpf - normalized_avg_tpf) ** 2)
-
-        best_optpars = minimize(psf_nll, optpars, method='Nelder-Mead').x
-        print("PSF optimum found", best_optpars)
-        par[-len(optpars):] = best_optpars
-
         def nll(params, i):
-            for j, p in enumerate(params[:nstars+3]):
+            for j, p in enumerate(params):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
-
             fluxes = params[:nstars]
             xshift, yshift, bkg = params[nstars:nstars+3]
-            mean_val = model.mean(fluxes, xshift, yshift, bkg, best_optpars)
+            optpars = params[nstars+3:]
+            mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
             return loss(mean_val, i)
 
         fout = np.zeros((len(data_arr), nstars))
@@ -1059,7 +1045,7 @@ class TargetData(object):
         llout = np.zeros(len(data_arr))
         
         for i in tqdm(range(len(data_arr))):
-            par = minimize(nll, par, i, method='TNC', tol=1e-4).x
+            par = minimize(nll, par, i, method='Nelder-Mead', tol=1e-4).x
             fout[i] = par[:nstars]
             bkgout[i] = par[-1]
             params_out[i] = par[nstars:-1]

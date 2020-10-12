@@ -2,8 +2,7 @@ import math
 import os
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
-import numpy as np
-import torch
+import autograd.numpy as np
 import warnings
 from abc import ABC
 
@@ -31,6 +30,14 @@ class Model(ABC):
 		self.fit_idx = fit_idx
 		self.bkg0 = bkg0
 		self._init_grid()
+		self.bounds = np.vstack((
+				np.tile([0, np.infty], (self.nstars, 1)), # fluxes on each star
+				np.array([
+					[-1.0, 1.0], # xshift of the star to fit
+					[-1.0, 1.0], # yshift of the star to fit
+					[0, np.infty] # background average
+				])
+		))
 
 	def __call__(self, *params):
 		return self.evaluate(*params)
@@ -50,63 +57,21 @@ class Model(ABC):
 		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(self.nstars)], axis=0) + bkg
 
 	def get_default_par(self, d0):
-		return np.concatenate((np.max(d0) * np.ones(self.nstars,), np.array([0, 0, self.bkg0], self.get_default_optpars())))
+		return np.concatenate((
+			np.max(d0) * np.ones(self.nstars,),
+			 np.array([0, 0, self.bkg0], 
+			 self.get_default_optpars())
+		))
 
 class Gaussian(Model):
 	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
 		self.bounds = np.vstack((
-				np.tile([0, np.infty], (self.nstars, 1)),
+				self.bounds,
 				np.array([
-					[-1.0, 1.0],
-					[-1.0, 1.0],
-					[0, np.infty],
 					[0, np.infty],
 					[-0.5, 0.5],
 					[0, np.infty],
-					[0.0, np.infty]
-				])
-			))
-
-	def get_default_optpars(self):
-		return np.array([1, 0, 1, 1], dtype=np.float64)
-
-	def evaluate(self, flux, xo, yo, params):
-		"""
-		Evaluate the Gaussian model
-		Parameters
-		----------
-		flux : np.ndarray, (nstars,)
-		xo, yo : scalar
-			Center coordinates of the Gaussian.
-		a, b, c : scalar
-			Parameters that control the rotation angle
-			and the stretch along the major axis of the Gaussian,
-			such that the matrix M = [a b ; b c] is positive-definite.
-		References
-		----------
-		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
-		"""
-		a, b, c, sat = params
-		dx = self.x - xo
-		dy = self.y - yo
-		psf = np.minimum(sat, np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2)))
-		psf_sum = np.sum(psf)
-		return flux * psf / psf_sum
-
-class Gaussian(Model):
-	def __init__(self, **kwargs):
-		super().__init__(**kwargs)
-		self.bounds = np.vstack((
-				np.tile([0, np.infty], (self.nstars, 1)),
-				np.array([
-					[-1.0, 1.0],
-					[-1.0, 1.0],
-					[0, np.infty],
-					[0, np.infty],
-					[-0.5, 0.5],
-					[0, np.infty],
-					[0.0, np.infty]
 				])
 			))
 
@@ -137,17 +102,27 @@ class Gaussian(Model):
 		return flux * psf / psf_sum
 
 class Moffat(Model):
+	def __init__(self, **kwargs):
+		super().__init__(**kwargs)
+		self.bounds = np.vstack((
+				self.bounds,
+				np.array([
+					[0, np.infty],
+					[-0.5, 0.5],
+					[0, np.infty],
+					[0.0, np.infty]
+				])
+			))
+
 	def get_default_optpars(self):
 		return np.array([1, 0, 1, 1], dtype=np.float64) # a, b, c, beta
 
-	def mean_model(self, flux, xc, yc, xshift, yshift, params, nstars):
-		return np.sum([self.evaluate(flux[j], xc[j]+xshift, yc[j]+yshift, *params) for j in range(nstars)], axis=0)
-
-	def evaluate(self, flux, xo, yo, a, b, c, beta):
-		dx = torch.tensor(self.x - xo.detach().numpy())
-		dy = torch.tensor(self.y - yo.detach().numpy())
+	def evaluate(self, flux, xo, yo, params):
+		a, b, c, beta = params
+		dx = self.x - xo
+		dy = self.y - yo
 		psf = np.divide(1., np.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
-		psf_sum = torch.sum(psf)
+		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 		
 class Zernike(Model):
@@ -254,7 +229,7 @@ class Zernike(Model):
 		for i, w in enumerate(weights):
 			psf += self.zernike(i) * w
 		
-		psf_sum = torch.sum(psf)
+		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 
 class Lygos(Model):
@@ -267,26 +242,24 @@ class Lygos(Model):
 		self.num_params = 13
 
 	def evaluate(self, flux, xo, yo, coeffs):
-		x = torch.tensor(self.x - xo.detach().numpy())
-		y = torch.tensor(self.y - yo.detach().numpy())
+		x = self.x - xo
+		y = self.y - yo
 		terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
 		polysum = sum(terms * coeffs[:len(terms)])
-		gauss = coeffs[9] * torch.exp(-coeffs[10] * x ** 2  - coeffs[11] * y ** 2)
+		gauss = coeffs[9] * np.exp(-coeffs[10] * x ** 2  - coeffs[11] * y ** 2)
 		psf = polysum + gauss
-		return flux * psf / torch.sum(psf)
+		return flux * psf / np.sum(psf)
 
 class MultiGaussian(Model):
 	"""
-	Gaussians for N stars at a time.
-	model = sum_star flux_star * min(exp(-(dx, dy) * Sigma_star_inv * (dx, dy), star_sat))
+	Gaussians for N stars at a time, with 
+	model = sum_star flux_star * exp(-(dx, dy) * Sigma_star_inv * (dx, dy))
 	"""
 	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
 		n = self.nstars
 		self.bounds = np.vstack((
-				np.tile([0, np.infty], (self.nstars, 1)), # flux
-				np.tile([-1.0, 1.0], (2, 1)), # xshift, yshift
-				np.array([0, np.infty]), # bkg
+				self.bounds,
 				np.array([
 					[0, np.infty],
 					[-0.5, 0.5],
@@ -301,11 +274,6 @@ class MultiGaussian(Model):
 			np.array([1, 0.1, 1], dtype=np.float64),
 			np.repeat([0.], 3 * (self.nstars - 1))
 		))
-
-	def mean(self, flux, xshift, yshift, bkg, optpars):
-		# due to multiple fits at once, this overrides the default mean
-		# as we don't want to average over all the star fits.
-		return self.evaluate(flux, self.xc[self.fit_idx]+xshift, self.yc[self.fit_idx]+yshift, optpars) + bkg
 
 	def evaluate(self, flux, xo, yo, params):
 		"""
@@ -347,30 +315,3 @@ class MultiGaussian(Model):
 			psf_flux += flux[i] * psf / np.sum(psf)
 		
 		return psf_flux
-
-	
-class Moffat(Model):
-	def __init__(self, **kwargs):
-		super().__init__(**kwargs)
-		self.bounds = np.vstack((
-				np.tile([0, np.infty], (self.nstars, 1)),
-				np.array([
-					[-2.0, 2.0],
-					[-2.0, 2.0],
-					[0, np.infty],
-					[0., 3.0],
-					[-0.5, 0.5],
-					[0., 3.0],
-				])
-			))
-
-	def get_default_optpars(self):
-		return np.array([1, 0, 1, 1], dtype=np.float64)
-
-	def evaluate(self, flux, xo, yo, a, b, c, beta):
-		dx = self.x - xo
-		dy = self.y - yo
-		psf = np.divide(1., np.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
-		psf_sum = np.sum(psf)
-		return flux * psf / psf_sum
-		
