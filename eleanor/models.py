@@ -2,7 +2,7 @@ import math
 import os
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
-import autograd.numpy as np
+import numpy as np
 import warnings
 from abc import ABC
 

@@ -936,7 +936,7 @@ class TargetData(object):
         """
 
         from .models import Gaussian, Moffat, Zernike, Lygos, MultiGaussian
-        from tqdm import tqdm
+        import tqdm
 
         implemented_models = ['Gaussian', 'Moffat', 'MultiGaussian', 'Zernike', 'Lygos']
 
@@ -1031,21 +1031,27 @@ class TargetData(object):
             raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
         def nll(params, i):
+            lam = 0.0 # regularization parameter
             for j, p in enumerate(params):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
+
             fluxes = params[:nstars]
             xshift, yshift, bkg = params[nstars:nstars+3]
             optpars = params[nstars+3:]
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
-            return loss(mean_val, i)
+            res = mean_val - data_arr[i]
+            res_mean, res_sd = np.mean(res), np.std(res)
+            res_ll = np.sum(((res - res_mean) / res_sd) ** 2)
+
+            return loss(mean_val, i) + lam * res_ll
 
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))
         
-        for i in tqdm(range(len(data_arr))):
-            par = minimize(nll, par, i, method='Nelder-Mead', tol=1e-4).x
+        for i in tqdm.trange(len(data_arr)):
+            par = minimize(nll, par, i, method='TNC', tol=1e-4).x
             fout[i] = par[:nstars]
             bkgout[i] = par[-1]
             params_out[i] = par[nstars:-1]
