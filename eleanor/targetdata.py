@@ -849,6 +849,48 @@ class TargetData(object):
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
 
+    def cutout_weights(self, x, y):
+        """
+        Makes a cutout around a target at (x, y).
+        Returns lower-left corner coordinates, and weights across the 2x2 cutout.
+        """
+        x_f, x_c = int(np.floor(x)), int(np.ceil(x))
+        y_f, y_c = int(np.floor(y)), int(np.ceil(y))
+        xr, yr = x - x_f, y - y_f
+        wts = np.array(
+            [[(1 - xr) * (1 - yr), (1 - xr) * yr], 
+            [xr * (1 - yr), xr * yr]]
+        )
+        return x_f, y_f, wts
+
+    def get_aperture_fluxes(self, xc, yc, data_arr=None):
+        """
+        Gets lightcurves from apertures that isolate each of the target stars in turn.
+        Parameters
+        ----------
+        data_arr, xc, yc : np.ndarray, np.ndarray, list, list
+            As in the signature to psf_lightcurve.
+        
+        Returns
+        -------
+        fluxes : np.ndarray, (len(xc), data_arr.shape[0])
+            Time-series of flux on each of the target stars.
+        """
+
+        if data_arr is None:
+            data_arr = self.tpf + 0.0
+            data_arr[np.isnan(data_arr)] = 0.0
+
+        fluxes = np.empty((data_arr.shape[0], len(xc)))
+
+        for i, (x, y) in enumerate(zip(xc, yc)):
+            xl, yl, wts = self.cutout_weights(x, y)
+            cutout = data_arr[:, yl:yl+2, xl:xl+2]
+            fluxes[:,i] = np.array([np.sum(c * wts) for c in cutout])
+
+        return fluxes
+            
+
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, 
     initial_params=None):
         """_
