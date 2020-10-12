@@ -854,8 +854,8 @@ class TargetData(object):
         Makes a cutout around a target at (x, y).
         Returns lower-left corner coordinates, and weights across the 2x2 cutout.
         """
-        x_f, x_c = int(np.floor(x)), int(np.ceil(x))
-        y_f, y_c = int(np.floor(y)), int(np.ceil(y))
+        x_f, x_c = int(np.floor(x - 0.5)), int(np.ceil(x - 0.5))
+        y_f, y_c = int(np.floor(y - 0.5)), int(np.ceil(y - 0.5))
         xr, yr = x - x_f, y - y_f
         wts = np.array(
             [[(1 - xr) * (1 - yr), (1 - xr) * yr], 
