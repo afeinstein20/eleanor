@@ -397,7 +397,7 @@ class TargetData(object):
             if self.source_info.tess_mag < 8.2:
                 self.aperture_mode = 2
 
-            if self.source_info.tess_mag > 13.3:
+            if self.source_info.tess_mag > 13.6:
                 self.aperture_mode = 1
 
             if self.source_info.contratio is not None:
