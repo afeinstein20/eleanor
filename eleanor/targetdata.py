@@ -156,6 +156,7 @@ class TargetData(object):
         self.pca_flux = None
         self.psf_flux = None
         self.regressors = regressors
+        self.lite = False
 
         if self.source_info.premade is True:
             self.load(directory=self.source_info.fn_dir)
