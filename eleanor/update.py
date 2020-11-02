@@ -123,7 +123,8 @@ class Update(object):
             else:
                 os.mkdir(self.metadata_path)
 
-        self.cutout = fits.open(manifest['Local Path'][0])
+        # memmap=False as wokaround for https://github.com/afeinstein20/eleanor/issues/204
+        self.cutout = fits.open(manifest['Local Path'][0], memmap=False)
 
         print('This is the first light curve you have made for this sector. '
               'Getting eleanor metadata products for '
@@ -139,6 +140,7 @@ class Update(object):
         self.get_cbvs()
         print('CBVs Made')
         print('Success! Sector {:2d} now available.'.format(self.sector))
+        self.cutout.close()
         os.remove(manifest['Local Path'][0])
         self.try_next_sector()
 
@@ -149,7 +151,7 @@ class Update(object):
             year = 2019
         else:
             year = 2020
-            
+
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
         directs = []
@@ -161,7 +163,7 @@ class Update(object):
         for file in listFD(directs[0]):
             subdirects.append(file)
         subdirects = np.sort(subdirects)[1:-4]
-        
+
         for i in range(len(subdirects)):
             file = listFD(subdirects[i], ext='_cbv.fits')[0]
             os.system('curl -O -L {}'.format(file))
@@ -173,7 +175,8 @@ class Update(object):
                  's{0:04d}'.format(self.sector) in i]
 
         for c in range(len(files)):
-            cbv      = fits.open(files[c])
+            # memmap=False as wokaround for https://github.com/afeinstein20/eleanor/issues/204
+            cbv      = fits.open(files[c], memmap=False)
             camera   = cbv[1].header['CAMERA']
             ccd      = cbv[1].header['CCD']
             cbv_time = cbv[1].data['Time']
