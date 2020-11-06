@@ -4,6 +4,7 @@ from astropy.table import Table
 from astropy import units as u
 from astropy.coordinates import SkyCoord
 from astropy.io import fits
+import re
 import os
 import sys
 from os.path import join, abspath
@@ -127,7 +128,7 @@ class Source(object):
     all_postcards : list of strs
         Names of all postcards where the source appears.
     """
-    def __init__(self, tic=None, gaia=None, coords=None, name=None, fn=None, 
+    def __init__(self, tic=None, gaia=None, coords=None, name=None, fn=None,
                  sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None,
                  metadata_path=None, tesscut_size=31):
         self.tic       = tic
@@ -143,7 +144,7 @@ class Source(object):
         self.pm_dir = pm_dir
         self.local = local
 
-        
+
 
         if self.pm_dir is None:
             self.pm_dir = self.postcard_path
@@ -158,11 +159,11 @@ class Source(object):
                     warnings.warn('Warning: unable to create {}. '
                                   'Downloading to the current '
                                   'working directory instead.'.format(self.fn_dir))
-        
-                    
+
+
         else:
             self.fn_dir  = fn_dir
-            
+
         self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 
         if metadata_path is None:
@@ -196,16 +197,19 @@ class Source(object):
             self.tc       = hdr['TESSCUT']
             self.tic_version = hdr['TIC_V']
             self.postcard = hdr['POSTCARD']
-            
+
             if self.tc is True:
                 post_dir = self.tesscut_dir()
                 self.postcard_path = os.path.join(post_dir, self.postcard)
+                # workaround to address #137
+                # - both self.postcard  and tesscut_dir() contains tesscut, resulting in incorrect path
+                self.postcard_path = re.sub(r'tesscut[/\\]tesscut', 'tesscut', self.postcard_path)
                 self.cutout = fits.open(self.postcard_path)
 #            else:
                 #########
-                
+
             self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
-#            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2']) 
+#            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
 
         else:
             if self.coords is not None:
@@ -242,13 +246,13 @@ class Source(object):
             else:
                 assert False, ("Source: one of the following keywords must be given: "
                                "tic, gaia, coords, fn.")
-                
+
             if isinstance(self.tess_mag,list):
-                self.tess_mag = self.tess_mag[0] 
-                
+                self.tess_mag = self.tess_mag[0]
+
             self.locate_on_tess()
             self.tesscut_size = tesscut_size
-            
+
             if not os.path.isdir(self.metadata_path + '/metadata/s{:04d}'.format(self.sector)):
                 Update(sector=self.sector)
 
@@ -301,7 +305,7 @@ class Source(object):
                 camera = cameras[-1]
                 chip   = chips[-1]
                 position_on_chip = np.array([cols[-1], rows[-1]])
-    
+
         if self.sector is None or type(self.sector) == np.ndarray:
             raise SearchError("TESS has not (yet) observed your target.")
         else:
@@ -311,9 +315,9 @@ class Source(object):
 
     def locate_postcard(self, local):
         """ Finds the eleanor postcard, if available, this star falls on.
-        
+
         Attributes
-        ---------- 
+        ----------
         postcard : str
         postcard_bkg : str
         postcard_path : str
@@ -326,13 +330,13 @@ class Source(object):
         info_str = "{0:04d}-{1}-{2}-{3}".format(self.sector, self.camera, self.chip, "cal")
         postcard_fmt = "postcard-s{0}-{{0:04d}}-{{1:04d}}"
         postcard_fmt = postcard_fmt.format(info_str)
-        
+
 
         eleanorpath = os.path.dirname(__file__)
 
         guide_url = eleanorpath + '/postcard_centers.txt'
         guide     = Table.read(guide_url, format="ascii")
-        
+
         col, row = self.position_on_chip[0], self.position_on_chip[1]
 
         post_args = np.where( (np.abs(guide['x'].data - col) <= 100) &
@@ -344,7 +348,7 @@ class Source(object):
         closest_x, closest_y = np.argmin(np.abs(post_cens['x'] - col)), np.argmin(np.abs(post_cens['y'] - row))
         self.postcard = postcard_fmt.format(post_cens['x'].data[closest_x],
                                             post_cens['y'].data[closest_y])
-        
+
         # Keeps track of all postcards that the star falls on
         all_postcards = []
         for i in range(len(post_cens)):
@@ -352,10 +356,10 @@ class Source(object):
                                        post_cens['y'].data[i])
             all_postcards.append(name)
         self.all_postcards = np.array(all_postcards)
-        
-        
+
+
         if local == False:
-        
+
             postcard_obs = Observations.query_criteria(provenance_name="ELEANOR",
                                                        target_name=self.postcard,
                                                        obs_collection="HLSP")
@@ -395,8 +399,8 @@ class Source(object):
 
             self.pointing = check_pointing(self.sector, self.camera, self.chip, self.pm_dir)
 
-            
-            
+
+
     def locate_with_tesscut(self):
         """
         Finds the best TESS postcard(s) and the position of the source on postcard.
@@ -405,7 +409,7 @@ class Source(object):
         ----------
         postcard : list
         postcard_path : str
-        position_on_postcard : list 
+        position_on_postcard : list
         all_postcards : list
         sector : int
         camera : int
@@ -418,7 +422,7 @@ class Source(object):
 
         # Attribute for TessCut
         self.tc = True
-        
+
         download_dir = self.tesscut_dir()
 
         coords = SkyCoord(self.coords[0], self.coords[1],
@@ -433,13 +437,13 @@ class Source(object):
         else:
             self.postcard_path = fn_exists
             cutout = fits.open(fn_exists)
-        
+
         self.cutout   = cutout
         self.postcard = self.postcard_path.split('/')[-1]
 
         xcoord = cutout[1].header['1CRV4P']
         ycoord = cutout[1].header['2CRV4P']
-        
+
         self.position_on_chip = np.array([xcoord, ycoord])
 
 
