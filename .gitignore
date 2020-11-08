@@ -10,6 +10,8 @@ build
 dist
 .cache/
 .coverage
+coverage.xml
+htmlcov
 .eggs
 .ipynb_checkpoints
 *.so
