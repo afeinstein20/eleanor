@@ -370,6 +370,8 @@ class TargetData(object):
             self.tpf_flux_bkg = self.bkg_subtraction() + post_bkg
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
+            
+
 
 
         else:
@@ -788,6 +790,10 @@ class TargetData(object):
         self.quality = np.array(self.post_obj.quality)
 
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
+        
+        bkgvar = np.std(self.bkg_tpf, axis=(1,2))/(np.nansum(self.bkg_tpf, axis=(1,2)))
+        bkgmask = sigma_clip(bkgvar, masked=True, sigma=5.0)
+        self.quality = np.bitwise_or(self.quality, bkgmask.mask * 2**18)
         return
 
 
