@@ -286,7 +286,7 @@ class Source(object):
 
         # tess_stars2px returns array [-1] when star not observed yet
         if len(sectors) < 1 or sectors[0] == np.array([-1]):
-            raise SearchError("Tess has not (yet) observed your target.")
+            raise SearchError("TESS has not (yet) observed your target.")
 
         else:
             # Handles cases where users can pass in their sector
@@ -305,7 +305,7 @@ class Source(object):
                 chip   = chips[-1]
                 position_on_chip = np.array([cols[-1], rows[-1]])
     
-        if self.sector is None or type(self.sector) == np.ndarray:
+        if self.sector is None or isinstance(self.sector, np.ndarray):
             raise SearchError("TESS has not (yet) observed your target.")
         else:
             self.camera = camera

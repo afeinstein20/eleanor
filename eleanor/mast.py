@@ -147,8 +147,11 @@ def coords_from_tic(tic):
     tmag : float
         TESS apparent magnitude.
     """
-
-    ticData = Catalogs.query_object('tic'+str(tic), radius=.0001, catalog="TIC")
+    if isinstance(tic, int):
+        tic = str(tic)
+    if not tic.startswith('tic'):
+        tic = 'tic' + str(tic)
+    ticData = Catalogs.query_object(tic, radius=.0001, catalog="TIC")
     return [ticData['ra'].data[0], ticData['dec'].data[0]], [ticData['Tmag'].data[0]], int(ticData['version'].data[0]), ticData['contratio'].data[0]
 
 def coords_from_name(name):

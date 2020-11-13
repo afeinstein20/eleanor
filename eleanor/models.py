@@ -33,8 +33,8 @@ class Model(ABC):
 		self.bounds = np.vstack((
 				np.tile([0, np.infty], (self.nstars, 1)), # fluxes on each star
 				np.array([
-					[-1.0, 1.0], # xshift of the star to fit
-					[-1.0, 1.0], # yshift of the star to fit
+					# [-1.0, 1.0], # xshift of the star to fit
+					# [-1.0, 1.0], # yshift of the star to fit
 					[0, np.infty] # background average
 				])
 		))
@@ -53,8 +53,8 @@ class Model(ABC):
 		s1, s2 = self.shape
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
-	def mean(self, flux, xshift, yshift, bkg, optpars):
-		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(self.nstars)], axis=0) + bkg
+	def mean(self, flux, bkg, optpars):
+		return np.sum([self.evaluate(flux[j], self.xc[j], self.yc[j], optpars) for j in range(self.nstars)], axis=0) + bkg
 
 	def get_default_par(self, d0):
 		return np.concatenate((

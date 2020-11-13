@@ -82,16 +82,15 @@ class Postcard(object):
         -------
         ax : matplotlib.axes.Axes
         """
-
         if ax is None:
             _, ax = plt.subplots(figsize=(8, 7))
         if scale == 'log':
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
-                dat = np.log10(self.flux[:, :, frame])
+                dat = np.log10(self.flux[frame, :, :])
                 dat[~np.isfinite(dat)] = np.nan
         else:
-            dat = self.flux[:, :, frame]
+            dat = self.flux[frame, :, :]
 
         if ('vmin' not in kwargs) & ('vmax' not in kwargs):
             kwargs['vmin'] = np.nanpercentile(dat, 1)
@@ -197,7 +196,7 @@ class Postcard_tesscut(object):
     Attributes
     ----------
     dimensions : tuple
-        (`x`, `y`, `time`) dimensions of postcard.
+        (`time`, `x`, `y`) dimensions of postcard.
     flux, flux_err : numpy.ndarray
         Arrays of shape `postcard.dimensions` containing flux or error on flux 
         for each pixel.
@@ -251,10 +250,10 @@ class Postcard_tesscut(object):
         if scale == 'log':
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
-                dat = np.log10(self.flux[:, :, frame])
+                dat = np.log10(self.flux[frame, :, :])
                 dat[~np.isfinite(dat)] = np.nan
         else:
-            dat = self.flux[:, :, frame]
+            dat = self.flux[frame, :, :]
 
         if ('vmin' not in kwargs) & ('vmax' not in kwargs):
             kwargs['vmin'] = np.nanpercentile(dat, 1)

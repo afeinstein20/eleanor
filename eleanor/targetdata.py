@@ -4,12 +4,14 @@ from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from photutils import MMMBackground
 from lightkurve import SFFCorrector, lightcurve
-from scipy.optimize import minimize, differential_evolution
+from scipy.optimize import minimize
 from astropy import time, coordinates as coord, units as u
 from astropy.coordinates import SkyCoord, Angle
 from astropy.table import Table, Column
 from astropy.wcs import WCS
 from astropy.stats import SigmaClip, sigma_clip
+from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
+from tess_stars2px import tess_stars2px_reverse_function_entry as tess_px2stars
 from time import strftime
 from astropy.io import fits
 import astropy.units as u
@@ -17,6 +19,7 @@ from scipy.stats import mode
 from scipy.signal import savgol_filter
 from urllib.request import urlopen
 from functools import reduce
+from stemtool.afit import mpfit
 import os, sys, copy
 import requests
 import pandas as pd
@@ -226,6 +229,7 @@ class TargetData(object):
                     self.pointing_model = None
 
                 self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
+                
                 self.set_quality()
                 self.get_cbvs()
 
@@ -353,48 +357,34 @@ class TargetData(object):
 
         return x_low_lim, x_upp_lim, y_low_lim, y_upp_lim, med_x, med_y
 
-    def get_pointings(self):
+    def get_neighbors(self, tmag_cut=14):
         '''
-        Get the CSV for pointings in the current sector/cam/CCD combination, to query for neighbors.
-        TODO: currently, this only returns pointings of stars on the TESS target list, not the full TIC.
-        Needs to be enhanced to use CASjobs or similar,
-        or `get_stars_in_tpf` needs to be made to actually work.
+        Get the pointings in the current sector/cam/CCD combination, to query for neighbors.
 
         Returns
         ---------
         pointings : pd.DataFrame
             DataFrame consisting of all the stars sharing the same sector+cam+CCD as `self.source`.
         '''
+        post = self.post_obj
+        tic, ra, dec = self.source_info.tic, self.source_info.coords[0], self.source_info.coords[1]
         sector, cam, ccd = self.source_info.sector, self.source_info.camera, self.source_info.chip
-        pointpath = os.path.join(self.source_info.eleanorpath, "pointings")
-        if not os.path.exists(pointpath):
-            os.mkdir(pointpath)
-        fname = "tess_pointings_sec{}_camccd_{}_{}.csv".format(str(sector).zfill(2), cam, ccd)
-        fpath = os.path.join(pointpath, fname)
-        if os.path.isfile(fpath):
-            return pd.read_csv(fpath).drop(columns=["Unnamed: 0"])
-        else:
-            r = requests.get("https://aditya-sengupta.github.io/tesspointings/" + fname)
-            # stopgap for better host / create on the fly? this is ok for now
-            pointings = pd.read_csv(BytesIO(r.content)).drop(columns=["Unnamed: 0"])
-            pointings.to_csv(fpath)
-            return pointings
-            
-
-    def get_stars_in_tpf(self, pos, height, width, tmag_cut=14):
-        """
-        Gets all the stars in the TPF under a certain magnitude.
-        """
-        # postcard radius = 0.5, scaled proportionally to just the TPF times a safety factor
-        mast_search_radius = 0.5 * max(np.array([height, width]) / self.post_obj.dimensions[1:3]) * 2.0
-        result = crossmatch_by_position(pos, mast_search_radius, 'Mast.Tic.Crossmatch').to_pandas()
+        colpx, rowpx = self.source_info.position_on_chip
+        ra_low, dec_low, _ = tess_px2stars(sector, cam, ccd, *post.origin_xy)
+        ra_cen, dec_cen, _ = tess_px2stars(sector, cam, ccd, *post.center_xy)
+        ang_radius = np.sqrt((dec_cen - dec_low) ** 2 + (ra_cen - ra_low) ** 2)
+        result = crossmatch_by_position([ra, dec], ang_radius, 'Mast.Tic.Crossmatch').to_pandas()
+        
         matchra = 'MatchRA' if 'MatchRA' in result.columns else 'MatchRa'
         matchdec = 'MatchDEC' if 'MatchDEC' in result.columns else 'MatchDec'
         result = result[['MatchID', matchra, matchdec, 'pmRA', 'pmDEC', 'Tmag']]
         result.columns = ['TessID', 'RA', 'Dec', 'pmRA', 'pmDEC', 'Tmag']
         coords = np.array(WCS(self.post_obj.header, naxis=2).all_world2pix(result.RA, result.Dec, 1)).T
-        xl, _, yl, _, _, _ = self.get_tpf_coords(pos, height, width, width, self.source_info)
+        
+        height, width = self.post_obj.dimensions[1:]
+        xl, _, yl, _, _, _ = self.get_tpf_coords([ra, dec], height, width, width, self.source_info)
         coords -= np.array([xl, yl])
+        coords -= post.origin_xy
         star_idxs_to_keep = reduce(np.bitwise_and, [coords[:,0] >= 0.0, coords[:,0] <= width, coords[:,1] >= 0.0, coords[:,1] <= height])
         result = result[star_idxs_to_keep]
         result['coords_x'] = coords[star_idxs_to_keep,0]
@@ -415,6 +405,8 @@ class TargetData(object):
                 warnings.warn("WARNING: Your postage stamp may not be centered.")
 
             self.tpf = self.post_obj.flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
+            self.cen_x = (x_low_lim + x_upp_lim) // 2
+            self.cen_y = (y_low_lim + y_upp_lim) // 2
 
             h, w = self.tpf.shape[1], self.tpf.shape[2]
             self.tpf_star_y = w + (med_y - y_upp_lim)
@@ -434,7 +426,7 @@ class TargetData(object):
         else:
             post_x_length, post_y_length = self.post_obj.flux.shape[2], self.post_obj.flux.shape[1]
             if (height > post_y_length) or (width > post_x_length):
-                raise ValueError("Maximum allowed TPF size should less than the TessCut size.")
+                raise ValueError("Maximum allowed TPF size should be less than the TessCut size.")
 
             self.tpf = self.post_obj.flux[:, int(np.floor(post_y_length/2.))-y_length:int(np.floor(post_y_length/2.))+y_length+1, int(np.floor(post_x_length/2.))-x_length:int(np.floor(post_x_length/2.))+x_length+1]
             self.bkg_tpf = self.post_obj.flux
@@ -888,8 +880,7 @@ class TargetData(object):
             cutout = data_arr[:, yl:yl+2, xl:xl+2]
             fluxes[:,i] = np.array([np.sum(c * wts) for c in cutout])
 
-        return fluxes
-            
+        return fluxes        
 
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, 
     initial_params=None):
@@ -1017,7 +1008,7 @@ class TargetData(object):
         )
 
         fluxes = np.max(data_arr[0]) * np.ones(nstars,) # flux of each star
-        globalpars = np.array([0, 0, bkg_arr[0]]) # xshift, yshift of target star; background
+        globalpars = np.array([bkg_arr[0]]) # xshift, yshift of target star; background
         optpars = model.get_default_optpars() # model-specific optimization parameters
 
         par = np.concatenate((fluxes, globalpars, optpars))
@@ -1037,9 +1028,9 @@ class TargetData(object):
                     return np.infty
 
             fluxes = params[:nstars]
-            xshift, yshift, bkg = params[nstars:nstars+3]
-            optpars = params[nstars+3:]
-            mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
+            bkg = params[nstars]
+            optpars = params[nstars+1:]
+            mean_val = model.mean(fluxes, bkg, optpars)
             res = mean_val - data_arr[i]
             res_mean, res_sd = np.mean(res), np.std(res)
             res_ll = np.sum(((res - res_mean) / res_sd) ** 2)
@@ -1050,11 +1041,17 @@ class TargetData(object):
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))
         
+        subpixel_skip = 1000
         for i in tqdm.trange(len(data_arr)):
+            if (i+1) % subpixel_skip == 0:
+                try:
+                    model.yc, model.xc = mpfit(np.mean(data_arr[i:i+subpixel_skip], axis=0), np.array([yc, xc]))
+                except ValueError:
+                    model.yc, model.xc = yc, xc
             par = minimize(nll, par, i, method='TNC', tol=1e-4).x
             fout[i] = par[:nstars]
-            bkgout[i] = par[-1]
-            params_out[i] = par[nstars:-1]
+            bkgout[i] = par[nstars]
+            params_out[i] = par[nstars+1:]
             llout[i] = nll(par, i)
 
         self.psf_flux = fout[:,0]
@@ -1170,7 +1167,7 @@ class TargetData(object):
             If doing a PCA-based correction, the number of cotrending basis vectors to regress against.
             Default is 3.
         pca : bool, optional
-            Allows users to decide whether or not to use PCA analysis. Default is False.
+            Allows users to decide whether or not to use principal component analysis. Default is False.
         regressors : numpy.ndarray or str
             Extra data to regress against in the correction. Should be shape (len(data.time), N) or `'corner'`.
             If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
@@ -1181,12 +1178,12 @@ class TargetData(object):
         skip = int(np.ceil(skip/tdelt))
 
 
-        if type(regressors) == str:
+        if isinstance(regressors, str):
             if regressors == 'corner':
                 self.regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
                 regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
 
-        if type(self.regressors) == str:
+        if isinstance(regressors, str):
             if self.regressors == 'corner':
                 self.regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
                 regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
@@ -1283,7 +1280,7 @@ class TargetData(object):
         lc_pred = calc_corr(s, cx, cy, skip)
         corr_s = flux[s]-lc_pred + med
 
-        if pca==True:
+        if pca:
             self.pca_flux = np.append(corr_f, corr_s)
         else:
             return np.append(corr_f, corr_s)
