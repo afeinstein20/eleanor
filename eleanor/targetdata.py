@@ -1008,7 +1008,7 @@ class TargetData(object):
         )
 
         fluxes = np.max(data_arr[0]) * np.ones(nstars,) # flux of each star
-        globalpars = np.array([bkg_arr[0]]) # xshift, yshift of target star; background
+        globalpars = np.array([0, 0, bkg_arr[0]]) # xshift, yshift of target star; background
         optpars = model.get_default_optpars() # model-specific optimization parameters
 
         par = np.concatenate((fluxes, globalpars, optpars))
@@ -1022,32 +1022,25 @@ class TargetData(object):
             raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
         def nll(params, i):
-            lam = 0.0 # regularization parameter
             for j, p in enumerate(params):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
 
             fluxes = params[:nstars]
-            bkg = params[nstars]
-            optpars = params[nstars+1:]
-            mean_val = model.mean(fluxes, bkg, optpars)
+            xshift, yshift, bkg = params[nstars:nstars+3]
+            optpars = params[nstars+3:]
+            mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
             res = mean_val - data_arr[i]
             res_mean, res_sd = np.mean(res), np.std(res)
             res_ll = np.sum(((res - res_mean) / res_sd) ** 2)
 
-            return loss(mean_val, i) + lam * res_ll
+            return loss(mean_val, i)
 
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))
         
-        subpixel_skip = 1000
         for i in tqdm.trange(len(data_arr)):
-            if (i+1) % subpixel_skip == 0:
-                try:
-                    model.yc, model.xc = mpfit(np.mean(data_arr[i:i+subpixel_skip], axis=0), np.array([yc, xc]))
-                except ValueError:
-                    model.yc, model.xc = yc, xc
             par = minimize(nll, par, i, method='TNC', tol=1e-4).x
             fout[i] = par[:nstars]
             bkgout[i] = par[nstars]
