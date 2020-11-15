@@ -33,8 +33,8 @@ class Model(ABC):
 		self.bounds = np.vstack((
 				np.tile([0, np.infty], (self.nstars, 1)), # fluxes on each star
 				np.array([
-					[-1.0, 1.0], # xshift of the star to fit
-					[-1.0, 1.0], # yshift of the star to fit
+					[-2.0, 2.0], # xshift of the star to fit
+					[-2.0, 2.0], # yshift of the star to fit
 					[0, np.infty] # background average
 				])
 		))

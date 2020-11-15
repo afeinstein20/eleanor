@@ -1012,16 +1012,17 @@ class TargetData(object):
         optpars = model.get_default_optpars() # model-specific optimization parameters
 
         par = np.concatenate((fluxes, globalpars, optpars))
-        params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
+        # params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
 
         if likelihood == "gaussian":
-            loss = lambda mean_val, i: np.sum((mean_val - data_arr[i]) ** 2 / err_arr[i])
+            loss = lambda mean_val, data, err, bkg: np.sum((mean_val - data) ** 2 / err)
         elif likelihood == "poisson":
-            loss = lambda mean_val, i: np.sum(mean_val + bkg_arr[i] - (data_arr[i] + bkg_arr[i]) * np.log(mean_val + bkg_arr[i]))
+            loss = lambda mean_val, data, err, bkg: np.sum(mean_val + bkg - (data + bkg) * np.log(mean_val + bkg))
         else:
             raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
-        def nll(params, i):
+        def nll(params, data, err, bkg):
+            """NLL for an averaged PSF fit."""
             for j, p in enumerate(params):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
@@ -1030,24 +1031,48 @@ class TargetData(object):
             xshift, yshift, bkg = params[nstars:nstars+3]
             optpars = params[nstars+3:]
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
-            res = mean_val - data_arr[i]
-            res_mean, res_sd = np.mean(res), np.std(res)
-            res_ll = np.sum(((res - res_mean) / res_sd) ** 2)
+            
+            return loss(mean_val, data, err, bkg)
 
-            return loss(mean_val, i)
+        mean_pars = minimize(nll, par, (np.mean(data_arr, axis=0), np.mean(err_arr, axis=0), np.mean(bkg_arr, axis=0)), method='TNC', tol=1e-4).x
+        mean_xs, mean_ys, mean_pars = par[nstars], par[nstars+1], par[nstars+3:]
+        aperture_fluxes = self.get_aperture_fluxes(xc=xc, yc=yc, data_arr=data_arr)
 
-        fout = np.zeros((len(data_arr), nstars))
-        bkgout = np.zeros(len(data_arr))
-        llout = np.zeros(len(data_arr))
-        
-        for i in tqdm.trange(len(data_arr)):
-            par = minimize(nll, par, i, method='TNC', tol=1e-4).x
-            fout[i] = par[:nstars]
-            bkgout[i] = par[nstars]
-            params_out[i] = par[nstars+1:]
-            llout[i] = nll(par, i)
+        def psf_deltas(xc, yc, mags):
+            """Ideal TPF given a known/fitted PSF for a particular cadence."""
+            mock_data = np.zeros_like(data_arr[0])
+            for (x, y, m) in zip(xc, yc, mags):
+                mock_data += model(m, mean_xs, mean_ys, mean_pars)
+            return mock_data
 
-        self.psf_flux = fout[:,0]
+        def fluxes_arma(kernel=np.array([1, 2, 4, 2, 1])):
+            assert len(kernel) % 2 == 1, "must have a symmetric kernel"
+            half_len = len(kernel) // 2
+            kernel = kernel / sum(kernel)
+            model_fluxes = np.empty_like(aperture_fluxes)
+            for i in range(aperture_fluxes.shape[1]):
+                conv_result = np.convolve(kernel, aperture_fluxes[:,i])[2 * half_len:-2 * half_len]
+                model_fluxes[:half_len,i] = aperture_fluxes[:half_len,i]
+                model_fluxes[half_len:-half_len,i] = conv_result
+                model_fluxes[-half_len:,i] = aperture_fluxes[-half_len,i]
+
+            return model_fluxes
+
+        def make_model_tpfs(kernel):
+            model_fluxes = fluxes_arma(np.array(kernel))
+            return np.array([psf_deltas(xc, yc, mags) for mags in model_fluxes])
+
+        def tpf_loss(kernel):
+            model_tpfs = make_model_tpfs(kernel)
+            return np.sum((model_tpfs - data_arr) ** 2)
+
+        res = minimize(tpf_loss, np.ones(7,), method='Nelder-Mead', tol=1e-4)
+        opt_kernel = res.x
+        self.psf_flux = fluxes_arma(opt_kernel)
+        params_out = mean_pars
+        self.psf_kernel = opt_kernel
+        llout = res.fun
+        print(res.x)
 
         if self.language == 'Australian':
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
