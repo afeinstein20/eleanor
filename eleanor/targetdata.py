@@ -173,7 +173,7 @@ class TargetData(object):
         else:
             fnf = True
             # Checks to see if file exists already
-            if try_load==True:
+            if try_load:
                 try:
                     default_fn = 'hlsp_eleanor_tess_ffi_tic{0}_s{1:02d}_tess_v{2}_lc.fits'.format(self.source_info.tic, self.source_info.sector, eleanor.__version__)
                     self.load(fn=default_fn)
@@ -237,13 +237,13 @@ class TargetData(object):
 
                 self.get_lightcurve()
 
-                if do_pca == True:
+                if do_pca:
                     self.corrected_flux(pca=True)
                 else:
                     self.modes = None
                     self.pca_flux = None
 
-                if do_psf == True:
+                if do_psf:
                     self.psf_lightcurve()
                 else:
                     self.psf_flux = None
