@@ -19,7 +19,6 @@ from scipy.stats import mode
 from scipy.signal import savgol_filter
 from urllib.request import urlopen
 from functools import reduce
-from stemtool.afit import mpfit
 import os, sys, copy
 import requests
 import pandas as pd
@@ -32,7 +31,7 @@ import eleanor
 
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
-from .mast import crossmatch_by_position
+from .mast import crossmatch_by_position, gaia_sources_in_tpf
 
 __all__  = ['TargetData']
 
@@ -159,7 +158,7 @@ class TargetData(object):
 
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False,
                  bkg_size=None, aperture_mode='normal', cal_cadences=None, try_load=True, regressors = None,
-                 language='English'):
+                 time_arr=None, data_arr=None, err_arr=None, bkg_arr=None, star_coords=None, language='English'):
 
         self.source_info = source
         self.language = language
@@ -167,7 +166,27 @@ class TargetData(object):
         self.psf_flux = None
         self.regressors = regressors
 
-        if self.source_info.premade is True:
+        self.user_given = all([x is not None for x in [time_arr, data_arr, err_arr, bkg_arr, star_coords]])
+
+        if self.user_given:
+            # if you don't specify all five of these it reverts to pulling from `source_info`
+
+            self.post_obj = Postcard_tesscut(source.cutout)
+            self.pointing_model = load_pointing_model(source.pm_dir, source.sector, source.camera, source.chip)
+            self.time = time_arr
+            self.tpf = data_arr
+            self.tpf_err = err_arr
+            self.flux_bkg = bkg_arr
+            self.star_coords = star_coords # xc, yc
+            self.set_centroids(source.coords)
+            assert self.star_coords.shape[1] == 2
+            self.tpf_star_x = star_coords[0,0]
+            self.tpf_star_y = star_coords[0,1]
+            self.bkg_subtraction()
+            try_load = False
+            # dinosaur
+
+        if self.source_info.premade:
             self.load(directory=self.source_info.fn_dir)
 
         else:
@@ -182,7 +201,7 @@ class TargetData(object):
                 except:
                     pass
 
-            if fnf is True:
+            if fnf:
                 self.aperture = None
 
                 if source.tc == False:
@@ -192,11 +211,15 @@ class TargetData(object):
                     self.post_obj = Postcard_tesscut(source.cutout)
 
                 self.ffiindex = self.post_obj.ffiindex
-                self.flux_bkg = self.post_obj.bkg
-                self.get_time(source.coords)
+                if not self.user_given:
+                    self.flux_bkg = self.post_obj.bkg
+                    self.get_time(source.coords)
 
                 if bkg_size is None:
-                    bkg_size = width
+                    if self.user_given:
+                        bkg_size = self.tpf.shape[2]
+                    else:
+                        bkg_size = width
 
 
                 # Uses the contamination ratio for crowded field if available and
@@ -216,7 +239,7 @@ class TargetData(object):
 
 
                 if cal_cadences is None:
-                    self.cal_cadences = (0, len(self.post_obj.time)-0)
+                    self.cal_cadences = (0, len(self.time)-0)
                 else:
                     self.cal_cadences = cal_cadences
 
@@ -228,7 +251,8 @@ class TargetData(object):
                 except:
                     self.pointing_model = None
 
-                self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
+                if not self.user_given:
+                    self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
                 
                 self.set_quality()
                 self.get_cbvs()
@@ -252,7 +276,6 @@ class TargetData(object):
 
                 self.set_header()
 
-
     def get_time(self, coords):
         """Gets time, including light travel time correction to solar system barycenter for object given location"""
         t0 = self.post_obj.time - self.post_obj.barycorr
@@ -268,17 +291,13 @@ class TargetData(object):
         self.time = t0 + ltt_bary
         self.barycorr = ltt_bary
 
-    def get_tpf_coords(self, pos, height, width, bkg_size, source):
-        """
-        Gets the coordinates on `self.post_obj` for a TPF including `source`.
-        Helper function for `get_tpf_from_postcard`.
-        """
+    def set_centroids(self, pos):
         xy = WCS(self.post_obj.header, naxis=2).all_world2pix(pos[0], pos[1], 1)
         # Apply the pointing model to each cadence to find the centroids
 
         if self.pointing_model is None:
-            self.centroid_xs = np.zeros_like(self.post_obj.time)
-            self.centroid_ys = np.zeros_like(self.post_obj.time)
+            self.centroid_xs = np.zeros_like(self.time)
+            self.centroid_ys = np.zeros_like(self.time)
         else:
             centroid_xs, centroid_ys = [], []
             for p in self.pointing_model:
@@ -288,9 +307,17 @@ class TargetData(object):
             self.centroid_xs = np.array(centroid_xs)
             self.centroid_ys = np.array(centroid_ys)
 
-        # Define tpf as region of postcard around target
         med_x, med_y = np.nanmedian(self.centroid_xs), np.nanmedian(self.centroid_ys)
-        med_x, med_y = int(np.round(med_x,0)), int(np.round(med_y,0))
+        self.cen_x, self.cen_y = int(np.round(med_x,0)), int(np.round(med_y,0))
+
+
+    def get_tpf_coords(self, pos, height, width, bkg_size, source):
+        """
+        Gets the coordinates on `self.post_obj` for a TPF including `source`.
+        Helper function for `get_tpf_from_postcard`.
+        """
+        self.set_centroids(pos)
+        # Define tpf as region of postcard around target
 
         if source.tc == False:
             post_flux = self.post_obj.flux
@@ -299,20 +326,18 @@ class TargetData(object):
             post_flux = self.post_obj.flux + 0.0
             post_err  = self.post_obj.flux_err + 0.0
 
-        self.cen_x, self.cen_y = med_x, med_y
-
         y_length, x_length = int(np.floor(height/2.)), int(np.floor(width/2.))
         y_bkg_len, x_bkg_len = int(np.floor(bkg_size/2.)), int(np.floor(bkg_size/2.))
 
-        y_low_lim = med_y-y_length
-        y_upp_lim = med_y+y_length+1
-        x_low_lim = med_x-x_length
-        x_upp_lim = med_x+x_length+1
+        y_low_lim = self.cen_y-y_length
+        y_upp_lim = self.cen_y+y_length+1
+        x_low_lim = self.cen_x-x_length
+        x_upp_lim = self.cen_x+x_length+1
 
-        y_low_bkg = med_y-y_bkg_len
-        y_upp_bkg = med_y+y_bkg_len + 1
-        x_low_bkg = med_x-x_bkg_len
-        x_upp_bkg = med_x+x_bkg_len + 1
+        y_low_bkg = self.cen_y-y_bkg_len
+        y_upp_bkg = self.cen_y+y_bkg_len + 1
+        x_low_bkg = self.cen_x-x_bkg_len
+        x_upp_bkg = self.cen_x+x_bkg_len + 1
 
         if height % 2 == 0 or width % 2 == 0:
             warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
@@ -322,19 +347,19 @@ class TargetData(object):
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
             y_low_lim = 0
-            y_upp_lim = med_y + width + y_low_lim
+            y_upp_lim = self.cen_y + width + y_low_lim
         if x_low_lim <= 0:
             x_low_lim = 0
-            x_upp_lim = med_x + height + x_low_lim
+            x_upp_lim = self.cen_x + height + x_low_lim
         if y_upp_lim  > post_y_upp:
             y_upp_lim = post_y_upp+1
-            y_low_lim = med_y - width + (post_y_upp-med_y)
+            y_low_lim = self.cen_y - width + (post_y_upp-self.cen_y)
         if x_upp_lim >  post_x_upp:
             x_upp_lim = post_x_upp+1
-            x_low_lim = med_x - height + (post_x_upp-med_x)
+            x_low_lim = self.cen_x - height + (post_x_upp-self.cen_x)
 
-        self.tpf_star_y = width  + (med_y - y_upp_lim)
-        self.tpf_star_x = height + (med_x - x_upp_lim)
+        self.tpf_star_y = width  + (self.cen_y - y_upp_lim)
+        self.tpf_star_x = height + (self.cen_x - x_upp_lim)
 
         if self.tpf_star_y == 0:
             self.tpf_star_y = int(width/2)
@@ -344,18 +369,18 @@ class TargetData(object):
         # not sure what these variables do
         if y_low_bkg <= 0:
             y_low_bkg = 0
-            y_upp_bkg = med_y + width + y_low_bkg
+            y_upp_bkg = self.cen_y + width + y_low_bkg
         if x_low_bkg <= 0:
             x_low_bkg = 0
-            x_upp_bkg = med_x + height + x_low_bkg
+            x_upp_bkg = self.cen_x + height + x_low_bkg
         if y_upp_bkg  > post_y_upp:
             y_upp_bkg = post_y_upp+1
-            y_low_bkg = med_y - width + (post_y_upp - med_y)
+            y_low_bkg = self.cen_y - width + (post_y_upp - self.cen_y)
         if x_upp_bkg >  post_x_upp:
             x_upp_bkg = post_x_upp+1
-            x_low_bkg = med_x - height + (post_x_upp - med_x)
+            x_low_bkg = self.cen_x - height + (post_x_upp - self.cen_x)
 
-        return x_low_lim, x_upp_lim, y_low_lim, y_upp_lim, med_x, med_y
+        return x_low_lim, x_upp_lim, y_low_lim, y_upp_lim, self.cen_x, self.cen_y
 
     def get_neighbors(self, tmag_cut=14):
         '''
@@ -435,8 +460,26 @@ class TargetData(object):
             self.bkg_subtraction()
 
         self.dimensions = np.shape(self.tpf)
+        self.set_aperture_mode()
+        
+        if save_postcard == False:
+            try:
+                if self.source_info.tc == False:
+                    os.remove(self.post_obj.local_path)
+                    os.remove(self.post_obj.local_path.replace('pc.fits', 'bkg.fits'))
+                else:
+                    os.remove(self.source_info.postcard_path)
+            except OSError:
+                pass
+        return
 
-        summed_tpf = np.nansum(self.tpf, axis=0)
+    def set_aperture_mode(self, tpf=None):
+        if tpf is None:
+            tpf = self.tpf
+
+        y_length, x_length = int(np.floor(tpf.shape[1]/2.)), int(np.floor(tpf.shape[2]/2.))
+        
+        summed_tpf = np.nansum(tpf, axis=0)
         mpix = np.unravel_index(summed_tpf.argmax(), summed_tpf.shape)
         
         if np.abs(mpix[0] - x_length) > 1:
@@ -460,18 +503,6 @@ class TargetData(object):
                 if self.source_info.contratio > 0.15:
                     self.aperture_mode = 1
 
-
-
-        if save_postcard == False:
-            try:
-                if self.source_info.tc == False:
-                    os.remove(self.post_obj.local_path)
-                    os.remove(self.post_obj.local_path.replace('pc.fits', 'bkg.fits'))
-                else:
-                    os.remove(self.source_info.postcard_path)
-            except OSError:
-                pass
-        return
 
 
     def create_apertures(self, height, width):
@@ -573,7 +604,7 @@ class TargetData(object):
         """
         time = self.time
 
-        if self.source_info.tc == True:
+        if self.source_info.tc and not self.user_given:
             flux = self.bkg_tpf
         else:
             flux = self.tpf
@@ -582,7 +613,7 @@ class TargetData(object):
         bkg = MMMBackground(sigma_clip=sigma_clip)
         tpf_flux_bkg = bkg.calc_background(flux, axis=(1, 2))
 
-        if self.source_info.tc == True:
+        if self.source_info.tc or self.user_given:
             self.tpf_flux_bkg = tpf_flux_bkg
         else:
             return tpf_flux_bkg
@@ -836,7 +867,10 @@ class TargetData(object):
     def set_quality(self):
         """ Reads in quality flags set in the postcard
         """
-        self.quality = np.array(self.post_obj.quality)
+        if self.user_given:
+            self.quality = np.zeros(self.tpf.shape[0])
+        else:
+            self.quality = np.array(self.post_obj.quality)
 
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
         return
@@ -855,47 +889,12 @@ class TargetData(object):
         )
         return x_f, y_f, wts
 
-    def get_aperture_fluxes(self, xc, yc, data_arr=None):
-        """
-        Gets lightcurves from apertures that isolate each of the target stars in turn.
-        Parameters
-        ----------
-        data_arr, xc, yc : np.ndarray, np.ndarray, list, list
-            As in the signature to psf_lightcurve.
-        
-        Returns
-        -------
-        fluxes : np.ndarray, (len(xc), data_arr.shape[0])
-            Time-series of flux on each of the target stars.
-        """
-
-        if data_arr is None:
-            data_arr = self.tpf + 0.0
-            data_arr[np.isnan(data_arr)] = 0.0
-
-        fluxes = np.empty((data_arr.shape[0], len(xc)))
-
-        for i, (x, y) in enumerate(zip(xc, yc)):
-            xl, yl, wts = self.cutout_weights(x, y)
-            cutout = data_arr[:, yl:yl+2, xl:xl+2]
-            fluxes[:,i] = np.array([np.sum(c * wts) for c in cutout])
-
-        return fluxes        
-
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, 
-    initial_params=None):
+    def psf_lightcurve(self, flux_arr=None, nstars=1, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None):
         """_
         Performs PSF photometry for a selection of stars on a TPF.
 
         Parameters
         ----------
-        data_arr: numpy.ndarray, optional
-            Data array to fit with the PSF model. If None, will default to `TargetData.tpf`.
-        err_arr: numpy.ndarray, optional
-            Uncertainty array to fit with the PSF model. If None, will default to `TargetData.tpf_flux_err`.
-        bkg_arr: numpy.ndarray, optional
-            List of background values to include as initial guesses for the background model. If None,
-            will default to `TargetData.flux_bkg`.
         nstars: int, optional
             Number of stars to be modeled on the TPF.
         model_name: string, optional
@@ -911,8 +910,6 @@ class TargetData(object):
             The y-coordinates of stars in the zeroth cadence. Must have length `nstars`.
             While the positions of stars will be fit in all cadences, the relative positions of
             stars will be fixed following the delta values from this list.
-        magnitudes: list, optional
-            The magnitudes of stars. Must have length `nstars`.
         verbose: bool, optional
             If True, return information about the shape of the PSF at every cadence as well as the
             PSF-inferred centroid shape.
@@ -926,36 +923,29 @@ class TargetData(object):
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
 
-        from .models import Gaussian, Moffat, Zernike, Lygos, MultiGaussian
+        from .models import Gaussian, Moffat, Zernike, Lygos
         import tqdm
 
-        implemented_models = ['Gaussian', 'Moffat', 'MultiGaussian', 'Zernike', 'Lygos']
+        implemented_models = ['Gaussian', 'Moffat', 'Zernike', 'Lygos']
 
         star_idx_to_fit = 0
         assert star_idx_to_fit < nstars
 
-        if data_arr is None:
-            data_arr = self.tpf + 0.0
-            data_arr[np.isnan(data_arr)] = 0.0
-            # de-dimensionalize: may want more sophisticated processing later
-        if isinstance(data_arr, u.quantity.Quantity):
-            data_arr = data_arr.value
-        
-        if err_arr is None:
-            if err_method == True:
-                err_arr = (self.tpf_err + 0.0) ** 2
-            else:
-                err_arr = np.ones_like(data_arr)
-        if isinstance(err_arr, u.quantity.Quantity):
-            err_arr = err_arr.value
-        
-        if bkg_arr is None:
-            bkg_arr = self.flux_bkg + 0.0
-        if isinstance(bkg_arr, u.quantity.Quantity):
-            bkg_arr = bkg_arr.value
+        if flux_arr is None:
+            flux_arr = self.corr_flux
 
-        normalized_avg_tpf = np.mean(data_arr, axis=0)
-        normalized_avg_tpf /= np.sum(normalized_avg_tpf)
+        data_arr = self.tpf + 0.0
+        data_arr[np.isnan(data_arr)] = 0.0
+
+        if err_method == True:
+            err_arr = (self.tpf_err + 0.0) ** 2
+        else:
+            err_arr = np.ones_like(data_arr)
+        
+        bkg_arr = self.flux_bkg + 0.0
+        
+        sources_in_tpf = gaia_sources_in_tpf(dinosaur)
+        star_coords = dinosaur
 
         if yc is None:
             yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
@@ -973,9 +963,6 @@ class TargetData(object):
                 magnitudes.append(sum(w * e for w, e in zip(wts, edges)))
 
             magnitudes = np.ones(nstars) 
-            # we only care about relative magnitude for now, so this is saying 
-            # all stars in the field are equally bright (usually not true)'''
-        # TODO fill in TIC/MAST lookup here
 
         dsum = np.nansum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
@@ -1007,12 +994,11 @@ class TargetData(object):
             bkg0 = bkg_arr[0]
         )
 
+        # initialize parameters
         fluxes = np.max(data_arr[0]) * np.ones(nstars,) # flux of each star
         globalpars = np.array([0, 0, bkg_arr[0]]) # xshift, yshift of target star; background
         optpars = model.get_default_optpars() # model-specific optimization parameters
-
         par = np.concatenate((fluxes, globalpars, optpars))
-        # params_out = np.zeros((len(data_arr), len(par) - 1 - nstars))
 
         if likelihood == "gaussian":
             loss = lambda mean_val, data, err, bkg: np.sum((mean_val - data) ** 2 / err)
@@ -1022,7 +1008,7 @@ class TargetData(object):
             raise ValueError("Likelihood method '{}' not implemented.".format(likelihood))
 
         def nll(params, data, err, bkg):
-            """NLL for an averaged PSF fit."""
+            """Negative log likelihood for an averaged PSF fit."""
             for j, p in enumerate(params):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
@@ -1035,32 +1021,30 @@ class TargetData(object):
             return loss(mean_val, data, err, bkg)
 
         mean_pars = minimize(nll, par, (np.mean(data_arr, axis=0), np.mean(err_arr, axis=0), np.mean(bkg_arr, axis=0)), method='TNC', tol=1e-4).x
+        
         mean_xs, mean_ys, mean_pars = par[nstars], par[nstars+1], par[nstars+3:]
-        aperture_fluxes = self.get_aperture_fluxes(xc=xc, yc=yc, data_arr=data_arr)
 
-        def psf_deltas(xc, yc, mags):
+        base_background_tpf = np.mean(bkg_arr, axis=0)
+
+        def psf_deltas(mag):
             """Ideal TPF given a known/fitted PSF for a particular cadence."""
-            mock_data = np.zeros_like(data_arr[0])
-            for (x, y, m) in zip(xc, yc, mags):
-                mock_data += model(m, mean_xs, mean_ys, mean_pars)
-            return mock_data
+            # TODO update base_background_tpf with better background star fits
+            return base_background_tpf + model(mag, xc[0]+mean_xs, yc[0]+mean_ys, mean_pars)
 
         def fluxes_arma(kernel=np.array([1, 2, 4, 2, 1])):
-            assert len(kernel) % 2 == 1, "must have a symmetric kernel"
+            assert len(kernel) % 2 == 1, "must have a centered kernel"
             half_len = len(kernel) // 2
             kernel = kernel / sum(kernel)
-            model_fluxes = np.empty_like(aperture_fluxes)
-            for i in range(aperture_fluxes.shape[1]):
-                conv_result = np.convolve(kernel, aperture_fluxes[:,i])[2 * half_len:-2 * half_len]
-                model_fluxes[:half_len,i] = aperture_fluxes[:half_len,i]
-                model_fluxes[half_len:-half_len,i] = conv_result
-                model_fluxes[-half_len:,i] = aperture_fluxes[-half_len,i]
-
+            model_fluxes = np.empty_like(flux_arr)
+            conv_result = np.convolve(kernel, flux_arr)[2 * half_len:-2 * half_len]
+            model_fluxes[:half_len] = flux_arr[:half_len]
+            model_fluxes[half_len:-half_len] = conv_result
+            model_fluxes[-half_len:] = flux_arr[-half_len]
             return model_fluxes
 
         def make_model_tpfs(kernel):
             model_fluxes = fluxes_arma(np.array(kernel))
-            return np.array([psf_deltas(xc, yc, mags) for mags in model_fluxes])
+            return np.array([psf_deltas(mags) for mags in model_fluxes])
 
         def tpf_loss(kernel):
             model_tpfs = make_model_tpfs(kernel)
@@ -1069,18 +1053,16 @@ class TargetData(object):
         res = minimize(tpf_loss, np.ones(7,), method='Nelder-Mead', tol=1e-4)
         opt_kernel = res.x
         self.psf_flux = fluxes_arma(opt_kernel)
-        params_out = mean_pars
         self.psf_kernel = opt_kernel
         llout = res.fun
-        print(res.x)
 
         if self.language == 'Australian':
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
 
-        self.psf_bkg = bkgout
+        self.psf_bkg = par[nstars+2]
 
         if verbose:
-            self.psf_params = params_out
+            self.psf_params = np.concatenate((mean_xs, mean_ys, mean_pars))
             self.psf_ll = llout
             if nstars > 1:
                 self.all_psf = fout

@@ -19,7 +19,7 @@ except ImportError: # Python 2.x
     import httplib
 
 __all__ = ['coords_from_tic', 'gaia_from_coords', 'coords_from_gaia', 'tic_from_coords',
-           'cone_search', 'coords_from_name']
+           'cone_search', 'coords_from_name', 'gaia_sources_in_tpf']
 
 def mastQuery(request):
     """Sends a request to the MAST server.
@@ -154,6 +154,8 @@ def coords_from_tic(tic):
     ticData = Catalogs.query_object(tic, radius=.0001, catalog="TIC")
     return [ticData['ra'].data[0], ticData['dec'].data[0]], [ticData['Tmag'].data[0]], int(ticData['version'].data[0]), ticData['contratio'].data[0]
 
+
+
 def coords_from_name(name):
     """ Finds the RA, Dec for a given target name."""
     from astroquery.simbad import Simbad
@@ -238,3 +240,33 @@ def tic_by_contamination(pos, r, contam, tmag_lim, call_internal=False):
             print("retrying...")
             time.sleep(30)
     return jsonTable(blob)
+
+def gaia_sources_in_tpf(tpf, magnitude_limit=18):
+    """
+    Gets all the Gaia sources from a TESS TargetPixelFile.
+    """
+    c1 = SkyCoord(tpf.ra, tpf.dec, frame='icrs', unit='deg')
+    # Use pixel scale for query size
+    pix_scale = 21.0
+    # We are querying with a diameter as the radius, overfilling by 2x.
+    Vizier.ROW_LIMIT = -1
+    result = Vizier.query_region(c1, catalog=["I/345/gaia2"],
+                                    radius=Angle(np.max(tpf.shape[1:]) * pix_scale, "arcsec"))
+    no_targets_found_message = ValueError('Either no sources were found in the query region '
+                                            'or Vizier is unavailable')
+    too_few_found_message = ValueError('No sources found brighter than {:0.1f}'.format(magnitude_limit))
+    if result is None:
+        raise no_targets_found_message
+    elif len(result) == 0:
+        raise too_few_found_message
+    result = result["I/345/gaia2"].to_pandas()
+    result = result[result.Gmag < magnitude_limit]
+    if len(result) == 0:
+        raise no_targets_found_message
+    radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
+    coords = tpf.wcs.all_world2pix(radecs, 0)
+    # coords_x and coords_y have their zero at the center of the TPF
+    result["coords_x"] = coords[:,0] - tpf.shape[2] / 2
+    result["coords_y"] = coords[:,1] - tpf.shape[1] / 2
+    result = result[(np.abs(result.coords_x) <= tpf.shape[2] / 2) & (np.abs(result.coords_y) <= tpf.shape[1] / 2)]
+    return result

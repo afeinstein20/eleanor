@@ -473,8 +473,7 @@ class ffi:
 
         eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 
-        qf = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector,
-                                                                                                                        self.sector))
+        qf = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector, self.sector))
 
         if out_dir is not None:
             pm_fn = out_dir+ '/' + pm_fn

@@ -255,11 +255,11 @@ class Source(object):
             if not os.path.isdir(self.metadata_path + '/metadata/s{:04d}'.format(self.sector)):
                 Update(sector=self.sector)
 
-            if tc == False:
-                self.locate_postcard(local)
-            if tc == True:
-                self.locate_with_tesscut() # sets sector, camera, chip, postcard,
+            if tc:
+                self.locate_with_tesscut()# sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
+            else:
+                self.locate_postcard(local)
 
 
     def locate_on_tess(self):
@@ -290,7 +290,7 @@ class Source(object):
 
         else:
             # Handles cases where users can pass in their sector
-            if type(self.usr_sec) == int:
+            if isinstance(self.usr_sec, int):
                 arg = np.argwhere(sectors == self.usr_sec)[0]
                 if len(arg) > 0:
                     self.sector = sectors[arg][0]
