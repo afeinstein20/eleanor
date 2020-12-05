@@ -11,6 +11,7 @@ from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
 import warnings
 from astroquery.mast import Tesscut
 from astroquery.mast import Observations
+import lightkurve as lk
 
 from . import PACKAGEDIR
 
@@ -142,8 +143,7 @@ class Source(object):
         self.postcard_path = post_dir
         self.pm_dir = pm_dir
         self.local = local
-
-        
+        self.wcs = lk.search_targetpixelfile(target='tic'+str(self.tic), sector=sector).download().wcs # todo replace with something that doesn't need the full lk constructor
 
         if self.pm_dir is None:
             self.pm_dir = self.postcard_path
