@@ -886,25 +886,19 @@ class TargetData(object):
         )
         return x_f, y_f, wts
 
-    def psf_lightcurve(self, flux_arr=None, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None, bkg_mag_cutoff=14):
+    def psf_lightcurve(self, flux_arr=None, model_name='Gaussian', likelihood='gaussian', magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, bkg_mag_cutoff=14):
         """_
         Performs PSF photometry for a selection of stars on a TPF.
 
         Parameters
         ----------
+        flux_arr: array_like, optional
+            Takes in a lightcurve to be detrended; if not specified, defaults to self.corr_flux.
         model_name: string, optional
             PSF model to be applied. Must be one of the models listed in 'implemented_models'.
             Will be extended in the future once TESS PRF models are made publicly available.
         likelihood: string, optinal
             The data statistics given the parameters. Options are: 'gaussian' and 'poisson'.
-        xc: list, optional
-            The x-coordinates of stars in the zeroth cadence. Must have length `nstars`.
-            While the positions of stars will be fit in all cadences, the relative positions of
-            stars will be fixed following the delta values from this list.
-        yc: list, optional
-            The y-coordinates of stars in the zeroth cadence. Must have length `nstars`.
-            While the positions of stars will be fit in all cadences, the relative positions of
-            stars will be fixed following the delta values from this list.
         verbose: bool, optional
             If True, return information about the shape of the PSF at every cadence as well as the
             PSF-inferred centroid shape.
@@ -924,8 +918,6 @@ class TargetData(object):
         import tqdm
 
         implemented_models = ['Gaussian', 'Moffat', 'Zernike', 'Lygos']
-
-        star_idx_to_fit = 0
     
         if flux_arr is None:
             flux_arr = self.corr_flux
@@ -944,6 +936,7 @@ class TargetData(object):
         xc = np.array(sources_in_tpf.coords_x) + self.tpf.shape[2] / 2
         yc = np.array(sources_in_tpf.coords_y) + self.tpf.shape[1] / 2
         nstars = len(xc)
+        fit_idx = np.argmin(sources_in_tpf.Gmag) # this could be more robust
 
         dsum = np.nansum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
@@ -969,7 +962,7 @@ class TargetData(object):
             row_ref=0, 
             xc = xc,
             yc = yc,
-            fit_idx = star_idx_to_fit,
+            fit_idx = fit_idx,
             bkg0 = bkg_arr[0]
         )
 
@@ -1001,12 +994,16 @@ class TargetData(object):
 
         mean_pars = minimize(nll, par, (np.mean(data_arr, axis=0), np.mean(err_arr, axis=0), np.mean(bkg_arr, axis=0)), method='TNC', tol=1e-4).x
         mean_xs, mean_ys, mean_pars = par[nstars], par[nstars+1], par[nstars+3:]
+        delta_mags = np.array(min(sources_in_tpf.Gmag) - sources_in_tpf.Gmag)
+        flux_avgs = 2.512 ** delta_mags
         base_background_tpf = np.mean(bkg_arr, axis=0)
+        for i, f in enumerate(flux_avgs):
+            if i != fit_idx:
+                base_background_tpf += model(f, xc[i]+mean_xs, yc[i]+mean_ys, mean_pars)
 
-        def psf_deltas(mag):
+        def psf_deltas(flux):
             """Ideal TPF given a known/fitted PSF for a particular cadence."""
-            # TODO update base_background_tpf with better background star fits
-            return base_background_tpf + model(mag, xc[0]+mean_xs, yc[0]+mean_ys, mean_pars)
+            return base_background_tpf + model(flux, xc[fit_idx]+mean_xs, yc[fit_idx]+mean_ys, mean_pars)
 
         def fluxes_arma(kernel=np.array([1, 2, 4, 2, 1])):
             assert len(kernel) % 2 == 1, "must have a centered kernel"
@@ -1016,7 +1013,7 @@ class TargetData(object):
             conv_result = np.convolve(kernel, flux_arr)[2 * half_len:-2 * half_len]
             model_fluxes[:half_len] = flux_arr[:half_len]
             model_fluxes[half_len:-half_len] = conv_result
-            model_fluxes[-half_len:] = flux_arr[-half_len]
+            model_fluxes[-half_len:] = flux_arr[-half_len:]
             return model_fluxes
 
         def make_model_tpfs(kernel):

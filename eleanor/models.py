@@ -120,7 +120,7 @@ class Moffat(Model):
 		a, b, c, beta = params
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = np.divide(1., np.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
+		psf = np.divide(1., np.power(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
 		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 		
