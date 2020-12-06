@@ -178,8 +178,8 @@ class TargetData(object):
             self.tpf_err = err_arr
             self.flux_bkg = bkg_arr
             self.set_centroids(source.coords)
-            self.tpf_star_x = star_coords[0,0]
-            self.tpf_star_y = star_coords[0,1]
+            self.tpf_star_x = width // 2 + 1
+            self.tpf_star_y = height // 2 + 1
             self.bkg_subtraction()
             try_load = False
 
@@ -941,8 +941,8 @@ class TargetData(object):
         bkg_arr = self.flux_bkg + 0.0
         
         sources_in_tpf = gaia_sources_in_tpf(self.source_info, bkg_mag_cutoff, self.tpf.shape[1:])
-        xc = sources_in_tpf.coords_x + self.tpf.shape[2] / 2
-        yc = sources_in_tpf.coords_y + self.tpf.shape[1] / 2
+        xc = np.array(sources_in_tpf.coords_x) + self.tpf.shape[2] / 2
+        yc = np.array(sources_in_tpf.coords_y) + self.tpf.shape[1] / 2
         nstars = len(xc)
 
         dsum = np.nansum(data_arr, axis=(0))
@@ -1000,9 +1000,7 @@ class TargetData(object):
             return loss(mean_val, data, err, bkg)
 
         mean_pars = minimize(nll, par, (np.mean(data_arr, axis=0), np.mean(err_arr, axis=0), np.mean(bkg_arr, axis=0)), method='TNC', tol=1e-4).x
-        
         mean_xs, mean_ys, mean_pars = par[nstars], par[nstars+1], par[nstars+3:]
-
         base_background_tpf = np.mean(bkg_arr, axis=0)
 
         def psf_deltas(mag):
@@ -1027,7 +1025,9 @@ class TargetData(object):
 
         def tpf_loss(kernel):
             model_tpfs = make_model_tpfs(kernel)
-            return np.sum((model_tpfs - data_arr) ** 2)
+            loss = np.sum((model_tpfs - data_arr) ** 2)
+            print(loss)
+            return loss
 
         res = minimize(tpf_loss, np.ones(7,), method='Nelder-Mead', tol=1e-4)
         opt_kernel = res.x
@@ -1041,10 +1041,11 @@ class TargetData(object):
         self.psf_bkg = par[nstars+2]
 
         if verbose:
-            self.psf_params = np.concatenate((mean_xs, mean_ys, mean_pars))
+            self.psf_params = np.concatenate(([mean_xs, mean_ys], mean_pars))
+            self.arma_res = res
             self.psf_ll = llout
             if nstars > 1:
-                self.all_psf = fout
+                self.all_psf = fluxes_arma(opt_kernel)
         return
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
