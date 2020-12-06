@@ -20,18 +20,17 @@ class Model(ABC):
 		column and row coordinates of the bottom
 		left corner of the TPF
 	"""
-	def __init__(self, shape, col_ref, row_ref, xc, yc, nstars, fit_idx, bkg0, **kwargs):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, fit_idx, bkg0, **kwargs):
 		self.shape = shape
 		self.col_ref = col_ref
 		self.row_ref = row_ref
 		self.xc = xc
 		self.yc = yc
-		self.nstars = nstars
 		self.fit_idx = fit_idx
 		self.bkg0 = bkg0
 		self._init_grid()
 		self.bounds = np.vstack((
-				np.tile([0, np.infty], (self.nstars, 1)), # fluxes on each star
+				np.tile([0, np.infty], (len(self.xc), 1)), # fluxes on each star
 				np.array([
 					[-2.0, 2.0], # xshift of the star to fit
 					[-2.0, 2.0], # yshift of the star to fit
@@ -54,11 +53,11 @@ class Model(ABC):
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
 	def mean(self, flux, xshift, yshift, bkg, optpars):
-		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(self.nstars)], axis=0) + bkg
+		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(len(self.xc))], axis=0) + bkg
 
 	def get_default_par(self, d0):
 		return np.concatenate((
-			np.max(d0) * np.ones(self.nstars,),
+			np.max(d0) * np.ones(len(self.xc),),
 			 np.array([0, 0, self.bkg0], 
 			 self.get_default_optpars())
 		))
@@ -83,7 +82,7 @@ class Gaussian(Model):
 		Evaluate the Gaussian model
 		Parameters
 		----------
-		flux : np.ndarray, (nstars,)
+		flux : np.ndarray, (len(self.xc),)
 		xo, yo : scalar
 			Center coordinates of the Gaussian.
 		a, b, c : scalar

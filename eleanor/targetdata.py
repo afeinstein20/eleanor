@@ -166,10 +166,10 @@ class TargetData(object):
         self.psf_flux = None
         self.regressors = regressors
 
-        self.user_given = all([x is not None for x in [time_arr, data_arr, err_arr, bkg_arr, star_coords]])
+        self.user_given = all([x is not None for x in [time_arr, data_arr, err_arr, bkg_arr]])
 
         if self.user_given:
-            # if you don't specify all five of these it reverts to pulling from `source_info`
+            # if you don't specify all four of these it reverts to pulling from `source_info`
 
             self.post_obj = Postcard_tesscut(source.cutout)
             self.pointing_model = load_pointing_model(source.pm_dir, source.sector, source.camera, source.chip)
@@ -177,14 +177,11 @@ class TargetData(object):
             self.tpf = data_arr
             self.tpf_err = err_arr
             self.flux_bkg = bkg_arr
-            self.star_coords = star_coords # xc, yc
             self.set_centroids(source.coords)
-            assert self.star_coords.shape[1] == 2
             self.tpf_star_x = star_coords[0,0]
             self.tpf_star_y = star_coords[0,1]
             self.bkg_subtraction()
             try_load = False
-            # dinosaur
 
         if self.source_info.premade:
             self.load(directory=self.source_info.fn_dir)
@@ -889,14 +886,12 @@ class TargetData(object):
         )
         return x_f, y_f, wts
 
-    def psf_lightcurve(self, flux_arr=None, nstars=1, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None):
+    def psf_lightcurve(self, flux_arr=None, model_name='Gaussian', likelihood='gaussian', xc=None, yc=None, magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, initial_params=None, bkg_mag_cutoff=14):
         """_
         Performs PSF photometry for a selection of stars on a TPF.
 
         Parameters
         ----------
-        nstars: int, optional
-            Number of stars to be modeled on the TPF.
         model_name: string, optional
             PSF model to be applied. Must be one of the models listed in 'implemented_models'.
             Will be extended in the future once TESS PRF models are made publicly available.
@@ -921,6 +916,8 @@ class TargetData(object):
             If not None, ignore a certain percentage of the brightest pixels away from the source
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
+        bkg_mag_cutoff: scalar, optional
+            The magnitude cutoff for background stars. Defaults to 14.
         """
 
         from .models import Gaussian, Moffat, Zernike, Lygos
@@ -929,8 +926,7 @@ class TargetData(object):
         implemented_models = ['Gaussian', 'Moffat', 'Zernike', 'Lygos']
 
         star_idx_to_fit = 0
-        assert star_idx_to_fit < nstars
-
+    
         if flux_arr is None:
             flux_arr = self.corr_flux
 
@@ -944,25 +940,10 @@ class TargetData(object):
         
         bkg_arr = self.flux_bkg + 0.0
         
-        sources_in_tpf = gaia_sources_in_tpf(dinosaur)
-        star_coords = dinosaur
-
-        if yc is None:
-            yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
-        if xc is None:
-            xc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[0]
-
-        if magnitudes is None:
-            magnitudes = []
-            for x, y in zip(xc, yc):
-                x_f, x_c = int(np.floor(x)), int(np.ceil(x))
-                y_f, y_c = int(np.floor(y)), int(np.ceil(y))
-                xr, yr = x - x_f, y - y_f
-                edges = [normalized_avg_tpf[i,j] for (i,j) in [[x_f, y_f], [x_f, y_c], [x_c, y_f], [x_c, y_c]]]
-                wts = [(1 - xr) * (1 - yr), (1 - xr) * yr, xr * (1 - yr), xr * yr]
-                magnitudes.append(sum(w * e for w, e in zip(wts, edges)))
-
-            magnitudes = np.ones(nstars) 
+        sources_in_tpf = gaia_sources_in_tpf(self.source_info, bkg_mag_cutoff, self.tpf.shape[1:])
+        xc = sources_in_tpf.coords_x + self.tpf.shape[2] / 2
+        yc = sources_in_tpf.coords_y + self.tpf.shape[1] / 2
+        nstars = len(xc)
 
         dsum = np.nansum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
@@ -977,7 +958,6 @@ class TargetData(object):
             err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf
 
         bkg0 = bkg_arr[0]
-        assert len(xc) == nstars and len(yc) == nstars, "xc and yc must have length nstars"
 
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
@@ -989,7 +969,6 @@ class TargetData(object):
             row_ref=0, 
             xc = xc,
             yc = yc,
-            nstars = nstars,
             fit_idx = star_idx_to_fit,
             bkg0 = bkg_arr[0]
         )
