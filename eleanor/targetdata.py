@@ -922,21 +922,24 @@ class TargetData(object):
         if flux_arr is None:
             flux_arr = self.corr_flux
 
-        data_arr = self.tpf + 0.0
+        data_arr = self.tpf
         data_arr[np.isnan(data_arr)] = 0.0
 
         if err_method == True:
-            err_arr = (self.tpf_err + 0.0) ** 2
+            err_arr = (self.tpf_err) ** 2
         else:
             err_arr = np.ones_like(data_arr)
         
-        bkg_arr = self.flux_bkg + 0.0
+        bkg_arr = self.flux_bkg
         
         sources_in_tpf = gaia_sources_in_tpf(self.source_info, bkg_mag_cutoff, self.tpf.shape[1:])
         xc = np.array(sources_in_tpf.coords_x) + self.tpf.shape[2] / 2
         yc = np.array(sources_in_tpf.coords_y) + self.tpf.shape[1] / 2
         nstars = len(xc)
-        fit_idx = np.argmin(sources_in_tpf.Gmag) # this could be more robust
+        gmags = sources_in_tpf.Gmag
+        fit_idx = np.argmin(gmags) # this could be more robust
+        delta_mags = np.array(min(gmags) - gmags)
+        flux_avgs = 2.512 ** delta_mags
 
         dsum = np.nansum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
@@ -967,10 +970,10 @@ class TargetData(object):
         )
 
         # initialize parameters
-        fluxes = np.max(data_arr[0]) * np.ones(nstars,) # flux of each star
+        flux = np.max(data_arr[0]) # flux of each star
         globalpars = np.array([0, 0, bkg_arr[0]]) # xshift, yshift of target star; background
         optpars = model.get_default_optpars() # model-specific optimization parameters
-        par = np.concatenate((fluxes, globalpars, optpars))
+        par = np.concatenate(([flux], globalpars, optpars))
 
         if likelihood == "gaussian":
             loss = lambda mean_val, data, err, bkg: np.sum((mean_val - data) ** 2 / err)
@@ -985,21 +988,24 @@ class TargetData(object):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
 
-            fluxes = params[:nstars]
-            xshift, yshift, bkg = params[nstars:nstars+3]
-            optpars = params[nstars+3:]
+            fluxes = flux_avgs * params[0]
+            xshift, yshift, bkg = params[1:4]
+            optpars = params[4:]
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
-            
             return loss(mean_val, data, err, bkg)
 
-        mean_pars = minimize(nll, par, (np.mean(data_arr, axis=0), np.mean(err_arr, axis=0), np.mean(bkg_arr, axis=0)), method='TNC', tol=1e-4).x
-        mean_xs, mean_ys, mean_pars = par[nstars], par[nstars+1], par[nstars+3:]
-        delta_mags = np.array(min(sources_in_tpf.Gmag) - sources_in_tpf.Gmag)
-        flux_avgs = 2.512 ** delta_mags
+        skip = 1
+        for i in tqdm.trange(0, len(data_arr), skip):
+            data, err, bkg = np.mean(data_arr[i:i+skip], axis=0), np.mean(err_arr[i:i+skip], axis=0), np.mean(bkg_arr[i:i+skip], axis=0)
+            par = minimize(nll, par, (data, err, bkg), method='TNC', tol=1e-4).x
+            if i % 100 == 0:
+                print(par)
+
+        mean_xs, mean_ys, mean_pars = par[1], par[2], par[4:]
         base_background_tpf = np.mean(bkg_arr, axis=0)
         for i, f in enumerate(flux_avgs):
             if i != fit_idx:
-                base_background_tpf += model(f, xc[i]+mean_xs, yc[i]+mean_ys, mean_pars)
+                base_background_tpf += model(f, xc[i], yc[i], mean_pars)
 
         def psf_deltas(flux):
             """Ideal TPF given a known/fitted PSF for a particular cadence."""
@@ -1026,7 +1032,7 @@ class TargetData(object):
             print(loss)
             return loss
 
-        res = minimize(tpf_loss, np.ones(7,), method='Nelder-Mead', tol=1e-4)
+        res = minimize(tpf_loss, np.ones(5,), method='Nelder-Mead', tol=1e-4)
         opt_kernel = res.x
         self.psf_flux = fluxes_arma(opt_kernel)
         self.psf_kernel = opt_kernel

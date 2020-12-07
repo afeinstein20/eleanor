@@ -53,7 +53,9 @@ class Model(ABC):
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
 	def mean(self, flux, xshift, yshift, bkg, optpars):
-		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(len(self.xc))], axis=0) + bkg
+		xc = [self.xc[i] if i != fit_idx else self.xc[i]+xshift for i in range(len(self.xc))]
+		xc = [self.yc[i] if i != fit_idx else self.yc[i]+yshift for i in range(len(self.yc))]
+		return np.sum([self.evaluate(flux[j], xc[j]+xshift, yc[j]+yshift, optpars) for j in range(len(self.xc))], axis=0) + bkg
 
 	def get_default_par(self, d0):
 		return np.concatenate((
