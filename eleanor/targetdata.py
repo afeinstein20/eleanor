@@ -976,7 +976,7 @@ class TargetData(object):
         par = np.concatenate((fluxes, globalpars, optpars))
 
         if likelihood == "gaussian":
-            loss = lambda mean_val, data, err, bkg: np.sum(((mean_val - data) * (bkg < data)) ** 2 / err)
+            loss = lambda mean_val, data, err, bkg: np.sum((mean_val - data) ** 2 / err)
         elif likelihood == "poisson":
             loss = lambda mean_val, data, err, bkg: np.sum(mean_val + bkg - (data + bkg) * np.log(mean_val + bkg))
         else:
@@ -988,18 +988,18 @@ class TargetData(object):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
 
-            fluxes = flux_avgs * params[:nstars]
+            fluxes = params[:nstars] # also want to penalize deviating super far from flux_avgs somehow
             xshift, yshift, bkg = params[nstars:nstars+3]
             optpars = params[nstars+3:]
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
             return loss(mean_val, data, err, bkg)
 
         skip = 1
-        naive_flux = np.zeros(len(data_arr) // skip)
+        naive_flux = np.zeros((nstars, len(data_arr) // skip))
         for i in tqdm.trange(0, len(data_arr), skip):
             data, err, bkg = np.mean(data_arr[i:i+skip], axis=0), np.mean(err_arr[i:i+skip], axis=0), np.mean(bkg_arr[i:i+skip], axis=0)
             par = minimize(nll, par, (data, err, bkg), method='TNC', tol=1e-4).x
-            naive_flux[i // skip] = par[fit_idx]
+            naive_flux[:, i // skip] = par[:nstars]
 
         self.naive_psf_flux = naive_flux
         mean_xs, mean_ys, mean_pars = par[nstars], par[nstars+1], par[nstars+3:]
