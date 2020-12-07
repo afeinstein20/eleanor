@@ -970,13 +970,13 @@ class TargetData(object):
         )
 
         # initialize parameters
-        flux = np.max(data_arr[0]) # flux of each star
+        fluxes = np.max(data_arr[0]) * flux_avgs  # flux of each star
         globalpars = np.array([0, 0, bkg_arr[0]]) # xshift, yshift of target star; background
         optpars = model.get_default_optpars() # model-specific optimization parameters
-        par = np.concatenate(([flux], globalpars, optpars))
+        par = np.concatenate((fluxes, globalpars, optpars))
 
         if likelihood == "gaussian":
-            loss = lambda mean_val, data, err, bkg: np.sum((mean_val - data) ** 2 / err)
+            loss = lambda mean_val, data, err, bkg: np.sum(((mean_val - data) * (bkg < data)) ** 2 / err)
         elif likelihood == "poisson":
             loss = lambda mean_val, data, err, bkg: np.sum(mean_val + bkg - (data + bkg) * np.log(mean_val + bkg))
         else:
@@ -988,28 +988,31 @@ class TargetData(object):
                 if not(model.bounds[j, 0] <= p and p <= model.bounds[j, 1]):
                     return np.infty
 
-            fluxes = flux_avgs * params[0]
-            xshift, yshift, bkg = params[1:4]
-            optpars = params[4:]
+            fluxes = flux_avgs * params[:nstars]
+            xshift, yshift, bkg = params[nstars:nstars+3]
+            optpars = params[nstars+3:]
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
             return loss(mean_val, data, err, bkg)
 
         skip = 1
+        naive_flux = np.zeros(len(data_arr) // skip)
         for i in tqdm.trange(0, len(data_arr), skip):
             data, err, bkg = np.mean(data_arr[i:i+skip], axis=0), np.mean(err_arr[i:i+skip], axis=0), np.mean(bkg_arr[i:i+skip], axis=0)
             par = minimize(nll, par, (data, err, bkg), method='TNC', tol=1e-4).x
-            if i % 100 == 0:
-                print(par)
+            naive_flux[i // skip] = par[fit_idx]
 
-        mean_xs, mean_ys, mean_pars = par[1], par[2], par[4:]
+        self.naive_psf_flux = naive_flux
+        mean_xs, mean_ys, mean_pars = par[nstars], par[nstars+1], par[nstars+3:]
+        mask = reduce(np.bitwise_or, np.array([b < d for (b, d) in zip(bkg_arr, data_arr)])) # leave out any pixels that are always less than background
+        masked_data_arr = np.array([d * mask for d in data_arr])
         base_background_tpf = np.mean(bkg_arr, axis=0)
         for i, f in enumerate(flux_avgs):
             if i != fit_idx:
-                base_background_tpf += model(f, xc[i], yc[i], mean_pars)
+                base_background_tpf += mask * model(f, xc[i], yc[i], mean_pars)
 
         def psf_deltas(flux):
             """Ideal TPF given a known/fitted PSF for a particular cadence."""
-            return base_background_tpf + model(flux, xc[fit_idx]+mean_xs, yc[fit_idx]+mean_ys, mean_pars)
+            return base_background_tpf + mask * model(flux, xc[fit_idx]+mean_xs, yc[fit_idx]+mean_ys, mean_pars)
 
         def fluxes_arma(kernel=np.array([1, 2, 4, 2, 1])):
             assert len(kernel) % 2 == 1, "must have a centered kernel"
@@ -1032,7 +1035,7 @@ class TargetData(object):
             print(loss)
             return loss
 
-        res = minimize(tpf_loss, np.ones(5,), method='Nelder-Mead', tol=1e-4)
+        res = minimize(tpf_loss, np.ones(7,), method='TNC', tol=1e-4)
         opt_kernel = res.x
         self.psf_flux = fluxes_arma(opt_kernel)
         self.psf_kernel = opt_kernel
