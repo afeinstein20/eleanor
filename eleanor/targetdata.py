@@ -5,6 +5,7 @@ from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from photutils import MMMBackground
 from lightkurve import SFFCorrector, lightcurve
 from scipy.optimize import minimize, fmin
+from scipy.interpolate import SmoothBivariateSpline
 from astropy import time, coordinates as coord, units as u
 from astropy.coordinates import SkyCoord, Angle
 from astropy.table import Table, Column
@@ -914,7 +915,6 @@ class TargetData(object):
         bkg_mag_cutoff: scalar, optional
             The magnitude cutoff for background stars. Defaults to 14.
         """
-
         from .models import Gaussian, Moffat, Zernike, Lygos
         import tqdm
 
@@ -995,7 +995,7 @@ class TargetData(object):
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
             return loss(mean_val, data, err, bkg)
 
-        skip = 50
+        skip = 1
         naive_flux = np.zeros((nstars, len(data_arr) // skip))
         for i in tqdm.trange(0, len(data_arr), skip):
             data, err, bkg = np.mean(data_arr[i:i+skip], axis=0), np.mean(err_arr[i:i+skip], axis=0), np.mean(bkg_arr[i:i+skip], axis=0)
@@ -1007,41 +1007,12 @@ class TargetData(object):
         mask = reduce(np.bitwise_or, np.array([b < d for (b, d) in zip(bkg_arr, data_arr)])) # leave out any pixels that are always less than background
         masked_data_arr = np.array([d * mask for d in data_arr])
         base_background_tpf = np.mean(bkg_arr, axis=0)
+        flux_avgs = np.mean(naive_flux, axis=1)
         for i, f in enumerate(flux_avgs):
             if i != fit_idx:
                 base_background_tpf += mask * model(f, xc[i], yc[i], mean_pars)
 
-        def psf_deltas(flux):
-            """Ideal TPF given a known/fitted PSF for a particular cadence."""
-            return base_background_tpf + mask * model(flux, xc[fit_idx]+mean_xs, yc[fit_idx]+mean_ys, mean_pars)
-
-        def fluxes_arma(kernel=np.array([1, 2, 4])):
-            kernel = np.concatenate((kernel, np.flip(kernel[:-1]))) # dinosaur
-            half_len = len(kernel) // 2
-            # kernel = kernel / sum(kernel)
-            model_fluxes = np.empty_like(flux_arr)
-            conv_result = np.convolve(kernel, flux_arr)[2 * half_len:-2 * half_len]
-            model_fluxes[:half_len] = flux_arr[:half_len]
-            model_fluxes[half_len:-half_len] = conv_result
-            model_fluxes[-half_len:] = flux_arr[-half_len:]
-            return model_fluxes
-
-        def make_model_tpfs(kernel):
-            model_fluxes = fluxes_arma(np.array(kernel))
-            return np.array([mask * psf_deltas(mags) for mags in model_fluxes])
-
-        def tpf_loss(kernel):
-            model_tpfs = make_model_tpfs(kernel)
-            loss = np.sum((model_tpfs - data_arr) ** 2 / err_arr)
-            print(loss)
-            return loss
-
-        res = minimize(tpf_loss, np.ones(3,), method='Nelder-Mead')
-        opt_kernel = res.x
-        self.psf_flux = fluxes_arma(opt_kernel)
-        self.psf_kernel = opt_kernel
-        llout = res.fun
-
+        self.psf_flux = naive_flux
         if self.language == 'Australian':
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
 
@@ -1049,10 +1020,6 @@ class TargetData(object):
 
         if verbose:
             self.psf_params = np.concatenate(([mean_xs, mean_ys], mean_pars))
-            self.arma_res = res
-            self.psf_ll = llout
-            if nstars > 1:
-                self.all_psf = fluxes_arma(opt_kernel)
         return
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
