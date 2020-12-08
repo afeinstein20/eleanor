@@ -31,6 +31,7 @@ import eleanor
 
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
+from .prf import make_prf_from_source
 from .mast import crossmatch_by_position, gaia_sources_in_tpf
 
 __all__  = ['TargetData']
