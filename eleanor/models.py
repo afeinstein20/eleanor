@@ -130,19 +130,21 @@ class Zernike(Model):
 	'''
 	Use the Zernike polynomials with weights given by 'weights'; the number of polynomials = the number of weights passed in.
 	'''
-	def __init__(self, shape, col_ref, row_ref, directory, num_params, star_coords, apply_prior=True):
-		super().__init__(shape, col_ref, row_ref)
+	def __init__(self, shape, col_ref, row_ref, xc, yc, fit_idx, bkg0, num_params, apply_prior=True):
+		super().__init__(shape, col_ref, row_ref, xc, yc, fit_idx, bkg0)
 		self.cache = {}
-		self.directory = directory
-		self.star_coords = star_coords
-		self.apply_prior = apply_prior
+		self.directory = os.path.expanduser("~/.eleanor")
+		self.num_params = num_params
+		self.star_coords = np.round(np.array([xc[fit_idx], yc[fit_idx]]), 1)
 		self.precompute_zernike(num_params) # this can be changed later, so it's not a class parameter; 
 		# it's just faster if you do this precomputation. If you change your mind you can call precompute_zernike again.
 
+	def get_default_optpars(self):
+		return np.concatenate(([1], np.zeros(self.num_params - 1)))
+
 	def get_zernike_subpath(self, i):
-		return os.path.join("psf_models", "zernike", "zmode_{0}_dims_{1}_{2}_center_{3}_{4}".replace(".", "p") + ".npy".format(
-			i, self.x.shape[0], self.y.shape[1], *self.star_coords
-		))
+		return os.path.join("psf_models", "zernike", "zmode_{0}_dims_{1}_{2}_center_{3}_{4}".replace(".", "p").format(
+			i, self.x.shape[0], self.y.shape[1], *self.star_coords) + ".npy")
 
 	def precompute_zernike(self, n_modes):
 		'''
@@ -181,8 +183,8 @@ class Zernike(Model):
 			r2 = self.zernike_radial(2, 2, r)
 			res = h1 * self.zernike_radial(p, q, r) + (h2 + h3 / r2) * self.zernike_radial(n, q - 2, r)
 
-		if self.apply_prior:
-			res *= np.exp(-(r - np.sqrt(self.star_coords[0] ** 2 + self.star_coords[1] ** 2) ** 2) / 100) # arbitrarily hardcoded just to see what'll happen
+		#if self.apply_prior:
+		#	res *= np.exp(-(r - np.sqrt(self.star_coords[0] ** 2 + self.star_coords[1] ** 2) ** 2) / 100) # arbitrarily hardcoded just to see what'll happen
 		self.cache[('rad', n, m)] = res
 		return res
 
@@ -214,6 +216,7 @@ class Zernike(Model):
 		m = 2 * i - n * (n + 2)
 		x = self.x - self.star_coords[0]
 		y = self.y - self.star_coords[1]
+		print(x, y)
 		r, theta = np.hypot(x, y), np.arctan2(y, x)
 		zern = np.sqrt(n + 1) * self.zernike_azimuthal(m, theta) * self.zernike_radial(n, m, r)
 		if not os.path.exists(store_path):
