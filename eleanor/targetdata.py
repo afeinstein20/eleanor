@@ -4,7 +4,7 @@ from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from photutils import MMMBackground
 from lightkurve import SFFCorrector, lightcurve
-from scipy.optimize import minimize
+from scipy.optimize import minimize, fmin
 from astropy import time, coordinates as coord, units as u
 from astropy.coordinates import SkyCoord, Angle
 from astropy.table import Table, Column
@@ -16,7 +16,7 @@ from time import strftime
 from astropy.io import fits
 import astropy.units as u
 from scipy.stats import mode
-from scipy.signal import savgol_filter
+from scipy.signal import savgol_filter, deconvolve
 from urllib.request import urlopen
 from functools import reduce
 import os, sys, copy
@@ -887,7 +887,7 @@ class TargetData(object):
         )
         return x_f, y_f, wts
 
-    def psf_lightcurve(self, flux_arr=None, model_name='Gaussian', likelihood='gaussian', magnitudes=None, verbose=True, err_method=True, ignore_pixels=None, bkg_mag_cutoff=14):
+    def psf_lightcurve(self, flux_arr=None, model_name='Gaussian', likelihood='gaussian', verbose=True, err_method=True, ignore_pixels=None, bkg_mag_cutoff=14):
         """_
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -971,7 +971,7 @@ class TargetData(object):
         )
 
         # initialize parameters
-        fluxes = np.max(data_arr[0]) * flux_avgs  # flux of each star
+        fluxes = np.max(data_arr[0]) * np.ones(nstars,) #flux_avgs  # flux of each star
         globalpars = np.array([0, 0, bkg_arr[0]]) # xshift, yshift of target star; background
         optpars = model.get_default_optpars() # model-specific optimization parameters
         par = np.concatenate((fluxes, globalpars, optpars))
@@ -995,7 +995,7 @@ class TargetData(object):
             mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
             return loss(mean_val, data, err, bkg)
 
-        skip = 1
+        skip = 50
         naive_flux = np.zeros((nstars, len(data_arr) // skip))
         for i in tqdm.trange(0, len(data_arr), skip):
             data, err, bkg = np.mean(data_arr[i:i+skip], axis=0), np.mean(err_arr[i:i+skip], axis=0), np.mean(bkg_arr[i:i+skip], axis=0)
@@ -1015,10 +1015,10 @@ class TargetData(object):
             """Ideal TPF given a known/fitted PSF for a particular cadence."""
             return base_background_tpf + mask * model(flux, xc[fit_idx]+mean_xs, yc[fit_idx]+mean_ys, mean_pars)
 
-        def fluxes_arma(kernel=np.array([1, 2, 4, 2, 1])):
-            assert len(kernel) % 2 == 1, "must have a centered kernel"
+        def fluxes_arma(kernel=np.array([1, 2, 4])):
+            kernel = np.concatenate((kernel, np.flip(kernel[:-1]))) # dinosaur
             half_len = len(kernel) // 2
-            kernel = kernel / sum(kernel)
+            # kernel = kernel / sum(kernel)
             model_fluxes = np.empty_like(flux_arr)
             conv_result = np.convolve(kernel, flux_arr)[2 * half_len:-2 * half_len]
             model_fluxes[:half_len] = flux_arr[:half_len]
@@ -1028,15 +1028,15 @@ class TargetData(object):
 
         def make_model_tpfs(kernel):
             model_fluxes = fluxes_arma(np.array(kernel))
-            return np.array([psf_deltas(mags) for mags in model_fluxes])
+            return np.array([mask * psf_deltas(mags) for mags in model_fluxes])
 
         def tpf_loss(kernel):
             model_tpfs = make_model_tpfs(kernel)
-            loss = np.sum((model_tpfs - data_arr) ** 2)
+            loss = np.sum((model_tpfs - data_arr) ** 2 / err_arr)
             print(loss)
             return loss
 
-        res = minimize(tpf_loss, np.ones(7,), method='TNC', tol=1e-4)
+        res = minimize(tpf_loss, np.ones(3,), method='Nelder-Mead')
         opt_kernel = res.x
         self.psf_flux = fluxes_arma(opt_kernel)
         self.psf_kernel = opt_kernel
