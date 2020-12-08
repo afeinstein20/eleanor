@@ -22,6 +22,9 @@ observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
 
+Changes to v2.0.1 (2020-12-08):
+* Minor bug fixes
+
 Changes to v2.0.0rc1 (2020-10-05):
 * Changing skip parameter in correction to be in unit of time rather than cadences to handle 10-minute FFIs
 * Fixed bug where very faint stars had suboptimal corrections
