@@ -4,6 +4,7 @@ from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
 import warnings
+import jax.numpy as jnp
 from abc import ABC
 
 # Vaneska models of Ze Vinicius
@@ -41,9 +42,6 @@ class Model(ABC):
 	def __call__(self, *params):
 		return self.evaluate(*params)
 
-	def default_params(self, *args):
-		pass
-
 	def evaluate(self, *args):
 		pass
 
@@ -53,15 +51,13 @@ class Model(ABC):
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
 	def mean(self, flux, xshift, yshift, bkg, optpars):
-		xc = [self.xc[i] if i != self.fit_idx else self.xc[i]+xshift for i in range(len(self.xc))]
-		yc = [self.yc[i] if i != self.fit_idx else self.yc[i]+yshift for i in range(len(self.yc))]
-		return np.sum([self.evaluate(flux[j], xc[j]+xshift, yc[j]+yshift, optpars) for j in range(len(self.xc))], axis=0) + bkg
+		return jnp.sum(jnp.array([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(len(self.xc))]), axis=0) + bkg
 
 	def get_default_par(self, d0):
 		return np.concatenate((
 			np.max(d0) * np.ones(len(self.xc),),
-			 np.array([0, 0, self.bkg0], 
-			 self.get_default_optpars())
+			 np.array([0, 0, self.bkg0]), 
+			 self.get_default_optpars()
 		))
 
 class Gaussian(Model):
@@ -98,8 +94,8 @@ class Gaussian(Model):
 		a, b, c = params
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = np.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
-		psf_sum = np.sum(psf)
+		psf = jnp.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+		psf_sum = jnp.sum(psf)
 		return flux * psf / psf_sum
 
 class Moffat(Model):
@@ -122,8 +118,8 @@ class Moffat(Model):
 		a, b, c, beta = params
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = np.divide(1., np.power(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
-		psf_sum = np.sum(psf)
+		psf = jnp.divide(1., jnp.power(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
+		psf_sum = jnp.sum(psf)
 		return flux * psf / psf_sum
 		
 class Zernike(Model):
@@ -236,20 +232,13 @@ class Zernike(Model):
 		psf_sum = np.sum(psf)
 		return flux * psf / psf_sum
 
-class Lygos(Model):
+class Airy(Model):
 	'''
-	Model from https://github.com/tdaylan/lygos/blob/master/lygos/main.py
-	TODO figure out citation if this ends up getting used
+	Airy disk model.
 	'''
 	def __init__(self, shape, col_ref, row_ref, **kwargs):
 		super().__init__(shape, col_ref, row_ref, **kwargs)
-		self.num_params = 13
 
-	def evaluate(self, flux, xo, yo, coeffs):
-		x = self.x - xo
-		y = self.y - yo
-		terms = np.array([x, y, x * y, x ** 2, y ** 2, x ** 2 * y, x * y ** 2, x ** 3, y ** 3])
-		polysum = sum(terms * coeffs[:len(terms)])
-		gauss = coeffs[9] * np.exp(-coeffs[10] * x ** 2  - coeffs[11] * y ** 2)
-		psf = polysum + gauss
-		return flux * psf / np.sum(psf)
+	def evaluate(self, flux, xo, yo, ):
+		pass
+		# return flux * psf / np.sum(psf)

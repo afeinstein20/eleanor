@@ -915,10 +915,11 @@ class TargetData(object):
         bkg_mag_cutoff: scalar, optional
             The magnitude cutoff for background stars. Defaults to 14.
         """
-        from .models import Gaussian, Moffat, Zernike, Lygos
+        from .models import Gaussian, Moffat, Zernike, Airy
         import tqdm
+        
 
-        implemented_models = ['Gaussian', 'Moffat', 'Zernike', 'Lygos']
+        implemented_models = ['Gaussian', 'Moffat', 'Zernike']
     
         if flux_arr is None:
             flux_arr = self.corr_flux
