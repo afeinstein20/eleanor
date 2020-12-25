@@ -842,13 +842,14 @@ class TargetData(object):
         """
         from .models import Gaussian, Moffat, Zernike, Airy
         import tqdm
-        import tensorflow as tf
-        tf.logging.set_verbosity(tf.logging.ERROR)
+        import torch
+        from torch.autograd import grad as tgrad
+
+        tpfs_t = [torch.tensor(d) for d in data_arr.astype(np.float32)]
+        errs_t = [torch.tensor(e) for e in err_arr.astype(np.float32)]
+        bkgs_t = [torch.tensor(b) for b in bkg_arr.astype(np.float32)]
         
         implemented_models = ['Gaussian', 'Moffat', 'Zernike']
-
-        # data_arr = self.tpf
-        # data_arr[np.isnan(data_arr)] = 0.0
 
         if yc is None:
             yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
@@ -872,19 +873,9 @@ class TargetData(object):
         if len(yc) != nstars:
             raise ValueError('yc must have length nstars')
 
-        flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
-        bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
-        xshift = tf.Variable(0.0, dtype=tf.float64)
-        yshift = tf.Variable(0.0, dtype=tf.float64)
-
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
             model_name = 'Gaussian'
-
-        flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
-        xshift = tf.Variable(0.0, dtype=tf.float64)
-        yshift = tf.Variable(0.0, dtype=tf.float64)
-        bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
 
         model = eval(model_name)(
             shape=data_arr.shape[1:], 
@@ -893,56 +884,40 @@ class TargetData(object):
             xc = xc,
             yc = yc,
             fit_idx = 0,
-            bkg0 = bkg
+            bkg0 = np.max(bkg_arr[0])
         )
 
-        optpars = [tf.Variable(x, dtype=tf.float64) for x in model.get_default_optpars()]
-        num_psf_pars = len(optpars)
-        mean = model.mean(flux, xshift, yshift, bkg, optpars)
-
-        data = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
-        derr = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
-        bkgval = tf.placeholder(dtype=tf.float64)
-
+        pars = model.get_default_par(data_arr[0])
+        num_psf_pars = len(model.get_default_optpars())
+        
         if likelihood == 'gaussian':
-            nll = tf.reduce_sum(tf.truediv(tf.squared_difference(mean, data), derr))
+            nll = lambda mean_val, i: torch.sum(torch.div((mean_val - tpfs_t[i]) ** 2, errs_t[i]))
         elif likelihood == 'poisson':
-            nll = tf.reduce_sum(tf.subtract(mean+bkgval, tf.multiply(data+bkgval, tf.log(mean+bkgval))))
+            nll = lambda mean_val, i: torch.sum(mean_val + bkgs_t[i] - (tpfs_t[i] + bkgs_t[i]) * torch.log(mean_val + bkgs_t[i]))
         else:
             raise ValueError("likelihood argument {0} not supported".format(likelihood))
-
-        var_list = [flux, xshift, yshift, bkg] + optpars
-        var_to_bounds = {
-            flux : (0, np.infty),
-            xshift : (-2.0, 2.0),
-            yshift : (-2.0, 2.0)
-        }
-        
-        var_to_bounds.update({
-            optpars[i] : (model.bounds[nstars+3+i, 0], model.bounds[nstars+3+i, 1]) for i in range(num_psf_pars)
-        })
-        
-        grad = tf.gradients(nll, var_list)
-        sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
-        sess.run(tf.global_variables_initializer())
-
-        optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
 
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))
         parsout = np.zeros((len(data_arr), num_psf_pars))
 
+        def loss_and_grad_fn(params, i):
+            params = torch.tensor(params, requires_grad=True)
+            fluxes = params[:nstars]
+            xshift, yshift, bkg = params[nstars:nstars+3]
+            optpars = params[nstars+3:]
+            mean_val = model.mean(fluxes, xshift, yshift, bkg, optpars)
+            loss = nll(mean_val, i)
+            gradient = tgrad(loss, params)
+            return loss.detach().numpy(), gradient[0].detach().numpy()
+
         for i in tqdm.trange(len(data_arr)):
-            optim = optimizer.minimize(session=sess, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]}) # we could also pass a pointing model here
-                                                                           # and just fit a single offset in all frames
-
-            fout[i] = sess.run(flux)
-            bkgout[i] = sess.run(bkg)
-            llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-            parsout[i] = sess.run(optpars)
-
-        sess.close()
+            res = minimize(loss_and_grad_fn, pars, i, jac=True, method='TNC', tol=1e-4)
+            fout[i] = res.x[:nstars]
+            bkgout[i] = res.x[nstars]
+            llout[i] = res.fun
+            parsout[i] = res.x[nstars+3:]
 
         self.psf_flux = fout
 
@@ -953,8 +928,6 @@ class TargetData(object):
         self.psf_ll = llout
         self.psf_params = parsout
 
-        if verbose:
-            pass
         return
 
 
