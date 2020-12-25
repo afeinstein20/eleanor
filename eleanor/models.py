@@ -5,6 +5,7 @@ from lightkurve.utils import channel_to_module_output
 import numpy as np
 import warnings
 import jax.numpy as jnp
+import tensorflow as tf
 from abc import ABC
 
 # Vaneska models of Ze Vinicius
@@ -51,7 +52,7 @@ class Model(ABC):
 		self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
 	def mean(self, flux, xshift, yshift, bkg, optpars):
-		return jnp.sum(jnp.array([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(len(self.xc))]), axis=0) + bkg
+		return np.sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars) for j in range(len(self.xc))], axis=0) + bkg
 
 	def get_default_par(self, d0):
 		return np.concatenate((
@@ -94,8 +95,8 @@ class Gaussian(Model):
 		a, b, c = params
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = jnp.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
-		psf_sum = jnp.sum(psf)
+		psf = tf.math.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+		psf_sum = tf.reduce_sum(psf)
 		return flux * psf / psf_sum
 
 class Moffat(Model):
