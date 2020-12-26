@@ -23,6 +23,7 @@ import eleanor
 
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
+from .mast import crossmatch_by_position, gaia_sources_in_tpf
 
 __all__  = ['TargetData']
 
@@ -798,9 +799,8 @@ class TargetData(object):
         return
 
 
-    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='gaussian', likelihood='gaussian',
-                       xc=None, yc=None, verbose=True,
-                       err_method=True, ignore_pixels=None):
+    def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model_name='Gaussian', likelihood='gaussian',
+                       verbose=True, err_method=True, ignore_pixels=None, bkg_mag_cutoff=14):
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -851,10 +851,14 @@ class TargetData(object):
         
         implemented_models = ['Gaussian', 'Moffat', 'Zernike']
 
-        if yc is None:
-            yc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[1]
-        if xc is None:
-            xc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[0]
+        sources_in_tpf = gaia_sources_in_tpf(self.source_info, bkg_mag_cutoff, self.tpf.shape[1:])
+        xc = np.array(sources_in_tpf.coords_x) + self.tpf.shape[2] / 2
+        yc = np.array(sources_in_tpf.coords_y) + self.tpf.shape[1] / 2
+        nstars = len(xc)
+        gmags = sources_in_tpf.Gmag
+        fit_idx = np.argmin(gmags) # this could be more robust
+        delta_mags = np.array(min(gmags) - gmags)
+        flux_avgs = 2.512 ** delta_mags
 
         dsum = np.nansum(data_arr, axis=(0))
         modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
@@ -883,7 +887,7 @@ class TargetData(object):
             row_ref=0, 
             xc = xc,
             yc = yc,
-            fit_idx = 0,
+            fit_idx = fit_idx,
             bkg0 = np.max(bkg_arr[0])
         )
 
@@ -925,8 +929,10 @@ class TargetData(object):
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
 
         self.psf_bkg = bkgout
-        self.psf_ll = llout
-        self.psf_params = parsout
+
+        if verbose:
+            self.psf_params = parsout
+            self.psf_ll = llout
 
         return
 
@@ -961,8 +967,6 @@ class TargetData(object):
         shape = shape.lower()
         if pos is None:
             pos = (self.tpf.shape[1]/2, self.tpf.shape[2]/2)
-        else:
-            pos = pos
 
         if shape == 'circle':
             if r == 0.0:
