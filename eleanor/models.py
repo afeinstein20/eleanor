@@ -127,7 +127,7 @@ class Moffat(Model):
 		a, b, c, beta = params
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = torch.divide(torch.tensor(1.), (1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2) ** beta)
+		psf = torch.true_divide(torch.tensor(1.), (1. + a ** 2 * dx ** 2 + 2 * b * dx * dy + c ** 2 * dy ** 2) ** (beta ** 2))
 		if norm:
 			psf_sum = torch.sum(psf)
 		else:
