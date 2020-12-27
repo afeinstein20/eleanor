@@ -339,3 +339,6 @@ def make_prf_from_source(source):
     camera = source.camera
     sector = source.sector
     return getPrfAtColRowFits(col, row, ccd, camera, sector, prf_path)
+
+def fit_prf_to_model(prf, model):
+    pass

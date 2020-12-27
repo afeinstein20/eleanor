@@ -820,14 +820,6 @@ class TargetData(object):
             Will be extended in the future once TESS PRF models are made publicly available.
         likelihood: string, optinal
             The data statistics given the parameters. Options are: 'gaussian' and 'poisson'.
-        xc: list, optional
-            The x-coordinates of stars in the zeroth cadence. Must have length `nstars`.
-            While the positions of stars will be fit in all cadences, the relative positions of
-            stars will be fixed following the delta values from this list.
-        yc: list, optional
-            The y-coordinates of stars in the zeroth cadence. Must have length `nstars`.
-            While the positions of stars will be fit in all cadences, the relative positions of
-            stars will be fixed following the delta values from this list.
         verbose: bool, optional
             If True, return information about the shape of the PSF at every cadence as well as the
             PSF-inferred centroid shape.
@@ -872,11 +864,6 @@ class TargetData(object):
             tpfsum[int(xc[0]-1.5):int(xc[0]+2.5),int(yc[0]-1.5):int(yc[0]+2.5)] = 0.0
             err_arr[:, tpfsum > np.percentile(dsum, percentile)] = np.inf
 
-        if len(xc) != nstars:
-            raise ValueError('xc must have length nstars')
-        if len(yc) != nstars:
-            raise ValueError('yc must have length nstars')
-
         if model_name not in implemented_models:
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
             model_name = 'Gaussian'
@@ -887,7 +874,6 @@ class TargetData(object):
             row_ref=0, 
             xc = xc,
             yc = yc,
-            fit_idx = fit_idx,
             bkg0 = np.max(bkg_arr[0])
         )
 
