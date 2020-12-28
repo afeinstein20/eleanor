@@ -63,9 +63,6 @@ class Model(ABC):
 			self.get_default_optpars()
 		))
 
-	def fit_to_prf(self, prf):
-		pass
-
 class Gaussian(Model):
 	def __init__(self, **kwargs):
 		super().__init__(**kwargs)
@@ -127,11 +124,46 @@ class Moffat(Model):
 		a, b, c, beta = params
 		dx = self.x - xo
 		dy = self.y - yo
-		psf = torch.true_divide(torch.tensor(1.), (1. + a ** 2 * dx ** 2 + 2 * b * dx * dy + c ** 2 * dy ** 2) ** (beta ** 2))
+		psf = torch.true_divide(torch.tensor(1.), (1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2) ** beta)
 		if norm:
 			psf_sum = torch.sum(psf)
 		else:
 			psf_sum = torch.tensor(1.)
+		return flux * psf / psf_sum
+
+# from https://discuss.pytorch.org/t/modified-bessel-function-of-order-0/18609/2
+# we'll always use a Bessel function of the first kind for the Airy disk, i.e. nu = 1.
+class ModifiedBesselFn(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, inp, nu):
+        ctx._nu = nu
+        ctx.save_for_backward(inp)
+        return torch.from_numpy(scipy.special.iv(nu, inp.detach().numpy()))
+
+    @staticmethod
+    def backward(ctx, grad_out):
+        inp, = ctx.saved_tensors
+        nu = ctx._nu
+        # formula is from Wikipedia
+        return 0.5* grad_out *(ModifiedBesselFn.apply(inp, nu - 1.0)+ModifiedBesselFn.apply(inp, nu + 1.0)), None
+
+modified_bessel = ModifiedBesselFn.apply
+
+class Airy(Model):
+	'''
+	Airy disk model. Currently untested.
+	'''
+	def __init__(self, shape, col_ref, row_ref, **kwargs):
+		super().__init__(shape, col_ref, row_ref, **kwargs)
+
+	def evaluate(self, flux, xo, yo, params):
+		Rn = params # Rn = R / Rz implicitly; "R normalized"
+		dx = self.x - xo
+		dy = self.y - yo
+		r = torch.sqrt(dx ** 2 + dy ** 2)
+		bessel_arg = np.pi * r / Rn
+		psf = torch.pow(2 * modified_bessel(torch.tensor(1), bessel_arg) / bessel_arg, 2)
+		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum
 		
 class Zernike(Model):
@@ -166,41 +198,5 @@ class Zernike(Model):
 			psf += self.zernike(i, xshift, yshift) * w
 		
 		psf_sum = np.sum(psf)
-		return flux * psf / psf_sum
-
-# from https://discuss.pytorch.org/t/modified-bessel-function-of-order-0/18609/2
-# we'll always use a Bessel function of the first kind for the Airy disk, i.e. nu = 1.
-
-class ModifiedBesselFn(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, inp, nu):
-        ctx._nu = nu
-        ctx.save_for_backward(inp)
-        return torch.from_numpy(scipy.special.iv(nu, inp.detach().numpy()))
-
-    @staticmethod
-    def backward(ctx, grad_out):
-        inp, = ctx.saved_tensors
-        nu = ctx._nu
-        # formula is from Wikipedia
-        return 0.5* grad_out *(ModifiedBesselFn.apply(inp, nu - 1.0)+ModifiedBesselFn.apply(inp, nu + 1.0)), None
-
-modified_bessel = ModifiedBesselFn.apply
-
-class Airy(Model):
-	'''
-	Airy disk model.
-	'''
-	def __init__(self, shape, col_ref, row_ref, **kwargs):
-		super().__init__(shape, col_ref, row_ref, **kwargs)
-
-	def evaluate(self, flux, xo, yo, params):
-		Rn = params # Rn = R / Rz implicitly; "R normalized"
-		dx = self.x - xo
-		dy = self.y - yo
-		r = torch.sqrt(dx ** 2 + dy ** 2)
-		bessel_arg = np.pi * r / Rn
-		psf = torch.pow(2 * modified_bessel(torch.tensor(1), bessel_arg) / bessel_arg, 2)
-		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum
 		
