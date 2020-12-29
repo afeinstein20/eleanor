@@ -6,8 +6,9 @@ import numpy as np
 import warnings
 import torch
 import scipy.special
+from functools import reduce
 from abc import ABC
-from zernike import RZern, FitZern
+from zernike import Zern, RZern, FitZern
 
 # Vaneska models of Ze Vinicius
 
@@ -165,38 +166,49 @@ class Airy(Model):
 		psf = torch.pow(2 * modified_bessel(torch.tensor(1), bessel_arg) / bessel_arg, 2)
 		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum
+
+class TorchZern(Zern):
+	def __init__(self, n, normalise=Zern.NORM_NOLL):
+		super().__init__(n, normalise)
+		self.numpy_dtype = np.float32
+
+	# almost a clone of zernike.RZern, but with Torch operations
+	def Rnm(self, k, rho):
+		# Horner's method, but differentiable
+		return reduce(lambda c, r: c * rho + r, self.rhotab[:,k])
+
+	def ck(self, n, m):
+		if self.normalise == self.NORM_NOLL:
+			if m == 0:
+				return np.sqrt(n + 1.0)
+			else:
+				return np.sqrt(2.0 * (n + 1.0))
+		else:
+			return 1.0
+
+	def angular(self, j, theta):
+		m = self.mtab[j]
+		if m >= 0:
+			return torch.cos(m * theta)
+		else:
+			return torch.sin(-m * theta)
+
 		
 class Zernike(Model):
 	'''
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
 	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, source, zern_n=6, base_model=None):
+		# note: base_model functionality is TBD
 		from .prf import make_prf_from_source
 		import scipy.optimize as sopt
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0)
-
 		self.prf = make_prf_from_source(source)
-		if base_model is not None and isinstance(base_model, Model):
-			# dinosaur
-			base_res = sopt.minimize
+
+
 
 		self.pol = RZern(zern_n)
 		L, K = 117, 117 # constants to match the PRF model
 		self.ip = FitZern(self.pol, L, K)
 		
 		self.zern_coeffs = self.ip.fit()
-
-	def get_default_optpars(self):
-		return 0.001 * np.ones(size=self.pol.nk)
-
-	def evaluate(self, flux, xshift, yshift, weights):
-		'''
-		Evaluates a weighted sum of Zernike polynomials.
-		'''
-		psf = np.zeros_like(self.x)
-		for i, w in enumerate(weights):
-			psf += self.zernike(i, xshift, yshift) * w
-		
-		psf_sum = np.sum(psf)
-		return flux * psf / psf_sum
-		
