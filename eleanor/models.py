@@ -24,7 +24,7 @@ class Model(ABC):
 		column and row coordinates of the bottom
 		left corner of the TPF
 	"""
-	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, **kwargs):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, **kwargs):
 		self.shape = shape
 		self.col_ref = col_ref
 		self.row_ref = row_ref
@@ -40,6 +40,7 @@ class Model(ABC):
 					[0, np.infty] # background average
 				])
 		))
+		self.loss = loss
 
 	def __call__(self, *params):
 		return self.evaluate(*params)
@@ -63,6 +64,11 @@ class Model(ABC):
 			np.array([0, 0, self.bkg0]), 
 			self.get_default_optpars()
 		))
+
+	def fit(self, i):
+		# fit the 'i'th frame
+		pass # for now
+
 
 class Gaussian(Model):
 	def __init__(self, **kwargs):
@@ -166,33 +172,6 @@ class Airy(Model):
 		psf = torch.pow(2 * modified_bessel(torch.tensor(1), bessel_arg) / bessel_arg, 2)
 		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum
-
-class TorchZern(Zern):
-	def __init__(self, n, normalise=Zern.NORM_NOLL):
-		super().__init__(n, normalise)
-		self.numpy_dtype = np.float32
-
-	# almost a clone of zernike.RZern, but with Torch operations
-	def Rnm(self, k, rho):
-		# Horner's method, but differentiable
-		return reduce(lambda c, r: c * rho + r, self.rhotab[:,k])
-
-	def ck(self, n, m):
-		if self.normalise == self.NORM_NOLL:
-			if m == 0:
-				return np.sqrt(n + 1.0)
-			else:
-				return np.sqrt(2.0 * (n + 1.0))
-		else:
-			return 1.0
-
-	def angular(self, j, theta):
-		m = self.mtab[j]
-		if m >= 0:
-			return torch.cos(m * theta)
-		else:
-			return torch.sin(-m * theta)
-
 		
 class Zernike(Model):
 	'''
@@ -204,11 +183,11 @@ class Zernike(Model):
 		import scipy.optimize as sopt
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0)
 		self.prf = make_prf_from_source(source)
-
-
-
-		self.pol = RZern(zern_n)
-		L, K = 117, 117 # constants to match the PRF model
-		self.ip = FitZern(self.pol, L, K)
+		self.z = RZern(zern_n)
 		
-		self.zern_coeffs = self.ip.fit()
+
+	def evaluate(self, flux, xo, yo, params):
+		dx = self.x - xo
+		dy = self.y - yo
+
+

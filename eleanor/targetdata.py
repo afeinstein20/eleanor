@@ -868,18 +868,6 @@ class TargetData(object):
             warnings.warn("Model '{}' is not implemented yet; defaulting to Gaussian.".format(model_name))
             model_name = 'Gaussian'
 
-        model = eval(model_name)(
-            shape=data_arr.shape[1:], 
-            col_ref=0, 
-            row_ref=0, 
-            xc = xc,
-            yc = yc,
-            bkg0 = np.max(bkg_arr[0])
-        )
-
-        pars = model.get_default_par(data_arr[0])
-        num_psf_pars = len(model.get_default_optpars())
-        
         if likelihood == 'gaussian':
             nll = lambda mean_val, i: torch.sum(torch.div((mean_val - tpfs_t[i]) ** 2, errs_t[i]))
         elif likelihood == 'poisson':
@@ -887,6 +875,19 @@ class TargetData(object):
         else:
             raise ValueError("likelihood argument {0} not supported".format(likelihood))
 
+        model = eval(model_name)(
+            shape=data_arr.shape[1:], 
+            col_ref=0, 
+            row_ref=0, 
+            xc = xc,
+            yc = yc,
+            bkg0 = np.max(bkg_arr[0]),
+            loss = nll
+        )
+
+        pars = model.get_default_par(data_arr[0])
+        num_psf_pars = len(model.get_default_optpars())
+        
         fout = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
         llout = np.zeros(len(data_arr))
