@@ -8,7 +8,7 @@ import torch
 import scipy.special
 from functools import reduce
 from abc import ABC
-from zernike import Zern
+from zernike import Zern, RZern
 from matplotlib import pyplot as plt
 
 # Vaneska models of Ze Vinicius
@@ -209,12 +209,14 @@ class Zernike(Model):
 		# note: base_model functionality is TBD
 		from .prf import make_prf_from_source
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
-		self.prf = torch.tensor(make_prf_from_source(source))
+		self.prf = make_prf_from_source(source)
 		self.z = TorchZern(zern_n)
+		rz = RZern(self.z.n)
+		rz.make_cart_grid(*np.meshgrid(np.linspace(-1, 1, 27), np.linspace(-1, 1, 27)), unit_circle=False)
+		self.zpars = self.prf[45:72, 45:72].ravel() @ rz.ZZ
 
-		# x, y = torch.meshgrid(torch.linspace(-1, 1, 117), torch.linspace(-1, 1, 117))
-		#self.z.make_cart_grid(x, y)
-		#self.zern_pars = self.z.ZZ @ self.prf.ravel() # only need this if we make cuts based on the most important modes
+	def get_default_optpars(self):
+		return np.concatenate(([1], self.zpars))
 
 	def polar_coords(self, xo, yo):
 		dx = self.x - xo
@@ -223,15 +225,17 @@ class Zernike(Model):
 		theta = torch.atan2(dy, dx)
 		return rho, theta
 
-	def evaluate(self, flux, xo, yo, c, params, norm=True):
+	def evaluate(self, flux, xo, yo, params, norm=True):
+		c = params[0]
+		zpars = params[1:]
 		rho, theta = self.polar_coords(xo, yo)
 		rho_sc = torch.true_divide(rho, c)
 		psf = torch.zeros((11,11))
-		for (k, p) in enumerate(params):
-			radial_z = np.nan_to_num(self.z.radial(k, rho_sc), 0)
+		for (k, p) in enumerate(zpars):
+			radial_z = np.nan_to_num(self.z.radial(k, rho_sc).detach().numpy(), 0)
 			radial_z[rho_sc > 1] = 0.0
 			psf += p * torch.tensor(radial_z) * self.z.angular(k, theta)
-			
+
 		if norm:
 			psf_sum = torch.sum(psf)
 		else:
