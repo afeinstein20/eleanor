@@ -882,7 +882,8 @@ class TargetData(object):
             xc = xc,
             yc = yc,
             bkg0 = np.max(bkg_arr[0]),
-            loss = nll
+            loss = nll,
+            source = self.source_info
         )
 
         pars = model.get_default_par(data_arr[0])

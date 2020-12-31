@@ -57,7 +57,7 @@ class Model(ABC):
 		self.y = torch.tensor(self.y)
 
 	def mean(self, flux, xshift, yshift, bkg, optpars, norm=True):
-		return sum([self.evaluate(flux[j], self.xc[j]+xshift, self.yc[j]+yshift, optpars, norm) for j in range(len(self.xc))]) + bkg
+		return sum([self.evaluate(flux[j], xshift, yshift, optpars, j, norm) for j in range(len(self.xc))]) + bkg
 
 	def get_default_par(self, d0):
 		return np.concatenate((
@@ -86,7 +86,7 @@ class Gaussian(Model):
 	def get_default_optpars(self):
 		return np.array([1, 0, 1], dtype=np.float64)
 
-	def evaluate(self, flux, xo, yo, params, norm=True):
+	def evaluate(self, flux, xs, ys, params, j, norm=True):
 		"""
 		Evaluate the Gaussian model
 		Parameters
@@ -103,8 +103,8 @@ class Gaussian(Model):
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
 		a, b, c = params
-		dx = self.x - xo
-		dy = self.y - yo
+		dx = self.x - (self.xc[j] + xs)
+		dy = self.y - (self.yc[j] + ys)
 		psf = torch.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
 		if norm:
 			psf_sum = torch.sum(psf)
@@ -128,10 +128,10 @@ class Moffat(Model):
 	def get_default_optpars(self):
 		return np.array([1, 0, 1, 1], dtype=np.float64) # a, b, c, beta
 
-	def evaluate(self, flux, xo, yo, params, norm=True):
+	def evaluate(self, flux, xs, ys, params, j, norm=True):
 		a, b, c, beta = params
-		dx = self.x - xo
-		dy = self.y - yo
+		dx = self.x - (self.xc[j] + xs)
+		dy = self.y - (self.yc[j] + ys)
 		psf = torch.true_divide(torch.tensor(1.), (1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2) ** (beta ** 2))
 		if norm:
 			psf_sum = torch.sum(psf)
@@ -164,14 +164,17 @@ class Airy(Model):
 	def __init__(self, shape, col_ref, row_ref, **kwargs):
 		super().__init__(shape, col_ref, row_ref, **kwargs)
 
-	def evaluate(self, flux, xo, yo, params):
+	def evaluate(self, flux, xs, ys, params, j, norm=True):
 		Rn = params # Rn = R / Rz implicitly; "R normalized"
-		dx = self.x - xo
-		dy = self.y - yo
+		dx = self.x - (self.xc[j] + xs)
+		dy = self.y - (self.xc[j] + xs)
 		r = torch.sqrt(dx ** 2 + dy ** 2)
 		bessel_arg = np.pi * r / Rn
 		psf = torch.pow(2 * modified_bessel(torch.tensor(1), bessel_arg) / bessel_arg, 2)
-		psf_sum = torch.sum(psf)
+		if norm:
+			psf_sum = torch.sum(psf)
+		else:
+			psf_sum = torch.tensor(1.)
 		return flux * psf / psf_sum
 
 class TorchZern(Zern):
@@ -209,14 +212,18 @@ class Zernike(Model):
 		from .prf import make_prf_from_source
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
 		self.prf = make_prf_from_source(source)
-		self.z = TorchZern(zern_n)
-		rz = RZern(self.z.n)
+		z = TorchZern(zern_n)
+		rz = RZern(zern_n)
 		rz.make_cart_grid(*np.meshgrid(np.linspace(-1, 1, 27), np.linspace(-1, 1, 27)), unit_circle=False)
 		self.zpars = self.prf[45:72, 45:72].ravel() @ rz.ZZ
-		self.rho, self.theta = self.get_polar_coords(xc[0], yc[0]) # need to adjust this to the star being fit
-
-	def get_default_optpars(self):
-		return np.concatenate(([1], self.zpars))
+		
+		self.cache = {}
+		for j in range(len(self.xc)):
+			self.cache[j] = {}
+			rho, theta = self.get_polar_coords(xc[j], yc[j]) # need to adjust this to the star being fit
+			for k in range(z.nk):
+				zern = torch.tensor(z.angular(k, theta) * z.radial(k, rho))
+				self.cache[j][k] = zern / torch.sum(zern)
 
 	def get_polar_coords(self, xo, yo):
 		dx = self.x - xo
@@ -225,12 +232,15 @@ class Zernike(Model):
 		theta = torch.atan2(dy, dx)
 		return rho, theta
 
-	def evaluate(self, flux, xo, yo, params, norm=True):
-		dx = self.x - xo
-		dy = self.y - yo
+	def get_default_optpars(self):
+		return np.concatenate(([1], self.zpars))
+
+	def evaluate(self, flux, xs, ys, params, j, norm=True):
+		dx = self.x - (self.xc[j] + xs)
+		dy = self.y - (self.yc[j] + ys)
 		c = params[0]
 		zpars = params[1:]
-		psf = sum([p * torch.tensor(self.z.radial(k, self.rho)) * self.z.angular(k, self.theta) for (k, p) in enumerate(zpars)])
+		psf = sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)])
 		psf *= torch.exp(-c * (dx ** 2 + dy ** 2))
 
 		if norm:
