@@ -210,7 +210,7 @@ class Zernike(Model):
 	'''
 	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6, base_model=None):
 		self.cut = True
-		cutoff = 1e-3
+		cutoff = 1e-2
 
 		from .prf import make_prf_from_source
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
@@ -228,10 +228,10 @@ class Zernike(Model):
 			rho, theta = self.get_polar_coords(xc[j], yc[j]) # need to adjust this to the star being fit
 			for k in range(z.nk):
 				if (self.cut and self.mode_mask[k]) or (not self.cut):
-					zern = torch.tensor(z.angular(k, theta) * z.radial(k, rho)) #* (rho <= 1)
+					zern = torch.tensor(z.angular(k, theta) * z.radial(k, rho / 3))
 					self.cache[j][k] = zern / torch.sum(zern)
 				elif (self.cut and not(self.mode_mask[k])):
-					self.cache[j][k] = torch.zeros((11,11))
+					self.cache[j][k] = torch.zeros(shape)
 
 	def get_polar_coords(self, xo, yo):
 		dx = self.x - xo
@@ -241,7 +241,7 @@ class Zernike(Model):
 		return rho, theta
 
 	def get_default_optpars(self):
-		return np.concatenate(([1], self.zpars))
+		return np.concatenate(([0.5], self.zpars))
 
 	def evaluate(self, flux, xs, ys, params, j, norm=True):
 		dx = self.x - (self.xc[j] + xs)
@@ -254,7 +254,8 @@ class Zernike(Model):
 			else:
 				zpars = zpars * self.mode_mask
 		
-		psf = sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)]) * torch.exp(-c * (dx ** 2 + dy ** 2)) 
+		
+		psf = sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)]) * torch.exp(-c ** 2 * (dx ** 2 + dy ** 2))
 		# the full ellipse will overfit; the rest should show up as Zernikes
 
 		if norm:
