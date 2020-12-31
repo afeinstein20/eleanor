@@ -211,6 +211,7 @@ class Zernike(Model):
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
 		self.prf = torch.tensor(make_prf_from_source(source))
 		self.z = TorchZern(zern_n)
+
 		# x, y = torch.meshgrid(torch.linspace(-1, 1, 117), torch.linspace(-1, 1, 117))
 		#self.z.make_cart_grid(x, y)
 		#self.zern_pars = self.z.ZZ @ self.prf.ravel() # only need this if we make cuts based on the most important modes
@@ -225,7 +226,12 @@ class Zernike(Model):
 	def evaluate(self, flux, xo, yo, c, params, norm=True):
 		rho, theta = self.polar_coords(xo, yo)
 		rho_sc = torch.true_divide(rho, c)
-		psf = sum([p * torch.tensor(np.nan_to_num(self.z.radial(k, rho_sc), 0)) * self.z.angular(k, theta) for (k, p) in enumerate(params)])
+		psf = torch.zeros((11,11))
+		for (k, p) in enumerate(params):
+			radial_z = np.nan_to_num(self.z.radial(k, rho_sc), 0)
+			radial_z[rho_sc > 1] = 0.0
+			psf += p * torch.tensor(radial_z) * self.z.angular(k, theta)
+			
 		if norm:
 			psf_sum = torch.sum(psf)
 		else:
