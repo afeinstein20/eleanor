@@ -208,8 +208,8 @@ class Zernike(Model):
 	'''
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
-	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=4, base_model=None):
-		cut = True
+	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6, base_model=None):
+		self.cut = True
 		cutoff = 1e-3
 
 		from .prf import make_prf_from_source
@@ -219,7 +219,7 @@ class Zernike(Model):
 		rz = RZern(zern_n)
 		rz.make_cart_grid(*np.meshgrid(np.linspace(-1, 1, 27), np.linspace(-1, 1, 27)), unit_circle=True)
 		self.zpars, _, _, _ = np.linalg.lstsq(np.nan_to_num(rz.ZZ), self.prf[45:72, 45:72].ravel())
-		if cut:
+		if self.cut:
 			self.mode_mask = (np.abs(self.zpars) > cutoff).astype(int)
 		
 		self.cache = {}
@@ -227,8 +227,11 @@ class Zernike(Model):
 			self.cache[j] = {}
 			rho, theta = self.get_polar_coords(xc[j], yc[j]) # need to adjust this to the star being fit
 			for k in range(z.nk):
-				zern = torch.tensor(z.angular(k, theta) * z.radial(k, rho))
-				self.cache[j][k] = zern / torch.sum(zern)
+				if (self.cut and self.mode_mask[k]) or (not self.cut):
+					zern = torch.tensor(z.angular(k, theta) * z.radial(k, rho)) #* (rho <= 1)
+					self.cache[j][k] = zern / torch.sum(zern)
+				elif (self.cut and not(self.mode_mask[k])):
+					self.cache[j][k] = torch.zeros((11,11))
 
 	def get_polar_coords(self, xo, yo):
 		dx = self.x - xo
@@ -245,12 +248,14 @@ class Zernike(Model):
 		dy = self.y - (self.yc[j] + ys)
 		c = params[0]
 		zpars = params[1:]
-		if isinstance(zpars, torch.Tensor):
-			zpars = zpars * torch.tensor(self.mode_mask)
-		else:
-			zpars = zpars * self.mode_mask
-		psf = sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)])
-		psf *= torch.exp(-c * (dx ** 2 + dy ** 2)) # the full ellipse will overfit; the rest should show up as Zernikes
+		if self.cut:
+			if isinstance(zpars, torch.Tensor):
+				zpars = zpars * torch.tensor(self.mode_mask)
+			else:
+				zpars = zpars * self.mode_mask
+		
+		psf = sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)]) * torch.exp(-c * (dx ** 2 + dy ** 2)) 
+		# the full ellipse will overfit; the rest should show up as Zernikes
 
 		if norm:
 			psf_sum = torch.sum(psf)
