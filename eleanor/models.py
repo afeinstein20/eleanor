@@ -206,7 +206,6 @@ class Zernike(Model):
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
 	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=4, base_model=None):
-		# note: base_model functionality is TBD
 		from .prf import make_prf_from_source
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
 		self.prf = make_prf_from_source(source)
@@ -214,6 +213,7 @@ class Zernike(Model):
 		rz = RZern(self.z.n)
 		rz.make_cart_grid(*np.meshgrid(np.linspace(-1, 1, 27), np.linspace(-1, 1, 27)), unit_circle=False)
 		self.zpars = self.prf[45:72, 45:72].ravel() @ rz.ZZ
+		self.rho, self.theta = self.get_polar_coords(xc[0], yc[0]) # need to adjust this to the star being fit
 
 	def get_default_optpars(self):
 		return np.concatenate(([1], self.zpars))
@@ -226,15 +226,13 @@ class Zernike(Model):
 		return rho, theta
 
 	def evaluate(self, flux, xo, yo, params, norm=True):
+		dx = self.x - xo
+		dy = self.y - yo
 		c = params[0]
 		zpars = params[1:]
-		rho, theta = self.get_polar_coords(xo, yo)
-		psf = torch.zeros((11,11))
-		for (k, p) in enumerate(zpars):
-			radial_z = self.z.radial(k, rho)
-			psf += p * torch.tensor(radial_z) * self.z.angular(k, theta)
+		psf = sum([p * torch.tensor(self.z.radial(k, self.rho)) * self.z.angular(k, self.theta) for (k, p) in enumerate(zpars)])
+		psf *= torch.exp(-c * (dx ** 2 + dy ** 2))
 
-		psf *= torch.exp(-c * rho ** 2)
 		if norm:
 			psf_sum = torch.sum(psf)
 		else:
