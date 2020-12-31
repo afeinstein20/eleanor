@@ -218,7 +218,7 @@ class Zernike(Model):
 	def get_default_optpars(self):
 		return np.concatenate(([1], self.zpars))
 
-	def polar_coords(self, xo, yo):
+	def get_polar_coords(self, xo, yo):
 		dx = self.x - xo
 		dy = self.y - yo
 		rho = torch.sqrt(dx ** 2 + dy ** 2)
@@ -228,14 +228,13 @@ class Zernike(Model):
 	def evaluate(self, flux, xo, yo, params, norm=True):
 		c = params[0]
 		zpars = params[1:]
-		rho, theta = self.polar_coords(xo, yo)
-		rho_sc = torch.true_divide(rho, c)
+		rho, theta = self.get_polar_coords(xo, yo)
 		psf = torch.zeros((11,11))
 		for (k, p) in enumerate(zpars):
-			radial_z = np.nan_to_num(self.z.radial(k, rho_sc).detach().numpy(), 0)
-			radial_z[rho_sc > 1] = 0.0
+			radial_z = self.z.radial(k, rho)
 			psf += p * torch.tensor(radial_z) * self.z.angular(k, theta)
 
+		psf *= torch.exp(-c * rho ** 2)
 		if norm:
 			psf_sum = torch.sum(psf)
 		else:
