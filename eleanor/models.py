@@ -241,7 +241,7 @@ class Zernike(Model):
 		c = params[0]
 		zpars = params[1:]
 		psf = sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)])
-		psf *= torch.exp(-c * (dx ** 2 + dy ** 2))
+		psf *= torch.exp(-c * (dx ** 2 + dy ** 2)) # the full ellipse will overfit; the rest should show up as Zernikes
 
 		if norm:
 			psf_sum = torch.sum(psf)

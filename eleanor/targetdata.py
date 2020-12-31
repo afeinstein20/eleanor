@@ -906,6 +906,7 @@ class TargetData(object):
 
         for i in tqdm.trange(len(data_arr)):
             res = minimize(loss_and_grad_fn, pars, i, jac=True, method='TNC', tol=1e-4)
+            pars = res.x
             fout[i] = res.x[:nstars]
             bkgout[i] = res.x[nstars]
             llout[i] = res.fun
