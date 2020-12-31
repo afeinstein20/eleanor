@@ -904,13 +904,17 @@ class TargetData(object):
             gradient = tgrad(loss, params)
             return loss.detach().numpy(), gradient[0].detach().numpy()
 
-        for i in tqdm.trange(len(data_arr)):
-            res = minimize(loss_and_grad_fn, pars, i, jac=True, method='TNC', tol=1e-4)
-            pars = res.x
-            fout[i] = res.x[:nstars]
-            bkgout[i] = res.x[nstars]
-            llout[i] = res.fun
-            parsout[i] = res.x[nstars+3:]
+        res = 0
+        try: # this is just for debugging
+            for i in tqdm.trange(len(data_arr)):
+                res = minimize(loss_and_grad_fn, pars, i, jac=True, method='TNC', tol=1e-4)
+                pars = res.x
+                fout[i] = res.x[:nstars]
+                bkgout[i] = res.x[nstars]
+                llout[i] = res.fun
+                parsout[i] = res.x[nstars+3:]
+        except KeyboardInterrupt:
+            return res
 
         self.psf_flux = fout
 

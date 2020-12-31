@@ -209,13 +209,18 @@ class Zernike(Model):
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
 	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=4, base_model=None):
+		cut = True
+		cutoff = 1e-3
+
 		from .prf import make_prf_from_source
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
 		self.prf = make_prf_from_source(source)
 		z = TorchZern(zern_n)
 		rz = RZern(zern_n)
-		rz.make_cart_grid(*np.meshgrid(np.linspace(-1, 1, 27), np.linspace(-1, 1, 27)), unit_circle=False)
-		self.zpars = self.prf[45:72, 45:72].ravel() @ rz.ZZ
+		rz.make_cart_grid(*np.meshgrid(np.linspace(-1, 1, 27), np.linspace(-1, 1, 27)), unit_circle=True)
+		self.zpars, _, _, _ = np.linalg.lstsq(np.nan_to_num(rz.ZZ), self.prf[45:72, 45:72].ravel())
+		if cut:
+			self.mode_mask = (np.abs(self.zpars) > cutoff).astype(int)
 		
 		self.cache = {}
 		for j in range(len(self.xc)):
@@ -240,6 +245,10 @@ class Zernike(Model):
 		dy = self.y - (self.yc[j] + ys)
 		c = params[0]
 		zpars = params[1:]
+		if isinstance(zpars, torch.Tensor):
+			zpars = zpars * torch.tensor(self.mode_mask)
+		else:
+			zpars = zpars * self.mode_mask
 		psf = sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)])
 		psf *= torch.exp(-c * (dx ** 2 + dy ** 2)) # the full ellipse will overfit; the rest should show up as Zernikes
 
