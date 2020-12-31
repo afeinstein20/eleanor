@@ -8,7 +8,8 @@ import torch
 import scipy.special
 from functools import reduce
 from abc import ABC
-from zernike import Zern, RZern, FitZern
+from zernike import Zern
+from matplotlib import pyplot as plt
 
 # Vaneska models of Ze Vinicius
 
@@ -172,22 +173,61 @@ class Airy(Model):
 		psf = torch.pow(2 * modified_bessel(torch.tensor(1), bessel_arg) / bessel_arg, 2)
 		psf_sum = torch.sum(psf)
 		return flux * psf / psf_sum
+
+class TorchZern(Zern):
+	def __init__(self, n, normalise=Zern.NORM_NOLL):
+		super().__init__(n, normalise)
+		self.numpy_dtype = np.float32
+
+	# almost a clone of zernike.RZern, but with Torch operations
+	def Rnm(self, k, rho):
+		# Horner's method, but differentiable
+		return reduce(lambda c, r: c * rho + r, self.rhotab[k,:])
+
+	def ck(self, n, m):
+		if self.normalise == self.NORM_NOLL:
+			if m == 0:
+				return np.sqrt(n + 1.0)
+			else:
+				return np.sqrt(2.0 * (n + 1.0))
+		else:
+			return 1.0
+
+	def angular(self, j, theta):
+		m = self.mtab[j]
+		if m >= 0:
+			return torch.cos(m * theta)
+		else:
+			return torch.sin(-m * theta)
+
 		
 class Zernike(Model):
 	'''
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
-	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, source, zern_n=6, base_model=None):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=4, base_model=None):
 		# note: base_model functionality is TBD
 		from .prf import make_prf_from_source
-		import scipy.optimize as sopt
-		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0)
-		self.prf = make_prf_from_source(source)
-		self.z = RZern(zern_n)
-		
+		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
+		self.prf = torch.tensor(make_prf_from_source(source))
+		self.z = TorchZern(zern_n)
+		# x, y = torch.meshgrid(torch.linspace(-1, 1, 117), torch.linspace(-1, 1, 117))
+		#self.z.make_cart_grid(x, y)
+		#self.zern_pars = self.z.ZZ @ self.prf.ravel() # only need this if we make cuts based on the most important modes
 
-	def evaluate(self, flux, xo, yo, params):
+	def polar_coords(self, xo, yo):
 		dx = self.x - xo
 		dy = self.y - yo
+		rho = torch.sqrt(dx ** 2 + dy ** 2)
+		theta = torch.atan2(dy, dx)
+		return rho, theta
 
-
+	def evaluate(self, flux, xo, yo, c, params, norm=True):
+		rho, theta = self.polar_coords(xo, yo)
+		rho_sc = torch.true_divide(rho, c)
+		psf = sum([p * torch.tensor(np.nan_to_num(self.z.radial(k, rho_sc), 0)) * self.z.angular(k, theta) for (k, p) in enumerate(params)])
+		if norm:
+			psf_sum = torch.sum(psf)
+		else:
+			psf_sum = torch.tensor(1.)
+		return flux * psf / psf_sum
