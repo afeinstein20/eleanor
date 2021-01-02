@@ -78,7 +78,7 @@ setup(
         'photutils>=0.7', 'tqdm', 'lightkurve>=1.9.0', 'astropy>=3.2.3',
         'astroquery', 'pandas',
         'setuptools>=41.0.0', 'torch',
-        'beautifulsoup4>=4.6.0', 'tess-point>=0.5.0'],
+        'beautifulsoup4>=4.6.0', 'tess-point>=0.5.0', 'zernike'],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Science/Research',

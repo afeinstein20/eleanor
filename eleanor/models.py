@@ -162,6 +162,7 @@ class Airy(Model):
 	Airy disk model. Currently untested.
 	'''
 	def __init__(self, shape, col_ref, row_ref, **kwargs):
+		warnings.warn("This model is still being tested and may yield incorrect results.")
 		super().__init__(shape, col_ref, row_ref, **kwargs)
 
 	def evaluate(self, flux, xs, ys, params, j, norm=True):
@@ -208,9 +209,10 @@ class Zernike(Model):
 	'''
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
-	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6, base_model=None):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6):
 		self.cut = True
 		cutoff = 1e-2
+		warnings.warn("This model is still being tested and may yield incorrect results.")
 
 		from .prf import make_prf_from_source
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
@@ -225,7 +227,7 @@ class Zernike(Model):
 		self.cache = {}
 		for j in range(len(self.xc)):
 			self.cache[j] = {}
-			rho, theta = self.get_polar_coords(xc[j], yc[j]) # need to adjust this to the star being fit
+			rho, theta = self.get_polar_coords(xc[j], yc[j])
 			for k in range(z.nk):
 				if (self.cut and self.mode_mask[k]) or (not self.cut):
 					zern = torch.tensor(z.angular(k, theta) * z.radial(k, rho / 3))
@@ -241,13 +243,13 @@ class Zernike(Model):
 		return rho, theta
 
 	def get_default_optpars(self):
-		return np.concatenate(([0.5], self.zpars))
+		return np.concatenate(([0.5, 0, 0.5], self.zpars))
 
 	def evaluate(self, flux, xs, ys, params, j, norm=True):
 		dx = self.x - (self.xc[j] + xs)
 		dy = self.y - (self.yc[j] + ys)
-		c = params[0]
-		zpars = params[1:]
+		a, b, c = params[:3]
+		zpars = params[3:]
 		if self.cut:
 			if isinstance(zpars, torch.Tensor):
 				zpars = zpars * torch.tensor(self.mode_mask)
