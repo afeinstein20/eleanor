@@ -400,7 +400,7 @@ class TargetData(object):
             if self.source_info.tess_mag < 8.2:
                 self.aperture_mode = 2
 
-            if self.source_info.tess_mag > 13.3:
+            if self.source_info.tess_mag > 13.6:
                 self.aperture_mode = 1
 
             if self.source_info.contratio is not None:
@@ -794,7 +794,7 @@ class TargetData(object):
         
         bkgvar = np.std(self.bkg_tpf, axis=(1,2))/(np.nansum(self.bkg_tpf, axis=(1,2)))
         bkgmask = sigma_clip(bkgvar, masked=True, sigma=5.0)
-        self.quality = np.bitwise_or(self.quality, bkgmask.mask * 2**18)
+        self.quality = np.bitwise_or(self.quality != 0, bkgmask.mask * 2**18)
         return
 
 
