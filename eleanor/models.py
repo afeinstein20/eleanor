@@ -69,7 +69,7 @@ class Model(ABC):
 	def evaluate(self, flux, xs, ys, params, j, norm=True):
 		dx = self.x - (self.xc[j] + xs)
 		dy = self.y - (self.yc[j] + ys)
-		psf = self.psf(dx, dy, params)
+		psf = self.psf(dx, dy, params, j)
 		if norm:
 			psf_sum = torch.sum(psf)
 		else:
@@ -92,7 +92,7 @@ class Gaussian(Model):
 	def get_default_optpars(self):
 		return np.array([1, 0, 1], dtype=np.float64)
 
-	def psf(self, flux, xs, ys, params, j, norm=True):
+	def psf(self, dx, dy, params, j):
 		"""
 		The Gaussian model
 		Parameters
@@ -127,7 +127,7 @@ class Moffat(Model):
 	def get_default_optpars(self):
 		return np.array([1, 0, 1, 1], dtype=np.float64) # a, b, c, beta
 
-	def psf(self, params, dx, dy):
+	def psf(self, params, dx, dy, j):
 		a, b, c, beta = params
 		return torch.true_divide(torch.tensor(1.), (1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2) ** (beta ** 2))
 
@@ -157,7 +157,7 @@ class Airy(Model):
 		warnings.warn("This model is still being tested and may yield incorrect results.")
 		super().__init__(shape, col_ref, row_ref, **kwargs)
 
-	def psf(self, dx, dy, params):
+	def psf(self, dx, dy, params, j):
 		Rn = params # Rn = R / Rz implicitly; "R normalized"
 		r = torch.sqrt(dx ** 2 + dy ** 2)
 		bessel_arg = np.pi * r / Rn
@@ -196,7 +196,7 @@ class Zernike(Model):
 	'''
 	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6):
 		self.cut = True
-		cutoff = 1e-2
+		cutoff = 1e-3
 		warnings.warn("This model is still being tested and may yield incorrect results.")
 
 		from .prf import make_prf_from_source
@@ -230,7 +230,7 @@ class Zernike(Model):
 	def get_default_optpars(self):
 		return np.concatenate(([0.5], self.zpars))
 
-	def psf(self, dx, dy, params):
+	def psf(self, dx, dy, params, j):
 		c = params[:1]
 		zpars = params[1:]
 		if self.cut:
