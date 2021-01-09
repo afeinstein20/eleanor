@@ -66,9 +66,15 @@ class Model(ABC):
 			self.get_default_optpars()
 		))
 
-	def fit(self, i):
-		# fit the 'i'th frame
-		pass # for now
+	def evaluate(self, flux, xs, ys, params, j, norm=True):
+		dx = self.x - (self.xc[j] + xs)
+		dy = self.y - (self.yc[j] + ys)
+		psf = self.psf(dx, dy, params)
+		if norm:
+			psf_sum = torch.sum(psf)
+		else:
+			psf_sum = torch.tensor(1.)
+		return flux * psf / psf_sum
 
 
 class Gaussian(Model):
@@ -86,9 +92,9 @@ class Gaussian(Model):
 	def get_default_optpars(self):
 		return np.array([1, 0, 1], dtype=np.float64)
 
-	def evaluate(self, flux, xs, ys, params, j, norm=True):
+	def psf(self, flux, xs, ys, params, j, norm=True):
 		"""
-		Evaluate the Gaussian model
+		The Gaussian model
 		Parameters
 		----------
 		flux : np.ndarray, (len(self.xc),)
@@ -103,14 +109,7 @@ class Gaussian(Model):
 		https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
 		"""
 		a, b, c = params
-		dx = self.x - (self.xc[j] + xs)
-		dy = self.y - (self.yc[j] + ys)
-		psf = torch.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
-		if norm:
-			psf_sum = torch.sum(psf)
-		else:
-			psf_sum = torch.tensor(1.)
-		return flux * psf / psf_sum
+		return torch.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
 
 class Moffat(Model):
 	def __init__(self, **kwargs):
@@ -128,16 +127,9 @@ class Moffat(Model):
 	def get_default_optpars(self):
 		return np.array([1, 0, 1, 1], dtype=np.float64) # a, b, c, beta
 
-	def evaluate(self, flux, xs, ys, params, j, norm=True):
+	def psf(self, params, dx, dy):
 		a, b, c, beta = params
-		dx = self.x - (self.xc[j] + xs)
-		dy = self.y - (self.yc[j] + ys)
-		psf = torch.true_divide(torch.tensor(1.), (1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2) ** (beta ** 2))
-		if norm:
-			psf_sum = torch.sum(psf)
-		else:
-			psf_sum = torch.tensor(1.)
-		return flux * psf / psf_sum
+		return torch.true_divide(torch.tensor(1.), (1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2) ** (beta ** 2))
 
 # from https://discuss.pytorch.org/t/modified-bessel-function-of-order-0/18609/2
 # we'll always use a Bessel function of the first kind for the Airy disk, i.e. nu = 1.
@@ -165,18 +157,11 @@ class Airy(Model):
 		warnings.warn("This model is still being tested and may yield incorrect results.")
 		super().__init__(shape, col_ref, row_ref, **kwargs)
 
-	def evaluate(self, flux, xs, ys, params, j, norm=True):
+	def psf(self, dx, dy, params):
 		Rn = params # Rn = R / Rz implicitly; "R normalized"
-		dx = self.x - (self.xc[j] + xs)
-		dy = self.y - (self.xc[j] + xs)
 		r = torch.sqrt(dx ** 2 + dy ** 2)
 		bessel_arg = np.pi * r / Rn
-		psf = torch.pow(2 * modified_bessel(torch.tensor(1), bessel_arg) / bessel_arg, 2)
-		if norm:
-			psf_sum = torch.sum(psf)
-		else:
-			psf_sum = torch.tensor(1.)
-		return flux * psf / psf_sum
+		return torch.pow(2 * modified_bessel(torch.tensor(1), bessel_arg) / bessel_arg, 2)
 
 class TorchZern(Zern):
 	def __init__(self, n, normalise=Zern.NORM_NOLL):
@@ -243,25 +228,16 @@ class Zernike(Model):
 		return rho, theta
 
 	def get_default_optpars(self):
-		return np.concatenate(([0.5, 0, 0.5], self.zpars))
+		return np.concatenate(([0.5], self.zpars))
 
-	def evaluate(self, flux, xs, ys, params, j, norm=True):
-		dx = self.x - (self.xc[j] + xs)
-		dy = self.y - (self.yc[j] + ys)
-		a, b, c = params[:3]
-		zpars = params[3:]
+	def psf(self, dx, dy, params):
+		c = params[:1]
+		zpars = params[1:]
 		if self.cut:
 			if isinstance(zpars, torch.Tensor):
 				zpars = zpars * torch.tensor(self.mode_mask)
 			else:
 				zpars = zpars * self.mode_mask
 		
-		
-		psf = sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)]) * torch.exp(-c ** 2 * (dx ** 2 + dy ** 2))
+		return sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)]) * torch.exp(-c * (dx ** 2 + dy ** 2))
 		# the full ellipse will overfit; the rest should show up as Zernikes
-
-		if norm:
-			psf_sum = torch.sum(psf)
-		else:
-			psf_sum = torch.tensor(1.)
-		return flux * psf / psf_sum
