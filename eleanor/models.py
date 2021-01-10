@@ -222,6 +222,7 @@ class Zernike(Model):
 		psf_x, psf_y = np.meshgrid(np.linspace(-1, 1, 117), np.linspace(-1, 1, 117))
 		res = sopt.minimize(lambda p: np.sum((self.prf - gaussian_with_zernike((psf_x, psf_y), p)) ** 2), p0, method='TNC', tol=1e-1)
 		self.zpars = res.x[5:]
+		self.zpars = np.array([0.2567228, 0.45743718, -0.28847825, 0.2567228, -0.0757324,  0.11844995, -0.28847825,  0.45743718, -0.04414153, -0.04167375,  0.2567228 ,  0.11844995, -0.0757324, 0.02526562,  0.07075336])
 		self.mode_mask = (np.abs(self.zpars) > cutoff).astype(int)
 		
 		self.cache = {}
@@ -245,7 +246,7 @@ class Zernike(Model):
 		return rho, theta
 
 	def get_default_optpars(self):
-		return np.concatenate(([1, 1], self.zpars))
+		return np.concatenate(([0.53327668, 0.53815343], self.zpars))
 
 	def psf(self, dx, dy, params, j):
 		(a, c), zpars = params[:2], params[2:]
@@ -253,6 +254,6 @@ class Zernike(Model):
 		for i in range(len(zpars)):
 			b, p = self.mode_mask[i], zpars[i]
 			if b:
-				psf_c += p * self.z.angular(i, torch.atan2(dy, dx))
+				psf_c += p * self.cache[j][i]
 		return torch.exp(psf_c) * torch.exp(-a * dx ** 2 - c * dy ** 2)
 		# the full ellipse will overfit; the rest should show up as Zernikes
