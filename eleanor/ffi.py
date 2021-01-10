@@ -473,14 +473,13 @@ class ffi:
 
         eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 
-        qf = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector,
-                                                                                                                        self.sector))
+        qf = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector, self.sector))
 
         if out_dir is not None:
             pm_fn = out_dir+ '/' + pm_fn
 
-        with open(pm_fn, 'w') as tf:
-            tf.write('0 1 2 3 4 5 6 7 8\n')
+        with open(pm_fn, 'w') as test_f:
+            test_f.write('0 1 2 3 4 5 6 7 8\n')
 
         pos = None
         for fn in self.local_paths:
@@ -537,8 +536,8 @@ class ffi:
                     np.fill_diagonal(a, 1)
                     sol = np.reshape(a, (9,))
 
-            with open(pm_fn, 'a') as tf:
-                tf.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
+            with open(pm_fn, 'a') as test_f:
+                test_f.write('{}\n'.format(' '.join(str(e) for e in sol) ) )
 
-        with open(pm_fn, "r") as tf:
-            return Table.read(tf.read(), format='ascii.basic')
+        with open(pm_fn, "r") as test_f:
+            return Table.read(test_f.read(), format='ascii.basic')
