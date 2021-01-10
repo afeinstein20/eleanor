@@ -25,7 +25,7 @@ class Model(ABC):
 		column and row coordinates of the bottom
 		left corner of the TPF
 	"""
-	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, **kwargs):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, **kwargs):
 		self.shape = shape
 		self.col_ref = col_ref
 		self.row_ref = row_ref
@@ -42,6 +42,8 @@ class Model(ABC):
 				])
 		))
 		self.loss = loss
+		from .prf import make_prf_from_source
+		self.prf = make_prf_from_source(source)
 
 	def __call__(self, *params):
 		return self.evaluate(*params)
@@ -76,6 +78,15 @@ class Model(ABC):
 			psf_sum = torch.tensor(1.)
 		return flux * psf / psf_sum
 
+class PRFWrap(Model):
+	def __init__(self, **kwargs):
+		self.submodel = eval(kwargs.get('model'))(**kwargs)
+	
+	def get_default_optpars(self):
+		return self.submodel.get_default_optpars()
+	
+	def psf(self, dx, dy, params, j):
+		return torch.tensor(scipy.signal.convolve2d(self.submodel.psf(dx, dy, params, j), self.prf))
 
 class Gaussian(Model):
 	def __init__(self, **kwargs):
@@ -195,29 +206,28 @@ class Zernike(Model):
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
 	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6):
-		self.cut = True
-		cutoff = 1e-3
+		cutoff = 0
 		warnings.warn("This model is still being tested and may yield incorrect results.")
-
-		from .prf import make_prf_from_source
-		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss)
-		self.prf = make_prf_from_source(source)
+		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss, source)
+		
 		z = TorchZern(zern_n)
+		self.z = z
 		rz = RZern(zern_n)
 		rz.make_cart_grid(*np.meshgrid(np.linspace(-1, 1, 27), np.linspace(-1, 1, 27)), unit_circle=True)
 		self.zpars, _, _, _ = np.linalg.lstsq(np.nan_to_num(rz.ZZ), self.prf[45:72, 45:72].ravel())
-		if self.cut:
-			self.mode_mask = (np.abs(self.zpars) > cutoff).astype(int)
+		self.mode_mask = (np.abs(self.zpars) > cutoff).astype(int)
 		
 		self.cache = {}
+		self.coords = {}
 		for j in range(len(self.xc)):
 			self.cache[j] = {}
 			rho, theta = self.get_polar_coords(xc[j], yc[j])
+			self.coords[j] = (rho, theta)
 			for k in range(z.nk):
-				if (self.cut and self.mode_mask[k]) or (not self.cut):
-					zern = torch.tensor(z.angular(k, theta) * z.radial(k, rho / 3))
+				if self.mode_mask[k]:
+					zern = torch.tensor(z.angular(k, theta) * z.radial(k, 1 - np.exp(-rho / 0.6)))
 					self.cache[j][k] = zern / torch.sum(zern)
-				elif (self.cut and not(self.mode_mask[k])):
+				elif not(self.mode_mask[k]):
 					self.cache[j][k] = torch.zeros(shape)
 
 	def get_polar_coords(self, xo, yo):
@@ -228,16 +238,15 @@ class Zernike(Model):
 		return rho, theta
 
 	def get_default_optpars(self):
-		return np.concatenate(([0.5], self.zpars))
+		return self.zpars
 
 	def psf(self, dx, dy, params, j):
-		c = params[:1]
-		zpars = params[1:]
-		if self.cut:
-			if isinstance(zpars, torch.Tensor):
-				zpars = zpars * torch.tensor(self.mode_mask)
-			else:
-				zpars = zpars * self.mode_mask
-		
-		return sum([p * self.cache[j][k] for (k, p) in enumerate(zpars)]) * torch.exp(-c * (dx ** 2 + dy ** 2))
+		lam, zpars = params[:1], params[1:]
+		psf_c = torch.zeros(self.shape)
+		for i in range(len(zpars)):
+			b, p = self.mode_mask[i], zpars[i]
+			if b:
+				psf_c += p * self.z.angular(i, self.coords[j][1]) * self.z.radial(i, 1 - torch.exp(-self.coords[j][0] / lam))
+
+		return psf_c
 		# the full ellipse will overfit; the rest should show up as Zernikes
