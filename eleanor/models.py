@@ -225,7 +225,7 @@ class Zernike(Model):
 			self.coords[j] = (rho, theta)
 			for k in range(z.nk):
 				if self.mode_mask[k]:
-					zern = torch.tensor(z.angular(k, theta) * z.radial(k, 9*rho))
+					zern = torch.tensor(z.angular(k, theta))
 					self.cache[j][k] = zern / torch.sum(zern)
 				elif not(self.mode_mask[k]):
 					self.cache[j][k] = torch.zeros(shape)
@@ -238,14 +238,14 @@ class Zernike(Model):
 		return rho, theta
 
 	def get_default_optpars(self):
-		return np.concatenate(([1, 0, 1], self.zpars))
+		return np.concatenate(([1, 1], self.zpars))
 
 	def psf(self, dx, dy, params, j):
-		a, b, c, zpars = params[0], params[1], params[2], params[3:]
+		(a, c), zpars = params[:2], params[2:]
 		psf_c = torch.zeros(self.shape)
 		for i in range(len(zpars)):
 			b, p = self.mode_mask[i], zpars[i]
 			if b:
 				psf_c += p * self.cache[j][i]
-		return psf_c * torch.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
+		return psf_c * torch.exp(-a * dx ** 2 - c * dy ** 2)
 		# the full ellipse will overfit; the rest should show up as Zernikes
