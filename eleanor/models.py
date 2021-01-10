@@ -205,8 +205,8 @@ class Zernike(Model):
 	'''
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
-	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6):
-		cutoff = 0
+	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=4):
+		cutoff = 5e-2
 		warnings.warn("This model is still being tested and may yield incorrect results.")
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss, source)
 		
@@ -238,7 +238,7 @@ class Zernike(Model):
 		return rho, theta
 
 	def get_default_optpars(self):
-		return self.zpars
+		return np.concatenate(([1], self.zpars))
 
 	def psf(self, dx, dy, params, j):
 		lam, zpars = params[:1], params[1:]
@@ -246,7 +246,7 @@ class Zernike(Model):
 		for i in range(len(zpars)):
 			b, p = self.mode_mask[i], zpars[i]
 			if b:
-				psf_c += p * self.z.angular(i, self.coords[j][1]) * self.z.radial(i, 1 - torch.exp(-self.coords[j][0] / lam))
+				psf_c += p * self.cache[j][i] * self.z.radial(i, 1 - torch.exp(-self.coords[j][0] / lam))
 
 		return psf_c
 		# the full ellipse will overfit; the rest should show up as Zernikes
