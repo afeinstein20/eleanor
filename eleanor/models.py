@@ -6,6 +6,7 @@ import numpy as np
 import warnings
 import torch
 import scipy.special
+import scipy.optimize as sopt
 from functools import reduce
 from abc import ABC
 from zernike import Zern, RZern
@@ -13,7 +14,7 @@ from matplotlib import pyplot as plt
 
 # Vaneska models of Ze Vinicius
 
-class Model(ABC):
+class Model:
 	"""
 	Base PSF-fitting model.
 
@@ -205,15 +206,22 @@ class Zernike(Model):
 	'''
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
-	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6):
-		cutoff = 1e-2
+	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=4):
+		cutoff = 0
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss, source)
-		
 		z = TorchZern(zern_n)
-		self.z = z
 		rz = RZern(zern_n)
-		rz.make_cart_grid(*np.meshgrid(np.linspace(-1, 1, 27), np.linspace(-1, 1, 27)), unit_circle=True)
-		self.zpars, _, _, _ = np.linalg.lstsq(np.nan_to_num(rz.ZZ), self.prf[45:72, 45:72].ravel())
+		self.z = z
+		def gaussian_with_zernike(coords, params):
+			A, xo, yo, a, offset = params[:5]
+			dx, dy = coords[0] - xo, coords[1] - yo
+			g = offset + A * np.exp(-a * (dx ** 2 + dy ** 2)) * sum([p * rz.angular(i, np.arctan2(dy, dx)) for i, p in enumerate(params[5:])])
+			return g
+		
+		p0 = np.concatenate(([1, 0, 0, 1e-3, 0], np.zeros(self.z.nk,)))
+		psf_x, psf_y = np.meshgrid(np.linspace(-1, 1, 117), np.linspace(-1, 1, 117))
+		res = sopt.minimize(lambda p: np.sum((self.prf - gaussian_with_zernike((psf_x, psf_y), p)) ** 2), p0, method='TNC', tol=1e-1)
+		self.zpars = res.x[5:]
 		self.mode_mask = (np.abs(self.zpars) > cutoff).astype(int)
 		
 		self.cache = {}
@@ -225,7 +233,7 @@ class Zernike(Model):
 			for k in range(z.nk):
 				if self.mode_mask[k]:
 					zern = torch.tensor(z.angular(k, theta))
-					self.cache[j][k] = zern / torch.sum(zern)
+					self.cache[j][k] = zern #/ torch.sum(zern)
 				elif not(self.mode_mask[k]):
 					self.cache[j][k] = torch.zeros(shape)
 
@@ -245,6 +253,6 @@ class Zernike(Model):
 		for i in range(len(zpars)):
 			b, p = self.mode_mask[i], zpars[i]
 			if b:
-				psf_c += p * self.cache[j][i]
-		return psf_c * torch.exp(-a * dx ** 2 - c * dy ** 2)
+				psf_c += p * self.z.angular(i, torch.atan2(dy, dx))
+		return torch.exp(psf_c) * torch.exp(-a * dx ** 2 - c * dy ** 2)
 		# the full ellipse will overfit; the rest should show up as Zernikes
