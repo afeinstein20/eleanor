@@ -205,9 +205,8 @@ class Zernike(Model):
 	'''
 	Fit the Zernike polynomials to the PRF, possibly after a fit from one of the other models.
 	'''
-	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=4):
+	def __init__(self, shape, col_ref, row_ref, xc, yc, bkg0, loss, source, zern_n=6):
 		cutoff = 1e-2
-		warnings.warn("This model is still being tested and may yield incorrect results.")
 		super().__init__(shape, col_ref, row_ref, xc, yc, bkg0, loss, source)
 		
 		z = TorchZern(zern_n)
