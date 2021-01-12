@@ -476,7 +476,10 @@ class Source(object):
     def tesscut_dir(self):
         """Creates a TESSCut directory in the hidden eleanor directory.
         """
-        download_dir = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
+        if self.postcard_path is None:
+            download_dir = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
+        else:
+            download_dir = self.postcard_path
         if os.path.isdir(download_dir) is False:
             try:
                 os.mkdir(download_dir)
