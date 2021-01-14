@@ -10,6 +10,7 @@ import numpy as np
 import sys
 import requests
 from bs4 import BeautifulSoup
+import shutil
 
 eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 if not os.path.exists(eleanorpath):
@@ -101,6 +102,7 @@ class Update(object):
         self.south_coords = SkyCoord('04:35:50.330 -64:01:37.33',
                                      unit=(u.hourangle, u.deg))
 
+
         if self.sector < 14 or self.sector > 26:
             try:
                 manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
@@ -116,32 +118,33 @@ class Update(object):
                 print("This sector isn't available yet.")
                 return
 
-
         if success == 1:
             if os.path.isdir(self.metadata_path) == True:
                 pass
             else:
                 os.mkdir(self.metadata_path)
 
+
         # memmap=False as wokaround for https://github.com/afeinstein20/eleanor/issues/204
         self.cutout = fits.open(manifest['Local Path'][0], memmap=False)
+        os.remove(manifest['Local Path'][0])
+
 
         print('This is the first light curve you have made for this sector. '
               'Getting eleanor metadata products for '
               'Sector {0:2d}...'.format(self.sector))
         print('This will only take a minute, and only needs to be done once. '
               'Any other light curves you make in this sector will be faster.')
+        print('Acquiring target...')
         self.get_target()
-        print('Target Acquired')
+        print('Calculating Cadences...')
         self.get_cadences()
-        print('Cadences Calculated')
+        print('Assuring Quality Flags...')
         self.get_quality()
-        print('Quality Flags Assured')
+        print('Making CBVs...')
         self.get_cbvs()
-        print('CBVs Made')
         print('Success! Sector {:2d} now available.'.format(self.sector))
         self.cutout.close()
-        os.remove(manifest['Local Path'][0])
         self.try_next_sector()
 
     def get_cbvs(self):
@@ -215,7 +218,6 @@ class Update(object):
                            format(self.sector))
         for line in filelist:
             if len(str(line)) > 30:
-                import shutil
                 os.system(str(line)[2:-3])
                 fn = str(line)[2:-3].split()[5]
                 shutil.move(fn, eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector))
