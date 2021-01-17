@@ -794,7 +794,8 @@ class TargetData(object):
         
         bkgvar = np.std(self.bkg_tpf, axis=(1,2))/(np.nansum(self.bkg_tpf, axis=(1,2)))
         bkgmask = sigma_clip(bkgvar, masked=True, sigma=5.0)
-        self.quality = np.bitwise_or(self.quality != 0, bkgmask.mask * 2**18)
+        self.quality = np.bitwise_or(self.quality.astype(int), (bkgmask.mask * 2**18).astype(int))
+
         return
 
 
