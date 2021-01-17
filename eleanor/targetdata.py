@@ -19,7 +19,6 @@ import os, sys, copy
 import os.path
 import warnings
 import pickle
-import eleanor
 
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
@@ -150,7 +149,7 @@ class TargetData(object):
     def __init__(self, source, height=13, width=13, save_postcard=True, do_pca=False, do_psf=False,
                  bkg_size=None, aperture_mode='normal', cal_cadences=None, try_load=True, regressors = None,
                  language='English'):
-
+        import eleanor
         self.source_info = source
         self.language = language
         self.pca_flux = None
@@ -371,7 +370,7 @@ class TargetData(object):
             self.tpf_flux_bkg = self.bkg_subtraction() + post_bkg
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
-            
+
 
 
 
@@ -791,7 +790,7 @@ class TargetData(object):
         self.quality = np.array(self.post_obj.quality)
 
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
-        
+
         bkgvar = np.std(self.bkg_tpf, axis=(1,2))/(np.nansum(self.bkg_tpf, axis=(1,2)))
         bkgmask = sigma_clip(bkgvar, masked=True, sigma=5.0)
         self.quality = np.bitwise_or(self.quality.astype(int), (bkgmask.mask * 2**18).astype(int))
@@ -1257,6 +1256,7 @@ class TargetData(object):
 
     def set_header(self, lite=False):
         """Defines the header for the TPF."""
+        import eleanor
         self.header = copy.deepcopy(self.post_obj.header)
         self.header.update({'CREATED':strftime('%Y-%m-%d')})
 
@@ -1500,12 +1500,12 @@ class TargetData(object):
             self.all_raw_flux  = []
             self.all_corr_flux = []
             self.all_flux_err  = []
-    
+
             names = []
             for i in cols:
                 name = ('_').join(i.split('_')[0:-1])
                 names.append(name)
-    
+
                 if i[-4::] == 'corr':
                     self.all_corr_flux.append(table[i])
                 elif i[-3::] == 'err':
@@ -1517,7 +1517,7 @@ class TargetData(object):
             self.all_corr_flux = None#[self.corr_flux]
             self.all_flux_err  = None#[self.flux_err]
             names = [hdr['aperture']]
-            
+
 
         self.aperture_names = np.unique(names)
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]

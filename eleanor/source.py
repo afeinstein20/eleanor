@@ -374,7 +374,7 @@ class Source(object):
                     extension = ["pc.fits", "bkg.fits"]
 
                 results = Observations.download_products(product_list, extension=extension,
-                                                         download_dir=self.fn_dir)
+                                                         download_dir=self.postcard_path)
                 postcard_path = results['Local Path'][0]
                 self.postcard_path = '/'.join(e for e in postcard_path.split('/')[:-1])
                 self.postcard  = results['Local Path'][1].split('/')[-1]
