@@ -369,7 +369,10 @@ class Visualize(object):
             raise no_targets_found_message
         radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
         coords = tpf.wcs.all_world2pix(radecs, 0)
-        year = ((tpf.time[0].jd - 2457206.375) * u.day).to(u.year)
+        try:
+            year = ((tpf.time[0].jd - 2457206.375) * u.day).to(u.year)
+        except:
+            year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
         pmra = ((np.nan_to_num(np.asarray(result.pmRA)) * u.milliarcsecond/u.year) * year).to(u.arcsec).value
         pmdec = ((np.nan_to_num(np.asarray(result.pmDE)) * u.milliarcsecond/u.year) * year).to(u.arcsec).value
         result.RA_ICRS += pmra
