@@ -127,7 +127,6 @@ class Update(object):
 
         # memmap=False as wokaround for https://github.com/afeinstein20/eleanor/issues/204
         self.cutout = fits.open(manifest['Local Path'][0], memmap=False)
-        os.remove(manifest['Local Path'][0])
 
 
         print('This is the first light curve you have made for this sector. '
@@ -145,6 +144,7 @@ class Update(object):
         self.get_cbvs()
         print('Success! Sector {:2d} now available.'.format(self.sector))
         self.cutout.close()
+        os.remove(manifest['Local Path'][0])
         self.try_next_sector()
 
     def get_cbvs(self):
