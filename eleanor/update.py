@@ -87,6 +87,10 @@ class Update(object):
             print('Please pass a sector into eleanor.Update().')
             return
 
+        if not os.path.exists(eleanorpath + '/metadata'):
+            os.mkdir(eleanorpath + '/metadata')
+
+
         self.sector = sector
         self.metadata_path = os.path.join(eleanorpath, 'metadata/s{0:04d}'.format(self.sector))
         lastfile = 'cbv_components_s{0:04d}_0004_0004.txt'.format(self.sector)
