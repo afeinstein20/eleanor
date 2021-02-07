@@ -22,6 +22,11 @@ observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
 
+Changes to v2.0.2 (2021-02-05):
+* Fixed bugs in setting download directory paths
+* Fixed bugs for Windows users
+* Other minor bug fixes
+
 Changes to v2.0.1 (2020-12-08):
 * Minor bug fixes
 
