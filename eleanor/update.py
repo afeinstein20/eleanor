@@ -156,8 +156,10 @@ class Update(object):
             year = 2018
         elif self.sector <= 20:
             year = 2019
-        else:
+        elif self.sector <= 33:
             year = 2020
+        else:
+            year = 2021
 
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
