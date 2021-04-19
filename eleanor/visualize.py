@@ -64,7 +64,7 @@ class Visualize(object):
         ap_linewidth : int, optional
             The linewidth of the aperture contour. Default is 4.
         ax : matplotlib.axes._subplots.AxesSubplot, optional
-            Axes to plot on. 
+            Axes to plot on.
         """
         if ax == None:
             fig, ax = plt.subplots(nrows=1)
@@ -162,13 +162,13 @@ class Visualize(object):
 
 
         ## PLOTS TARGET PIXEL FILE ##
-            
+
         ax = plt.subplot(outer[0])
-        
+
         if aperture is None:
             aperture = self.obj.aperture
 
-        plotflux = np.nanmedian(self.flux[:, rowrange[0]:rowrange[1], 
+        plotflux = np.nanmedian(self.flux[:, rowrange[0]:rowrange[1],
                                           colrange[0]:colrange[1]], axis=0)
         c = ax.imshow(plotflux,
                       vmax=np.percentile(plotflux, 95),
@@ -176,7 +176,7 @@ class Visualize(object):
         divider = make_axes_locatable(ax)
         cax = divider.append_axes('right', size='5%', pad=0.15)
         plt.colorbar(c, cax=cax, orientation='vertical')
-            
+
         f = lambda x,y: aperture[int(y),int(x) ]
         g = np.vectorize(f)
 
@@ -185,13 +185,13 @@ class Visualize(object):
         X, Y= np.meshgrid(x[:-1],y[:-1])
         Z = g(X[:-1],Y[:-1])
 
-        ax.contour(Z, [0.05], 
+        ax.contour(Z, [0.05],
                    colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, nrows-0.5,0-0.5, ncols-0.5])
 
         ## PLOTS PIXEL LIGHT CURVES ##
         for ind in range( int(nrows * ncols) ):
-            if ind == 0:                
+            if ind == 0:
                 ax = plt.Subplot(figure, inner[ind])
                 origax = ax
             else:
@@ -229,7 +229,7 @@ class Visualize(object):
                 color = matplotlib.colors.rgb2hex(rgb)
 
             ax.plot(x, y, c=color)
-            
+
             if color_by_aperture and aperture[i,j] > 0:
                 for iax in ['top', 'bottom', 'left', 'right']:
                     ax.spines[iax].set_color(ap_color)
@@ -303,9 +303,9 @@ class Visualize(object):
         for subitem in items:
             j = subitem.find('Sector')
             if j > 0 and 'TESS: The Movie' in subitem:
-                
+
                 sect = subitem[j:j+100].split(',')[0].split(' ')[-1]
-                
+
                 if int(sect) == int(sector):
                     i = subitem.find('/watch?v')
                     ext = subitem[i:i+100].split('"')[0]
@@ -314,9 +314,9 @@ class Visualize(object):
 
         if good_sector == 1:
             self.movie_url = 'https://www.youtube.com{0}'.format(ext)
-            
+
             call_location = type_of_script()
-            
+
             if (call_location == 'terminal') or (call_location == 'ipython'):
                 os.system('python -m webbrowser -t "{0}"'.format(self.movie_url))
 
@@ -339,7 +339,7 @@ class Visualize(object):
         if tpf is None:
             tpf = lk.search_tesscut(f'TIC {tic}')[0].download(cutout_size=(self.obj.tpf.shape[1],
                                                                            self.obj.tpf.shape[2]))
-            
+
         fig = tpf.plot(show_colorbar=False, title='TIC {0}'.format(tic))
         fig = self._add_gaia_figure_elements(tpf, fig, magnitude_limit=magnitude_limit)
 
@@ -368,8 +368,11 @@ class Visualize(object):
         if len(result) == 0:
             raise no_targets_found_message
         radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
-        coords = tpf.wcs.all_world2pix(radecs, 1) ## TODO, is origin supposed to be zero or one?
-        year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
+        coords = tpf.wcs.all_world2pix(radecs, 0)
+        try:
+            year = ((tpf.time[0].jd - 2457206.375) * u.day).to(u.year)
+        except:
+            year = ((tpf.astropy_time[0].jd - 2457206.375) * u.day).to(u.year)
         pmra = ((np.nan_to_num(np.asarray(result.pmRA)) * u.milliarcsecond/u.year) * year).to(u.arcsec).value
         pmdec = ((np.nan_to_num(np.asarray(result.pmDE)) * u.milliarcsecond/u.year) * year).to(u.arcsec).value
         result.RA_ICRS += pmra
@@ -378,10 +381,13 @@ class Visualize(object):
         # Gently size the points by their Gaia magnitude
         sizes = 10000.0 / 2**(result['Gmag']/2)
 
+        target = tpf.wcs.world_to_pixel(c1)
+        plt.scatter(target[0]+tpf.column, target[1]+tpf.row, s=50, zorder=1000, c='k', marker='x')
+
         plt.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
         plt.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='None', edgecolors='r', s=sizes)
-        plt.xlim([tpf.column, tpf.column+tpf.shape[1]])
-        plt.ylim([tpf.row, tpf.row+tpf.shape[2]])
+        plt.xlim([tpf.column-0.5, tpf.column+tpf.shape[1]-0.5])
+        plt.ylim([tpf.row-0.5, tpf.row+tpf.shape[2]-0.5])
 
         return fig
 
