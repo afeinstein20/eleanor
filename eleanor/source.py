@@ -278,7 +278,7 @@ class Source(object):
         if self.usr_sec is None:
             self.usr_sec = 'recent'
 
-        result = tess_stars2px(6789998212, self.coords[0], self.coords[1])
+        result = tess_stars2px(self.tic, self.coords[0], self.coords[1])
         cameras = result[4][result[3] <= maxsector]
         chips = result[5][result[3] <= maxsector]
         cols = result[6][result[3] <= maxsector]
