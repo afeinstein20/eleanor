@@ -3,7 +3,8 @@ import matplotlib.pyplot as plt
 from astropy.nddata import Cutout2D
 from photutils import CircularAperture, RectangularAperture, aperture_photometry
 from photutils import MMMBackground
-from lightkurve import SFFCorrector, lightcurve
+from lightkurve import lightcurve
+from lightkurve.correctors import SFFCorrector
 from scipy.optimize import minimize
 from astropy import time, coordinates as coord, units as u
 from astropy.coordinates import SkyCoord, Angle
