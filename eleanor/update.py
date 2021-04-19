@@ -66,7 +66,20 @@ def listFD(url, ext=''):
             node.get('href').endswith(ext)]
 
 
-__all__ = ['Update', 'update_all']
+__all__ = ['Update', 'update_all', 'update_max_sector']
+
+def update_max_sector():
+    baseurl = "https://archive.stsci.edu/missions/tess/ffi/"
+    
+    page = urlopen(baseurl)
+    read = page.read()
+    html = read.decode('utf-8').split('href="')
+    current_sectors = [i for i in html if 's00' in i]
+    sectors = [int(i[1:5]) for i in current_sectors]
+    
+    with open('maxsector.py', 'w') as tf:
+        tf.write('maxsector = {0}'.format(int(np.nanmax(sectors))))
+
 
 
 def update_all():
@@ -90,6 +103,8 @@ class Update(object):
         if not os.path.exists(eleanorpath + '/metadata'):
             os.mkdir(eleanorpath + '/metadata')
 
+        # Updates max sector file first
+        update_max_sector()
 
         self.sector = sector
         self.metadata_path = os.path.join(eleanorpath, 'metadata/s{0:04d}'.format(self.sector))
