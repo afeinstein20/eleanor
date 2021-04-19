@@ -80,6 +80,7 @@ def update_max_sector():
     with open('maxsector.py', 'w') as tf:
         tf.write('maxsector = {0}'.format(int(np.nanmax(sectors))))
 
+    print("Most recent sector available = ", int(np.nanmax(sectors)))
 
 
 def update_all():
