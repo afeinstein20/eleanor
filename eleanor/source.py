@@ -130,7 +130,7 @@ class Source(object):
     """
     def __init__(self, tic=None, gaia=None, coords=None, name=None, fn=None,
                  sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None,
-                 metadata_path=None, tesscut_size=31):
+                 metadata_path=None, tesscut_size=31, tm=None):
         self.tic       = tic
         self.gaia      = gaia
         self.coords    = coords
@@ -143,6 +143,7 @@ class Source(object):
         self.postcard_path = post_dir
         self.pm_dir = pm_dir
         self.local = local
+        self.tess_mag = tm
 
 
 
@@ -222,6 +223,8 @@ class Source(object):
                                    "(RA [deg], Dec [deg]) tuple or astropy.coordinates.SkyCoord object.")
 
                 if self.tic is None:
+                    self.tic, self.tess_mag, sep, self.tic_version, self.contratio = tic_from_coords(self.coords)
+                if (self.tess_mag is None) and (self.local is False):
                     self.tic, self.tess_mag, sep, self.tic_version, self.contratio = tic_from_coords(self.coords)
                 else:
                     self.tess_mag = [999]
