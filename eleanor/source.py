@@ -148,12 +148,12 @@ class Source(object):
 
 
         if self.pm_dir is None:
-            self.pm_dir = self.postcard_path
+           self.pm_dir = self.postcard_path
 
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
             if not os.path.exists(self.fn_dir):
-                try:
+               try:
                     os.mkdir(self.fn_dir)
                 except OSError:
                     self.fn_dir = '.'
