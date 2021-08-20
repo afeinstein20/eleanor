@@ -153,7 +153,7 @@ class Source(object):
         if fn_dir is None:
             self.fn_dir = os.path.join(os.path.expanduser('~'), '.eleanor')
             if not os.path.exists(self.fn_dir):
-               try:
+                try:
                     os.mkdir(self.fn_dir)
                 except OSError:
                     self.fn_dir = '.'
