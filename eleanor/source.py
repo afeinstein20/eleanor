@@ -199,18 +199,20 @@ class Source(object):
             self.tic_version = hdr['TIC_V']
             self.postcard = hdr['POSTCARD']
 
-            if self.tc is True:
-                post_dir = self.tesscut_dir()
-                self.postcard_path = os.path.join(post_dir, self.postcard)
-                # workaround to address #137
-                # - both self.postcard  and tesscut_dir() contains tesscut, resulting in incorrect path
-                self.postcard_path = re.sub(r'tesscut[/\\]tesscut', 'tesscut', self.postcard_path)
-                self.cutout = fits.open(self.postcard_path)
-#            else:
-                #########
+            if local == True:
 
-            self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
-#            self.position_on_postcard = (hdr['POSTPOS1'], hdr['POSTPOS2'])
+                if self.tc is True:
+                    post_dir = self.tesscut_dir()
+                    self.postcard_path = os.path.join(post_dir, self.postcard)
+                    # workaround to address #137
+                    # - both self.postcard  and tesscut_dir() contains tesscut, resulting in incorrect path
+                    self.postcard_path = re.sub(r'tesscut[/\\]tesscut', 'tesscut', self.postcard_path)
+                    self.cutout = fits.open(self.postcard_path)
+
+                    self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
+
+            else:
+                self.cutout = None
 
         else:
             if self.coords is not None:
