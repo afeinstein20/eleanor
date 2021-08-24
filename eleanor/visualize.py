@@ -72,7 +72,7 @@ class Visualize(object):
         if aperture is None:
             aperture = self.obj.aperture
 
-        ax.imshow(self.obj.tpf[0], **kwargs)
+        ax.imshow(self.obj.tpf[0], origin='lower', **kwargs)
 
         f = lambda x,y: aperture[int(y),int(x) ]
         g = np.vectorize(f)
@@ -170,7 +170,7 @@ class Visualize(object):
 
         plotflux = np.nanmedian(self.flux[:, rowrange[0]:rowrange[1],
                                           colrange[0]:colrange[1]], axis=0)
-        c = ax.imshow(plotflux,
+        c = ax.imshow(plotflux, origin='lower',
                       vmax=np.percentile(plotflux, 95),
                       cmap=cmap)
         divider = make_axes_locatable(ax)
