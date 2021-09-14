@@ -123,7 +123,7 @@ class Update(object):
                                      unit=(u.hourangle, u.deg))
 
 
-        if self.sector < 14 or self.sector > 26:
+        if self.sector < 14 or (self.sector > 26 and self.sector < 39):
             try:
                 manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
                 success = 1
