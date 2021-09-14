@@ -152,6 +152,7 @@ class TargetData(object):
                  language='English'):
         import eleanor
         self.source_info = source
+
         self.language = language
         self.pca_flux = None
         self.psf_flux = None
@@ -1522,7 +1523,6 @@ class TargetData(object):
 
         self.aperture_names = np.unique(names)
         self.best_ind = np.where(self.aperture_names == hdr['aperture'])[0][0]
-
 
 
         try:
