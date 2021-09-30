@@ -122,21 +122,27 @@ class Update(object):
         self.south_coords = SkyCoord('04:35:50.330 -64:01:37.33',
                                      unit=(u.hourangle, u.deg))
 
+        self.ecliptic_coords_a = SkyCoord('04:00:00.000 +10:00:00.00',
+                                          unit=(u.hourangle, u.deg))
+        self.ecliptic_coords_b = SkyCoord('08:20:00.000 +12:00:00.00',
+                                          unit=(u.hourangle, u.deg))
 
-        if self.sector < 14 or (self.sector > 26 and self.sector < 39):
-            try:
-                manifest = Tesscut.download_cutouts(self.south_coords, 31, sector=self.sector)
-                success = 1
-            except:
-                print("This sector isn't available yet.")
-                return
+
+        if self.sector < 14 or (self.sector > 26 and self.sector < 40):
+            use_coords = self.south_coords
+        elif self.sector in [42, 43, 44]:
+            use_coords = self.ecliptic_coords_a
+        elif self.sector in [45, 46]:
+            use_coords = self.ecliptic_coords_b
         else:
-            try:
-                manifest = Tesscut.download_cutouts(self.north_coords, 31, sector=self.sector)
-                success = 1
-            except:
-                print("This sector isn't available yet.")
-                return
+            use_coords = self.north_coords
+
+        try:
+            manifest = Tesscut.download_cutouts(use_coords, 31, sector=self.sector)
+            success = 1
+        except:
+            print("This sector isn't available yet.")
+            return
 
         if success == 1:
             if os.path.isdir(self.metadata_path) == True:
@@ -174,8 +180,10 @@ class Update(object):
             year = 2019
         elif self.sector <= 33:
             year = 2020
-        else:
+        elif self.sector <= 47:
             year = 2021
+        else:
+            year = 2022
 
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
