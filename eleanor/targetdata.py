@@ -1338,6 +1338,8 @@ class TargetData(object):
             information and all light curves except the optimal one selected
             by eleanor.
         """
+        import eleanor
+
         if self.language == 'Australian':
             raise ValueError("These light curves are upside down. Please don't save them ...")
 
