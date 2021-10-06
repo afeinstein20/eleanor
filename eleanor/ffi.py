@@ -96,7 +96,7 @@ def pm_quality(time, sector, camera, chip, pm=None):
 
         # Finds gap in orbits
         t = np.diff(time)
-        brk = np.where( t > np.mean(t)+2*np.std(t))[0][0]
+        brk = np.where( t == np.max(t))[0][0]
         brk += 1
 
         # Initiates lists for each orbit
