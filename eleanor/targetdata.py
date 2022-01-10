@@ -374,8 +374,6 @@ class TargetData(object):
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
 
 
-
-
         else:
             post_x_length, post_y_length = post_flux.shape[2], post_flux.shape[1]
             if (height > post_y_length) or (width > post_x_length):
