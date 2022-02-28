@@ -27,6 +27,11 @@ from .postcard import Postcard, Postcard_tesscut
 
 __all__  = ['TargetData']
 
+
+class EdgeProblem(Exception):
+    pass
+
+
 class TargetData(object):
     """
     Object containing the light curve, target pixel file, and related information
@@ -228,7 +233,10 @@ class TargetData(object):
                 self.get_cbvs()
 
                 self.create_apertures(self.tpf.shape[1], self.tpf.shape[2])
-
+                if self.all_apertures.size == 0:
+                    raise EdgeProblem('This star falls off the edge of the '
+                                      'detector and we cannot produce a light '
+                                      'curve.')
                 self.get_lightcurve()
 
                 if do_pca == True:
