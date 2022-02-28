@@ -15,6 +15,7 @@ from time import strftime
 from astropy.io import fits
 from scipy.stats import mode
 from scipy.signal import savgol_filter
+from scipy.interpolate import griddata
 from urllib.request import urlopen
 import os, sys, copy
 import os.path
@@ -373,6 +374,36 @@ class TargetData(object):
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
 
+            # there are NaNs (likely from saturated columns) in the postcard
+            # background measure
+            if not np.isfinite(self.bkg_tpf).all():
+                # go through every cadence and fill them in
+                tsteps = np.arange(self.bkg_tpf.shape[0])
+                for itime in tsteps:
+                    arr = self.bkg_tpf[itime, :, :]
+                    good = np.isfinite(self.bkg_tpf[itime, :, :])
+                    # this cadence is clean
+                    if good.all():
+                        continue
+                    xs, ys = np.meshgrid(np.arange(arr.shape[0]),
+                                         np.arange(arr.shape[1]), indexing='ij')
+                    # interpolate from nearby pixels
+                    fit = griddata((xs[good].flatten(), ys[good].flatten()),
+                                   arr[good].flatten(),
+                                   (xs[~good].flatten(), ys[~good].flatten()))
+                    # fill in with approximations
+                    self.bkg_tpf[itime, ~good] = fit
+                    # try again
+                    good = np.isfinite(self.bkg_tpf[itime, :, :])
+                    # must have NaNs along the edge, so linear interpolation fails
+                    if not good.all():
+                        # just fill in the edges with the same background
+                        # as the nearest good pixel
+                        fit = griddata((xs[good].flatten(), ys[good].flatten()),
+                                       arr[good].flatten(),
+                                       (xs[~good].flatten(),
+                                        ys[~good].flatten()), method='nearest')
+                        self.bkg_tpf[itime, ~good] = fit
 
         else:
             post_x_length, post_y_length = post_flux.shape[2], post_flux.shape[1]
