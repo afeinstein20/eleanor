@@ -716,8 +716,11 @@ class TargetData(object):
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
         best_ind_pc  = np.where(pc_stds == np.nanmin(pc_stds))[0][0]
 
-        if self.source_info.tc == False:
-            best_ind_2d = np.where(stds_2d == np.nanmin(stds_2d))[0][0]
+        if not self.source_info.tc:
+            if np.isfinite(stds_2d).any():
+                best_ind_2d = np.where(stds_2d == np.nanmin(stds_2d))[0][0]
+            else:
+                best_ind_2d = None
         else:
             best_ind_2d = None
 
