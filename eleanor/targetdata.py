@@ -466,7 +466,7 @@ class TargetData(object):
 
             lmask, lname = lap.to_mask(method='center').to_image(shape=shape), 'rectangle_{}'.format(int(deg))
             tmask, tname = tap.to_mask(method='center').to_image(shape=shape), 'L_{}'.format(int(deg))
-            
+
             if lmask is not None and lmask.sum() > 0:
                 all_apertures.append(lmask)
                 aperture_names.append(lname)
@@ -485,7 +485,7 @@ class TargetData(object):
                 if cmask is not None and cmask.sum() > 0:
                     all_apertures.append(cmask)
                     aperture_names.append(cname)
-                    
+
                 if rmask is not None and rmask.sum() > 0:
                     all_apertures.append(rmask)
                     aperture_names.append(rname)
@@ -1696,7 +1696,7 @@ def get_flattened_sigma(y, maxiter=100, window_size=51, nsigma=4):
     sig = np.std(y)
     m = np.ones_like(y, dtype=bool)
     n = len(y)
-    for n in range(maxiter):
+    for _ in range(maxiter):
         sig = np.std(y[m])
         m = np.abs(y) < nsigma * sig
         if m.sum() == n:
