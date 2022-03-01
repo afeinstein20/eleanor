@@ -15,6 +15,7 @@ from time import strftime
 from astropy.io import fits
 from scipy.stats import mode
 from scipy.signal import savgol_filter
+from scipy.interpolate import griddata
 from urllib.request import urlopen
 import os, sys, copy
 import os.path
@@ -25,6 +26,11 @@ from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
 
 __all__  = ['TargetData']
+
+
+class EdgeProblem(Exception):
+    pass
+
 
 class TargetData(object):
     """
@@ -227,7 +233,10 @@ class TargetData(object):
                 self.get_cbvs()
 
                 self.create_apertures(self.tpf.shape[1], self.tpf.shape[2])
-
+                if self.all_apertures.size == 0:
+                    raise EdgeProblem('This star falls off the edge of the '
+                                      'detector and we cannot produce a light '
+                                      'curve.')
                 self.get_lightcurve()
 
                 if do_pca == True:
@@ -373,6 +382,36 @@ class TargetData(object):
             self.tpf_err = post_err[: , y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
             self.tpf_err[np.isnan(self.tpf_err)] = np.inf
 
+            # there are NaNs (likely from saturated columns) in the postcard
+            # background measure
+            if not np.isfinite(self.bkg_tpf).all():
+                # go through every cadence and fill them in
+                tsteps = np.arange(self.bkg_tpf.shape[0])
+                for itime in tsteps:
+                    arr = self.bkg_tpf[itime, :, :]
+                    good = np.isfinite(self.bkg_tpf[itime, :, :])
+                    # this cadence is clean
+                    if good.all():
+                        continue
+                    xs, ys = np.meshgrid(np.arange(arr.shape[0]),
+                                         np.arange(arr.shape[1]), indexing='ij')
+                    # interpolate from nearby pixels
+                    fit = griddata((xs[good].flatten(), ys[good].flatten()),
+                                   arr[good].flatten(),
+                                   (xs[~good].flatten(), ys[~good].flatten()))
+                    # fill in with approximations
+                    self.bkg_tpf[itime, ~good] = fit
+                    # try again
+                    good = np.isfinite(self.bkg_tpf[itime, :, :])
+                    # must have NaNs along the edge, so linear interpolation fails
+                    if not good.all():
+                        # just fill in the edges with the same background
+                        # as the nearest good pixel
+                        fit = griddata((xs[good].flatten(), ys[good].flatten()),
+                                       arr[good].flatten(),
+                                       (xs[~good].flatten(),
+                                        ys[~good].flatten()), method='nearest')
+                        self.bkg_tpf[itime, ~good] = fit
 
         else:
             post_x_length, post_y_length = post_flux.shape[2], post_flux.shape[1]
@@ -467,11 +506,13 @@ class TargetData(object):
             lmask, lname = lap.to_mask(method='center').to_image(shape=shape), 'rectangle_{}'.format(int(deg))
             tmask, tname = tap.to_mask(method='center').to_image(shape=shape), 'L_{}'.format(int(deg))
 
-            all_apertures.append(lmask)
-            aperture_names.append(lname)
+            if lmask is not None and lmask.sum() > 0:
+                all_apertures.append(lmask)
+                aperture_names.append(lname)
 
-            all_apertures.append(tmask)
-            aperture_names.append(tname)
+            if tmask is not None and tmask.sum() > 0:
+                all_apertures.append(tmask)
+                aperture_names.append(tname)
 
             cap = circle_aperture(center, clist[i])
             rap = square_aperture(center, rlist[i], rlist[i], theta[i])
@@ -480,11 +521,13 @@ class TargetData(object):
                 cmask, cname = cap.to_mask(method=method).to_image(shape=shape), '{}_circle_{}'.format(clist[i], method)
                 rmask, rname = rap.to_mask(method=method).to_image(shape=shape), '{}_square_{}'.format(rlist[i], method)
 
-                all_apertures.append(cmask)
-                aperture_names.append(cname)
+                if cmask is not None and cmask.sum() > 0:
+                    all_apertures.append(cmask)
+                    aperture_names.append(cname)
 
-                all_apertures.append(rmask)
-                aperture_names.append(rname)
+                if rmask is not None and rmask.sum() > 0:
+                    all_apertures.append(rmask)
+                    aperture_names.append(rname)
 
             deg += 90
 
@@ -673,8 +716,11 @@ class TargetData(object):
         best_ind_tpf = np.where(tpf_stds == np.nanmin(tpf_stds))[0][0]
         best_ind_pc  = np.where(pc_stds == np.nanmin(pc_stds))[0][0]
 
-        if self.source_info.tc == False:
-            best_ind_2d = np.where(stds_2d == np.nanmin(stds_2d))[0][0]
+        if not self.source_info.tc:
+            if np.isfinite(stds_2d).any():
+                best_ind_2d = np.where(stds_2d == np.nanmin(stds_2d))[0][0]
+            else:
+                best_ind_2d = None
         else:
             best_ind_2d = None
 
@@ -1692,7 +1738,7 @@ def get_flattened_sigma(y, maxiter=100, window_size=51, nsigma=4):
     sig = np.std(y)
     m = np.ones_like(y, dtype=bool)
     n = len(y)
-    for n in range(maxiter):
+    for _ in range(maxiter):
         sig = np.std(y[m])
         m = np.abs(y) < nsigma * sig
         if m.sum() == n:
