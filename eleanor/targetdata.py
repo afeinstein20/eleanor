@@ -24,13 +24,9 @@ import pickle
 
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
+from .utils import *
 
 __all__  = ['TargetData']
-
-
-class EdgeProblem(Exception):
-    pass
-
 
 class TargetData(object):
     """
