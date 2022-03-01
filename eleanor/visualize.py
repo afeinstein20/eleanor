@@ -93,7 +93,7 @@ class Visualize(object):
     def pixel_by_pixel(self, colrange=None, rowrange=None, cmap='viridis',
                        data_type="corrected", mask=None, xlim=None,
                        ylim=None, color_by_pixel=False, color_by_aperture=True,
-                       freq_range=[1/20., 1/0.1], aperture=None, ap_color='r',
+                       freq_range=[1/20., 1/0.1], FAP=None, aperture=None, ap_color='r',
                        ap_linewidth=2):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
@@ -128,6 +128,10 @@ class Visualize(object):
              List of minimum and maximum frequency to search in Lomb Scargle
              periodogram. Only used if data_type = 'periodogram'. If None,
              default = [1/20., 1/0.1].
+        FAP: np.array, optional. 
+             False Alarm Probability levels to include in periodogram.
+             Ensure that the values are < 1. 
+             For example: FAP = np.array([0.1, 0.01]), will plot the 10% and 1% FAP levels.
         """
         if self.obj.lite:
             print('This is an eleanor-lite object. No pixel_by_pixel visualization can be created.')
@@ -216,11 +220,17 @@ class Visualize(object):
                 x = time[q]
 
             elif data_type.lower() == 'periodogram':
-                freq, power = LombScargle(time, corr_flux).autopower(minimum_frequency=freq_range[0],
+                LS = LombScargle(time, corr_flux)
+                freq, power = LS.autopower(minimum_frequency=freq_range[0],
                                                                      maximum_frequency=freq_range[1],
                                                                      method='fast')
                 y = power
                 x = 1/freq
+
+                if (FAP is not None):
+                    if np.all(FAP<1): # Ensure that the probabilities are all < 1 
+                        if type(FAP) == list: FAP = np.array(FAP)
+                        FAPlevel = LS.false_alarm_level(FAP, method='baluev') 
 
             if color_by_pixel is False:
                 color = 'k'
@@ -229,6 +239,11 @@ class Visualize(object):
                 color = matplotlib.colors.rgb2hex(rgb)
 
             ax.plot(x, y, c=color)
+
+            if (data_type.lower() == 'periodogram') & (FAP is not None):
+                if np.all(FAP<1): 
+                    _ = [ax.axhline(f, color='k', ls='--', alpha=0.3) for f in FAPlevel]
+
 
             if color_by_aperture and aperture[i,j] > 0:
                 for iax in ['top', 'bottom', 'left', 'right']:
