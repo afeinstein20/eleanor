@@ -10,7 +10,7 @@ import requests
 from bs4 import BeautifulSoup
 import warnings
 import urllib
-
+from .utils import EleanorWarning
 from .mast import tic_by_contamination
 
 
@@ -26,6 +26,7 @@ def check_pointing(sector, camera, chip, path=None):
     searches = [
         's{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(sector, camera, chip),
         'pointingModel_{0:04d}_{1}-{2}.txt'.format(sector, camera, chip),
+        'hlsp_eleanor_tess_ffi_postcard-s{0:04d}-{1}-{2}_tess_v2_pm.txt'.format(sector, camera, chip)
     ]
 
     # Checks a directory of pointing models, if it exists
@@ -37,7 +38,7 @@ def check_pointing(sector, camera, chip, path=None):
         pm = [i for i in pm_downloaded if search in i]
         if len(pm) > 0:
             return Table.read(os.path.join(pm_dir, pm[0]), format="ascii.basic")
-    warnings.warn("couldn't find pointing model")
+    warnings.warn("couldn't find pointing model", category=EleanorWarning)
 
 
 def load_pointing_model(pm_dir, sector, camera, chip):
