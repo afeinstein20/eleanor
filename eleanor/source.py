@@ -371,7 +371,11 @@ class Source(object):
 
             if len(postcard_obs) > 0:
                 product_list = Observations.get_product_list(postcard_obs)
-                self.pointing = check_pointing(self.sector, self.camera, self.chip, self.pm_dir)
+                # we're just checking if the pointing file already exists. we don't need
+                # to be warned that it doesn't.
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=EleanorWarning)
+                    self.pointing = check_pointing(self.sector, self.camera, self.chip, self.pm_dir)
 
                 if self.pointing is None:
                     extension = ["pc.fits", "bkg.fits", "pm.txt"]

@@ -662,13 +662,13 @@ class TargetData(object):
             ## Remove something from all_raw_lc before passing into jitter_corr ##
             try:
                 norm = np.nansum(self.all_apertures[a], axis=1)
-                all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a]),
+                all_corr_lc_pc_sub[a] = self.corrected_flux(flux=all_raw_lc_pc_sub[a]/np.nanmedian(all_raw_lc_pc_sub[a][all_raw_lc_pc_sub[a] > 0]),
                                                            bkg=self.flux_bkg[:, None] * norm)
-                all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a]),
+                all_corr_lc_tpf_sub[a]= self.corrected_flux(flux=all_raw_lc_tpf_sub[a]/np.nanmedian(all_raw_lc_tpf_sub[a][all_raw_lc_tpf_sub[a] > 0]),
                                                             bkg=self.tpf_flux_bkg[:, None] * norm)
 
                 if self.source_info.tc == False:
-                    all_corr_lc_tpf_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_tpf_2d_sub[a]/np.nanmedian(all_raw_lc_tpf_2d_sub[a]),
+                    all_corr_lc_tpf_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_tpf_2d_sub[a]/np.nanmedian(all_raw_lc_tpf_2d_sub[a][all_raw_lc_tpf_2d_sub[a] > 0]),
                                                                     bkg=np.nansum(self.bkg_tpf*self.all_apertures[a], axis=(1,2)))
 
 
