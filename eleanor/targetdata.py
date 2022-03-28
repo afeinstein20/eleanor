@@ -684,7 +684,6 @@ class TargetData(object):
                 stds_2d[a] = get_flattened_sigma(all_corr_lc_tpf_2d_sub[a][q][self.cal_cadences[0]:self.cal_cadences[1]])
                 all_corr_lc_tpf_2d_sub[a] = all_corr_lc_tpf_2d_sub[a] * np.nanmedian(all_raw_lc_tpf_2d_sub[a])
 
-
             all_corr_lc_pc_sub[a]  = all_corr_lc_pc_sub[a]  * np.nanmedian(all_raw_lc_pc_sub[a])
             all_corr_lc_tpf_sub[a] = all_corr_lc_tpf_sub[a] * np.nanmedian(all_raw_lc_tpf_sub[a])
 
@@ -833,7 +832,7 @@ class TargetData(object):
 
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
 
-        bkgvar = np.std(self.bkg_tpf, axis=(1,2))/(np.nansum(self.bkg_tpf, axis=(1,2)))
+        bkgvar = np.nanstd(self.bkg_tpf, axis=(1,2))/(np.nansum(self.bkg_tpf, axis=(1,2)))
         bkgmask = sigma_clip(bkgvar, masked=True, sigma=5.0)
         self.quality = np.bitwise_or(self.quality.astype(int), (bkgmask.mask * 2**18).astype(int))
 
@@ -1277,6 +1276,7 @@ class TargetData(object):
             x = xhat(cm, norm_l[skip:])
             fmod = fhat(x, cm_full)
             lc_pred = (fmod+1)
+
             return lc_pred*medval
 
 
