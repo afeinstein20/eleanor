@@ -70,7 +70,7 @@ def convolve_cbvs(sectors=np.arange(1,14,1)):
 
     for sector in sectors:
         files = download_cbvs(int(sector))
-        manifest = Tesscut.download_cutouts(coord, 31, sector = sector)
+        manifest = Tesscut.download_cutouts(coordinates=coord, size=31, sector=sector)
         cutout = fits.open(manifest['Local Path'][0])
         time = cutout[1].data['TIME'] - cutout[1].data['TIMECORR']
 
@@ -105,7 +105,7 @@ def set_quality_flags(sector=np.arange(1,14,1)):
     sector_table = Tesscut.get_sectors(coord)
 
 
-    manifest = Tesscut.download_cutouts(coord, 31, sector = sector)
+    manifest = Tesscut.download_cutouts(coordinates=coord, size=31, sector=sector)
     
     cutout = fits.open(manifest['Local Path'][0])
     ffi_time = cutout[1].data['TIME'] - cutout[1].data['TIMECORR']

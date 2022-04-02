@@ -440,7 +440,7 @@ class Source(object):
         fn_exists = self.search_tesscut(download_dir, coords)
 
         if fn_exists is None:
-            manifest = Tesscut.download_cutouts(coords, self.tesscut_size, sector=self.sector, path=download_dir)
+            manifest = Tesscut.download_cutouts(coordinates=coords, size=self.tesscut_size, sector=self.sector, path=download_dir)
             cutout = fits.open(manifest['Local Path'][0])
             self.postcard_path = manifest['Local Path'][0]
         else:

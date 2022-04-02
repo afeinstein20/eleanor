@@ -138,7 +138,7 @@ class Update(object):
             use_coords = self.north_coords
 
         try:
-            manifest = Tesscut.download_cutouts(use_coords, 31, sector=self.sector)
+            manifest = Tesscut.download_cutouts(coordinates=use_coords, size=31, sector=self.sector)
             success = 1
         except:
             print("This sector isn't available yet.")
