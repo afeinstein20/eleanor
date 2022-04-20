@@ -85,7 +85,7 @@ class Postcard(object):
 
         if ax is None:
             _, ax = plt.subplots(figsize=(8, 7))
-        if scale is 'log':
+        if scale == 'log':
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
                 dat = np.log10(self.flux[:, :, frame])
@@ -248,7 +248,7 @@ class Postcard_tesscut(object):
 
         if ax is None:
             _, ax = plt.subplots(figsize=(8, 7))
-        if scale is 'log':
+        if scale == 'log':
             with warnings.catch_warnings():
                 warnings.simplefilter('ignore')
                 dat = np.log10(self.flux[:, :, frame])
