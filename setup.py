@@ -34,7 +34,7 @@ Changes to v2.0.0rc1 (2020-10-05):
 * Changing skip parameter in correction to be in unit of time rather than cadences to handle 10-minute FFIs
 * Fixed bug where very faint stars had suboptimal corrections
 * Changed `crowded_field` to `aperture_mode` and added built-in mechanics for bright stars
-* Updated docs to include citation to 2019 paper 
+* Updated docs to include citation to 2019 paper
 * Fixed bug in eleanor.Visualize() layout of aperture
 * Changes to handle format of 10-minute FFIs in eleanor.Update()
 * Significant speedups, especially when local postcards already exist and run with local==True
@@ -65,7 +65,10 @@ Changes to v1.0.0 (2020-01-14):
 * Other bugfixes
 """
 
+with open('requirements.txt') as f:
+    install_reqs = f.read().splitlines()
 
+extras_require = {'psf': ["tensorflow"]}
 
 setup(
     name='eleanor',
@@ -82,11 +85,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     package_data={'': ['README.md', 'LICENSE']},
-    install_requires=[
-        'photutils>=0.7', 'tqdm', 'lightkurve>=1.9.0', 'astropy>=3.2.3',
-        'astroquery', 'pandas',
-        'setuptools>=41.0.0',
-        'beautifulsoup4>=4.6.0', 'tess-point>=0.3.6'],
+    install_requires=install_reqs,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Science/Research',
@@ -94,4 +93,5 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3.0',
         ],
+    extras_require=extras_require
     )
