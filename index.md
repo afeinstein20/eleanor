@@ -1,8 +1,7 @@
-## Welcome to GitHub Pages
+## Welcome to eleanor
 
-You can use the [editor on GitHub](https://github.com/afeinstein20/eleanor/edit/gh-pages/index.md) to maintain and preview the content for your website in Markdown files.
+The purpose of eleanor is to go from [TESS](https://heasarc.gsfc.nasa.gov/docs/tess/) Full Frame Images (FFIs) to extracted and systematics-corrected light curves for any given star observed by TESS. In its simplest form, eleanor takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star observed by TESS and returns, as a single object, a light curve and accompanying target pixel data. There’s plenty of customizability along the way, though: you can examine intermediate data products, change the aperture used for light curve extraction, and much more. The quickstart tutorial goes through these procedures in more detail.
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
 
 ### Markdown
 
