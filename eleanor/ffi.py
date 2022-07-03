@@ -69,7 +69,7 @@ def use_pointing_model(coords, pointing_model):
     return fhat
 
 
-def pm_quality(time, sector, camera, chip, pm=None):
+def pm_quality(time, sector, camera, chip, pm=None, pm_dir=None):
         """ Fits a line to the centroid motions using the pointing model.
             A quality flag is set if the centroid is > 2*sigma away from
                 the majority of the centroids.
@@ -120,7 +120,7 @@ def pm_quality(time, sector, camera, chip, pm=None):
 
 
 def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip,
-                      pm=None):
+                      pm=None, pm_dir=None):
     """ Uses the quality flags in a 2-minute target to create quality flags
         in the postcards.
     We create our own quality flag as well, using our pointing model.
@@ -151,7 +151,8 @@ def set_quality_flags(ffi_start, ffi_stop, shortCad_fn, sector, camera, chip,
     convolve_ffi = np.array(convolve_ffi)
 
     flags    = np.bitwise_and(convolve_ffi, ffi_apply)
-    pm_flags = pm_quality(ffi_stop, sector, camera, chip, pm=pm) * 131072
+    pm_flags = pm_quality(ffi_stop, sector, camera,
+                          chip, pm=pm, pm_dir=pm_dir) * 131072
 
     pm_flags[ ((ffi_stop>1420.) & (ffi_stop < 1424.)) ] = 131072
 
