@@ -203,7 +203,7 @@ def create_ffiindex(sectors=np.arange(1,14,1)):
     curlfile = 'tesscurl_sector_{0}_ffic.sh'
 
     later_sector_curl = curlfile.format(7)
-    curr_sector_curl  = curlfile.format(sector)
+    curr_sector_curl  = curlfile.format(sectors)
 
     os.system('curl -O -L https://archive.stsci.edu/missions/tess/download_scripts/sector/{0}'.format(later_sector_curl))
 
