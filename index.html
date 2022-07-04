@@ -327,13 +327,20 @@
                     How does eleanor work under the hood?</a> </h5>
                 </div>
                 <div id="collapse1" class="collapse" aria-labelledby="heading1" data-parent="#popularTopics">
-                  <div class="card-body"> Lorem Ipsum is simply dummy text of
-                    the printing and typesetting industry. Lorem Ipsum has been
-                    the industry's standard dummy text ever since the 1500s,
-                    when an unknown printer took a galley of type and scrambled
-                    it to make a type specimen book. It has survived not only
-                    five centuries, but also the leap into electronic typesetting,
-                    remaining essentially unchanged. </div>
+                  <div class="card-body">
+                    When you query an object, eleanor performs the following steps:
+                    <ol>
+                      <li>Determines in which sectors this target was observed.</li>
+                      <li>Locates the object on TESS's many cameras/chips.</li>
+                      <li>Downloads a time series of "postcards" containing TESS
+                        data for the object and its immediate surroundings.</li>
+                      <li>Creates and stores a target pixel file (TPF) of the object.</li>
+                      <li>Traces centroid shifts for the object across the time series.</li>
+                      <li>Chooses an optimal pixel aperture for photometry.</li>
+                      <li>Creates a light curve using the chosen aperture and centroid trace.</li>
+                      <li>Performs basic systematics corrections on the light curve and stores it.</li>
+                    </ol>
+                  </div>
                 </div>
               </div>
 
@@ -483,8 +490,18 @@
                 <div id="collapse9" class="collapse" aria-labelledby="heading9" data-parent="#popularTopics">
                   <div class="card-body">
                     If you find eleanor light curves useful for your work,
-                    please cite
-                    <a href="https://ui.adsabs.harvard.edu/abs/2019PASP..131i4502F/abstract" target="_blank">Feinstein et al. 2019, PASP, 131, 1003.</a>
+                    please cite the following works:
+                    <ul>
+                      <li>Primary <code>eleanor</code> publication:
+                        <a href="https://ui.adsabs.harvard.edu/abs/2019PASP..131i4502F/abstract" target="_blank">Feinstein et al. 2019, PASP, 131, 1003.</a>
+                      </li>
+                      <li>tess-point:
+                        <a href="https://ui.adsabs.harvard.edu/abs/2020ascl.soft03001B/abstract" target="_blank">Burke et al. (2020)</a>
+                      </li>
+                      <li>TessCut:
+                        <a href="https://ui.adsabs.harvard.edu/abs/2019ascl.soft05007B/abstract" target="_blank">Brasseur et al. (2019)</a>
+                      </li>
+                    </ul>
                   </div>
                 </div>
               </div>
@@ -501,6 +518,7 @@
     <!-- FAQ
     ============================ -->
     <section id="idocs_api">
+      <h2>API</h2>
 
 
     </section>
