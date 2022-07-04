@@ -29,5 +29,3 @@ def test_arb_size_tpfs():
     star = Source(tic=29987116, sector=1, tc=True)
     data = TargetData(star, height=15, width=13)
     assert(np.shape(data.raw_flux[0] == (15,13))) # eleanor enforces oddness
-
-
