@@ -25,15 +25,18 @@ from .update import *
 __all__ = ['Source', 'multi_sectors']
 
 
-def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False, local=False, post_dir=None, pm_dir=None,
+def multi_sectors(sectors, tic=None, gaia=None,
+                  coords=None, name=None, tc=False, local=False,
+                  post_dir=None, pm_dir=None,
                   metadata_path=None, tesscut_size=31):
-    """Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.
+    """Obtain a list of Source objects for a single target, for each of
+       multiple sectors for which the target was observed.
 
     Parameters
     ----------
     sectors : list or str
-        The list of sectors for which data should be returned, or `'all'` to return all sectors
-        for which there are data.
+        The list of sectors for which data should be returned, or `'all'` to
+        return all sectors for which there are data.
     tic : int, optional
         The TIC ID of the source.
     gaia : int, optional
@@ -41,8 +44,8 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False
     coords : tuple, optional
         The (RA, Dec) coords of the object in degrees.
     tc : bool, optional
-        If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
-        postcard data products.
+        If True, use a TessCut cutout to produce postcards rather than
+        downloading the eleanor postcard data products.
     tesscut_size : int, array-like, astropy.units.Quantity
         The size of the cutout array, when tc is True. Details can be seen in
         astroquery.mast.TesscutClass.download_cutouts
@@ -72,7 +75,8 @@ def multi_sectors(sectors, tic=None, gaia=None, coords=None, name=None, tc=False
 
     if (type(sectors) == list) or (type(sectors) == np.ndarray):
         for s in sectors:
-            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc, local=local, post_dir=post_dir, pm_dir=pm_dir,
+            star = Source(tic=tic, gaia=gaia, coords=coords, sector=int(s), tc=tc,
+                          local=local, post_dir=post_dir, pm_dir=pm_dir,
                           metadata_path=metadata_path, tesscut_size=tesscut_size)
             if star.sector is not None:
                 objs.append(star)

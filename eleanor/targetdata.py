@@ -22,8 +22,12 @@ import os.path
 import warnings
 import pickle
 
+import tensorflow as tf
+from tqdm import tqdm
+
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut
+from .models import Gaussian, Moffat
 from .utils import *
 
 __all__  = ['TargetData']
@@ -252,7 +256,8 @@ class TargetData(object):
 
 
     def get_time(self, coords):
-        """Gets time, including light travel time correction to solar system barycenter for object given location"""
+        """Gets time, including light travel time correction to solar system
+        barycenter for object given location"""
         t0 = self.post_obj.time - self.post_obj.barycorr
 
         ra = Angle(coords[0], u.deg)
@@ -318,7 +323,8 @@ class TargetData(object):
         x_upp_bkg = med_x+x_bkg_len + 1
 
         if height % 2 == 0 or width % 2 == 0:
-            warnings.warn('We force our TPFs to have an odd height and width so we can properly center our apertures.')
+            warnings.warn('We force our TPFs to have an odd height and width \
+            so we can properly center our apertures.')
 
         post_y_upp, post_x_upp = self.post_obj.dimensions[1], self.post_obj.dimensions[2]
 
@@ -359,7 +365,8 @@ class TargetData(object):
 
         if source.tc == False:
             if (x_low_lim==0) or (y_low_lim==0) or (x_upp_lim==post_x_upp) or (y_upp_lim==post_y_upp):
-                warnings.warn("The size postage stamp you are requesting falls off the edge of the postcard.")
+                warnings.warn("The size postage stamp you are requesting falls off \
+                the edge of the postcard.")
                 warnings.warn("WARNING: Your postage stamp may not be centered.")
 
             self.tpf     = post_flux[:, y_low_lim:y_upp_lim, x_low_lim:x_upp_lim]
@@ -545,7 +552,8 @@ class TargetData(object):
         self.aperture_names = np.array(aperture_names)
 
         if height < default or width < default:
-            warnings.warn('WARNING: Making a TPF smaller than (13,13) may provide inadequate results.')
+            warnings.warn('WARNING: Making a TPF smaller than (13,13) may \
+                           provide inadequate results.')
 
 
     def bkg_subtraction(self, scope="tpf", sigma=2.5):
@@ -554,10 +562,13 @@ class TargetData(object):
         Parameters
         ----------
         scope : string, "tpf" or "postcard"
-            If `tpf`, will use data from the target pixel file only to estimate and remove the background.
-            If `postcard`, will use data from the entire postcard region to estimate and remove the background.
+            If `tpf`, will use data from the target pixel file only to estimate
+            and remove the background.
+            If `postcard`, will use data from the entire postcard region to
+            estimate and remove the background.
         sigma : float
-            The standard deviation cut used to determine which pixels are representative of the background in each cadence.
+            The standard deviation cut used to determine which pixels are
+            representative of the background in each cadence.
         """
         time = self.time
 
@@ -578,16 +589,20 @@ class TargetData(object):
 
     def get_lightcurve(self, aperture=None):
         """Extracts a light curve using the given aperture and TPF.
-        Can pass a user-defined aperture mask, otherwise determines which of a set of pre-determined apertures
+        Can pass a user-defined aperture mask, otherwise determines which of a
+        set of pre-determined apertures
         provides the lowest scatter in the light curve.
-        Produces a mask, a numpy.ndarray object of the same shape as the target pixel file, which every pixel assigned
+        Produces a mask, a numpy.ndarray object of the same shape as the target
+        pixel file, which every pixel assigned
         a weight in the range [0, 1].
 
         Parameters
         ----------
         aperture : numpy.ndarray
-            (`height`, `width`) array of floats in the range [0,1] with desired weights for each pixel to
-            create a light curve. If not set, ideal aperture is inferred automatically. If set, uses this
+            (`height`, `width`) array of floats in the range [0,1] with desired
+            weights for each pixel to
+            create a light curve. If not set, ideal aperture is inferred
+            automatically. If set, uses this
             aperture at the expense of all other set apertures.
         """
 
@@ -613,8 +628,10 @@ class TargetData(object):
         if self.aperture is not None:
             if np.shape(self.all_apertures[0]) != np.shape(self.aperture):
                 raise ValueError(
-                    "Passed aperture does not match the size of the TPF. Please correct and try again. "
-                    "Or, create a custom aperture using the function TargetData.custom_aperture(). See documentation for inputs.")
+                    "Passed aperture does not match the size of the TPF. Please \
+                    correct and try again. "
+                    "Or, create a custom aperture using the function \
+                    TargetData.custom_aperture(). See documentation for inputs.")
 
             self.all_apertures = np.zeros((1, np.shape(self.tpf[0])[0], np.shape(self.tpf[0])[1]))
             self.all_apertures[0] = self.aperture
@@ -770,15 +787,19 @@ class TargetData(object):
 
 
     def get_cbvs(self):
-        """ Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.
+        """
+        Obtains the cotrending basis vectors (CBVs) as convolved down
+        from the short-cadence targets.
+
         Parameters
         ----------
         """
 
         try:
-            matrix_file = np.loadtxt(self.source_info.eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
-                                                                                                                                                         self.source_info.camera,
-                                                                                                                                                         self.source_info.chip))
+            matrix_file = np.loadtxt(self.source_info.eleanorpath +
+            '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
+                                                                                    self.source_info.camera,
+                                                                                    self.source_info.chip))
             cbvs = np.asarray(matrix_file)
             self.cbvs = np.reshape(cbvs, (len(self.time), 16))
 
@@ -789,10 +810,12 @@ class TargetData(object):
 
     def center_of_mass(self):
         """
-        Calculates the position of the source across all cadences using `muchbettermoments` and `self.best_aperture`.
+        Calculates the position of the source across all cadences using
+        `muchbettermoments` and `self.best_aperture`.
 
         Finds the brightest pixel in a (`height`, `width`) region summed up over all cadence.
-        Searches a smaller (3x3) region around this pixel at each cadence and uses `muchbettermoments` to find the maximum.
+        Searches a smaller (3x3) region around this pixel at each cadence and
+        uses `muchbettermoments` to find the maximum.
         """
 
         self.x_com = []
@@ -822,7 +845,6 @@ class TargetData(object):
         self.y_com = np.array(self.y_com)
 
         return
-
 
 
     def set_quality(self):
@@ -881,11 +903,6 @@ class TargetData(object):
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
-
-        import tensorflow as tf
-        from .models import Gaussian, Moffat
-        from tqdm import tqdm
-
         tf.logging.set_verbosity(tf.logging.ERROR)
 
         if data_arr is None:
@@ -920,7 +937,6 @@ class TargetData(object):
             raise ValueError('xc must have length nstars')
         if len(yc) != nstars:
             raise ValueError('yc must have length nstars')
-
 
         flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
         bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
@@ -979,9 +995,7 @@ class TargetData(object):
                              beta: (0, 10)
                             }
 
-
             betaout = np.zeros(len(data_arr))
-
 
         else:
             raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
@@ -1042,7 +1056,6 @@ class TargetData(object):
                 llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
                 betaout[i] = sess.run(beta)
 
-
         sess.close()
 
         self.psf_flux = fout[:,0]
@@ -1071,8 +1084,6 @@ class TargetData(object):
             if nstars > 1:
                 self.all_psf = fout
         return
-
-
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
         """
@@ -1169,7 +1180,8 @@ class TargetData(object):
         Parameters
         ----------
         skip: float, optional
-            The length of time in days at the start of each orbit to skip in determining optimal model weights.
+            The length of time in days at the start of each orbit to skip in
+            determining optimal model weights.
             Default is 0.62 days.
         modes: int, optional
             If doing a PCA-based correction, the number of cotrending basis vectors to regress against.
@@ -1177,8 +1189,10 @@ class TargetData(object):
         pca : bool, optional
             Allows users to decide whether or not to use PCA analysis. Default is False.
         regressors : numpy.ndarray or str
-            Extra data to regress against in the correction. Should be shape (len(data.time), N) or `'corner'`.
-            If `'corner'` will use the four corner pixels of the TPF as extra information in the regression.
+            Extra data to regress against in the correction. Should be shape
+            (len(data.time), N) or `'corner'`.
+            If `'corner'` will use the four corner pixels of the TPF as extra
+            information in the regression.
         """
         self.modes = modes
 

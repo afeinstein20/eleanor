@@ -1,2 +1,12 @@
 nbsphinx
 ipykernel
+photutils
+tqdm
+lightkurve
+astropy>=3.2.3
+astroquery
+pandas
+tess-point
+astroquery
+setuptools>=41.0.0
+beautifulsoup4>=4.6.0
