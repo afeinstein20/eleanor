@@ -21,6 +21,7 @@ takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
 observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
+<<<<<<< Updated upstream
 
 Changes to v2.0.2 (2021-02-05):
 * Fixed bugs in setting download directory paths
@@ -63,6 +64,8 @@ Changes to v1.0.1 (2019-12-19):
 Changes to v1.0.0 (2020-01-14):
 * Pass in the name of the source as a string
 * Other bugfixes
+=======
+>>>>>>> Stashed changes
 """
 
 with open('requirements.txt') as f:
