@@ -85,14 +85,14 @@ def jsonTable(jsonObj):
     return dataTable
 
 def cone_search(pos, r, service):
-    """Completes a cone search in the Gaia DR2 or TIC catalog.
+    """Completes a cone search in the Gaia DR3 or TIC catalog.
 
     Parameters
     ----------
     r : float
         Radius of cone search [deg]
     service : str
-        MAST service to use. Either 'Mast.Catalogs.GaiaDR2.Cone'
+        MAST service to use. Either 'Mast.Catalogs.GaiaDR3.Cone'
         or 'Mast.Catalogs.Tic.Cone' are acceptable inputs.
 
     Returns
@@ -109,7 +109,7 @@ def cone_search(pos, r, service):
     return jsonTable(json.loads(outString))
 
 def crossmatch_by_position(pos, r, service):
-    """Crossmatches [RA,Dec] position to a source in the Gaia DR2 or TIC catalog.
+    """Crossmatches [RA,Dec] position to a source in the Gaia DR3 or TIC catalog.
 
     Parameters
     ----------
@@ -118,7 +118,7 @@ def crossmatch_by_position(pos, r, service):
     r :  float
         Radius of search for crossmatch.
     service : str
-        Name of service to use. 'Mast.GaiaDR2.Crossmatch'
+        Name of service to use. 'Mast.GaiaDR3.Crossmatch'
             or 'Mast.Tic.Crossmatch' are accepted.
 
     Returns
@@ -160,11 +160,11 @@ def coords_from_name(name):
     return (coords.ra.deg, coords.dec.deg)
 
 def coords_from_gaia(gaia_id):
-    """Returns table of Gaia DR2 data given a source_id."""
+    """Returns table of Gaia DR3 data given a source_id."""
     from astroquery.gaia import Gaia
     import warnings
     warnings.filterwarnings('ignore', module='astropy.io.votable.tree')
-    adql = 'SELECT gaia.source_id, ra, dec FROM gaiadr2.gaia_source AS gaia WHERE gaia.source_id={0}'.format(gaia_id)
+    adql = 'SELECT gaia.source_id, ra, dec FROM gaiadr3.gaia_source AS gaia WHERE gaia.source_id={0}'.format(gaia_id)
     job = Gaia.launch_job(adql)
     table = job.get_results()
     coords = (table['ra'].data[0], table['dec'].data[0])
@@ -180,7 +180,7 @@ def tic_from_coords(coords):
 
 def gaia_from_coords(coords):
     """Returns Gaia ID of best match(es) to input coords."""
-    gaia = crossmatch_by_position(coords, 0.01, 'Mast.GaiaDR2.Crossmatch')
+    gaia = crossmatch_by_position(coords, 0.01, 'Mast.GaiaDR3.Crossmatch')
     gaiaPos = [gaia['MatchRA'], gaia['MatchDEC']]
     sepGaia = crossmatch_distance(coords, gaiaPos)
     return int(gaia[sepGaia==np.min(sepGaia)]['MatchID'].data[0])
