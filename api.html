@@ -1,1 +1,1778 @@
 
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>API &mdash; eleanor 1.0.4 documentation</title>
+
+
+
+    <link rel="stylesheet" href="_static/css/theme.css" type="text/css" />
+
+
+
+
+
+        <link rel="index" title="Index"
+              href="genindex.html"/>
+        <link rel="search" title="Search" href="search.html"/>
+    <link rel="top" title="eleanor 1.0.4 documentation" href="index.html"/>
+        <link rel="prev" title="Frequently Asked Questions" href="getting_started/faq.html"/>
+
+
+  <script src="_static/js/modernizr.min.js"></script>
+
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search">
+
+
+
+            <a href="index.html" class="icon icon-home"> eleanor
+
+
+
+          </a>
+
+
+
+
+
+
+
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+
+
+
+                <p class="caption"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="getting_started/about.html">About eleanor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started/installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started/tutorial.html">Quickstart Tutorial</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started/tips_tricks.html">Tips, Tricks, and Hacks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started/vis_crossmatch.html">Visualizing &amp; Crossmatching your Light Curve</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started/faq.html">Frequently Asked Questions</a></li>
+</ul>
+<p class="caption"><span class="caption-text">Documentation</span></p>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">API</a></li>
+</ul>
+
+
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="index.html">eleanor</a>
+      </nav>
+
+
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="index.html">eleanor</a> &raquo;</li>
+
+
+      <li>API</li>
+
+      <li class="wy-breadcrumbs-aside">
+
+
+
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+
+
+<style>
+/* CSS overrides for sphinx_rtd_theme */
+
+/* 24px margin */
+.nbinput.nblast.container,
+.nboutput.nblast.container {
+    margin-bottom: 19px;  /* padding has already 5px */
+}
+
+/* ... except between code cells! */
+.nblast.container + .nbinput.container {
+    margin-top: -19px;
+}
+
+.admonition > p:before {
+    margin-right: 4px;  /* make room for the exclamation icon */
+}
+
+/* Fix math alignment, see https://github.com/rtfd/sphinx_rtd_theme/pull/686 */
+.math {
+    text-align: unset;
+}
+</style>
+<div class="section" id="api">
+<span id="id1"></span><h1>API<a class="headerlink" href="#api" title="Permalink to this headline">¶</a></h1>
+<span class="target" id="module-eleanor"></span><dl class="py function">
+<dt id="eleanor.multi_sectors">
+<code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">multi_sectors</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">sectors</span></em>, <em class="sig-param"><span class="n">tic</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">gaia</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">coords</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">tc</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">local</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">post_dir</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">pm_dir</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">metadata_path</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">tesscut_size</span><span class="o">=</span><span class="default_value">31</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.multi_sectors" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtain a list of Source objects for a single target, for each of multiple sectors for which the target was observed.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sectors</strong> (<em>list</em><em> or </em><em>str</em>) – The list of sectors for which data should be returned, or <cite>‘all’</cite> to return all sectors
+for which there are data.</p></li>
+<li><p><strong>tic</strong> (<em>int</em><em>, </em><em>optional</em>) – The TIC ID of the source.</p></li>
+<li><p><strong>gaia</strong> (<em>int</em><em>, </em><em>optional</em>) – The Gaia DR2 source_id.</p></li>
+<li><p><strong>coords</strong> (<em>tuple</em><em>, </em><em>optional</em>) – The (RA, Dec) coords of the object in degrees.</p></li>
+<li><p><strong>tc</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
+postcard data products.</p></li>
+<li><p><strong>tesscut_size</strong> (<em>int</em><em>, </em><em>array-like</em><em>, </em><em>astropy.units.Quantity</em>) – The size of the cutout array, when tc is True. Details can be seen in
+astroquery.mast.TesscutClass.download_cutouts</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt id="eleanor.Source">
+<em class="property">class </em><code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">Source</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tic</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">gaia</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">coords</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">fn</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">sector</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">fn_dir</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">tc</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">local</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">post_dir</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">pm_dir</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">metadata_path</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">tesscut_size</span><span class="o">=</span><span class="default_value">31</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Source" title="Permalink to this definition">¶</a></dt>
+<dd><p>A single source observed by TESS.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tic</strong> (<em>int</em><em>, </em><em>optional</em>) – The TIC ID of the source.</p></li>
+<li><p><strong>gaia</strong> (<em>int</em><em>, </em><em>optional</em>) – The Gaia DR2 source_id.</p></li>
+<li><p><strong>coords</strong> (<em>tuple</em><em> or </em><em>astropy.coordinates.SkyCoord</em><em>, </em><em>optional</em>) – The (RA, Dec) coords of the object in degrees or an astropy SkyCoord object.</p></li>
+<li><p><strong>name</strong> (<em>str</em><em>, </em><em>optional</em>) – The name of your target (e.g. “HD#####” or “M31”).</p></li>
+<li><p><strong>fn</strong> (<em>str</em><em>, </em><em>optional</em>) – Filename of a TPF corresponding to the desired source.</p></li>
+<li><p><strong>sector</strong> (<em>int</em><em> or </em><em>str</em>) – The sector for which data should be returned, or <cite>recent</cite> to
+obtain data for the most recent sector which contains this target.</p></li>
+<li><p><strong>tc</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
+postcard data products.</p></li>
+<li><p><strong>tesscut_size</strong> (<em>int</em><em>, </em><em>array-like</em><em>, </em><em>astropy.units.Quantity</em>) – The size of the cutout array, when tc is True. Details can be checked in
+astroquery.mast.TesscutClass.download_cutouts</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt id="eleanor.Source.tess_mag">
+<code class="sig-name descname">tess_mag</code><a class="headerlink" href="#eleanor.Source.tess_mag" title="Permalink to this definition">¶</a></dt>
+<dd><p>The TESS magnitude from the TIC.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.sector">
+<code class="sig-name descname">sector</code><a class="headerlink" href="#eleanor.Source.sector" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sector in which source was observed by TESS.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.camera">
+<code class="sig-name descname">camera</code><a class="headerlink" href="#eleanor.Source.camera" title="Permalink to this definition">¶</a></dt>
+<dd><p>TESS camera on which source falls.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.chip">
+<code class="sig-name descname">chip</code><a class="headerlink" href="#eleanor.Source.chip" title="Permalink to this definition">¶</a></dt>
+<dd><p>TESS chip on which source falls.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.position_on_chip">
+<code class="sig-name descname">position_on_chip</code><a class="headerlink" href="#eleanor.Source.position_on_chip" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predicted (x,y) coords of object center on chip.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(int, int)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.postcard">
+<code class="sig-name descname">postcard</code><a class="headerlink" href="#eleanor.Source.postcard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Name of the best postcard (postcard where source should be located closest to the center).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.position_on_postcard">
+<code class="sig-name descname">position_on_postcard</code><a class="headerlink" href="#eleanor.Source.position_on_postcard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Predicted (x, y) coords of object center on the above-named postcard.
+Does NOT take into account additional pointing corrections; these will be applied when making the TPF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>(int, int)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.all_postcards">
+<code class="sig-name descname">all_postcards</code><a class="headerlink" href="#eleanor.Source.all_postcards" title="Permalink to this definition">¶</a></dt>
+<dd><p>Names of all postcards where the source appears.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list of strs</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Source.locate_on_tess">
+<code class="sig-name descname">locate_on_tess</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Source.locate_on_tess" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds the TESS sector, camera, chip, and position on chip for the source.</p>
+<dl class="py attribute">
+<dt id="id0">
+<code class="sig-name descname">sector</code><a class="headerlink" href="#id0" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id2">
+<code class="sig-name descname">camera</code><a class="headerlink" href="#id2" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id3">
+<code class="sig-name descname">chip</code><a class="headerlink" href="#id3" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id4">
+<code class="sig-name descname">position_on_chip</code><a class="headerlink" href="#id4" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Source.locate_postcard">
+<code class="sig-name descname">locate_postcard</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">local</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Source.locate_postcard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds the eleanor postcard, if available, this star falls on.</p>
+<dl class="py attribute">
+<dt id="id5">
+<code class="sig-name descname">postcard</code><a class="headerlink" href="#id5" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.postcard_bkg">
+<code class="sig-name descname">postcard_bkg</code><a class="headerlink" href="#eleanor.Source.postcard_bkg" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.postcard_path">
+<code class="sig-name descname">postcard_path</code><a class="headerlink" href="#eleanor.Source.postcard_path" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id6">
+<code class="sig-name descname">position_on_postcard</code><a class="headerlink" href="#id6" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id7">
+<code class="sig-name descname">all_postcards</code><a class="headerlink" href="#id7" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Source.mast_list">
+<code class="sig-name descname">mast_list</code><a class="headerlink" href="#eleanor.Source.mast_list" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>astropy.table.Table</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Source.locate_with_tesscut">
+<code class="sig-name descname">locate_with_tesscut</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Source.locate_with_tesscut" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds the best TESS postcard(s) and the position of the source on postcard.</p>
+<dl class="py attribute">
+<dt id="id8">
+<code class="sig-name descname">postcard</code><a class="headerlink" href="#id8" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id9">
+<code class="sig-name descname">postcard_path</code><a class="headerlink" href="#id9" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id10">
+<code class="sig-name descname">position_on_postcard</code><a class="headerlink" href="#id10" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id11">
+<code class="sig-name descname">all_postcards</code><a class="headerlink" href="#id11" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id12">
+<code class="sig-name descname">sector</code><a class="headerlink" href="#id12" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id13">
+<code class="sig-name descname">camera</code><a class="headerlink" href="#id13" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id14">
+<code class="sig-name descname">chip</code><a class="headerlink" href="#id14" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id15">
+<code class="sig-name descname">position_on_chip</code><a class="headerlink" href="#id15" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Source.search_tesscut">
+<code class="sig-name descname">search_tesscut</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">download_dir</span></em>, <em class="sig-param"><span class="n">coords</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Source.search_tesscut" title="Permalink to this definition">¶</a></dt>
+<dd><p>Searches to see if the TESSCut cutout has already been downloaded.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Source.tesscut_dir">
+<code class="sig-name descname">tesscut_dir</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Source.tesscut_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a TESSCut directory in the hidden eleanor directory.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="eleanor.TargetData">
+<em class="property">class </em><code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">TargetData</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">source</span></em>, <em class="sig-param"><span class="n">height</span><span class="o">=</span><span class="default_value">13</span></em>, <em class="sig-param"><span class="n">width</span><span class="o">=</span><span class="default_value">13</span></em>, <em class="sig-param"><span class="n">save_postcard</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">do_pca</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">do_psf</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">bkg_size</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">aperture_mode</span><span class="o">=</span><span class="default_value">'normal'</span></em>, <em class="sig-param"><span class="n">cal_cadences</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">try_load</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">regressors</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">language</span><span class="o">=</span><span class="default_value">'English'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData" title="Permalink to this definition">¶</a></dt>
+<dd><p>Object containing the light curve, target pixel file, and related information
+for any given source.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>source</strong> (<a class="reference internal" href="#eleanor.Source" title="eleanor.Source"><em>eleanor.Source</em></a>) – The source object to use.</p></li>
+<li><p><strong>height</strong> (<em>int</em><em>, </em><em>optional</em>) – Height in pixels of TPF to retrieve. Default value is 13 pixels. Must be an odd number,
+or else will return an aperture one pixel taller than requested so target
+falls on central pixel.</p></li>
+<li><p><strong>width</strong> (<em>int</em><em>, </em><em>optional</em>) – Width in pixels of TPF to retrieve. Default value is 13 pixels. Must be an odd number,
+or else will return an aperture one pixel wider than requested so target
+falls on central pixel.</p></li>
+<li><p><strong>aperture_mode</strong> (<em>str</em><em>, </em><em>optional</em>) – If <cite>small</cite>, will only consider apertures 8 pixels in size or smaller. If <cite>large</cite>, will only consider
+apertures larger than 8 pixels in size. If <cite>all</cite> all apertures will be considered.
+If <cite>normal</cite> will test many different apertures, following rules based on the magnitude of the
+target star and the contamination ratio recorded in the TIC. <cite>small</cite> and <cite>large</cite>
+can often be useful for faint stars/stars in crowded fields or bright stars, respectively.</p></li>
+<li><p><strong>bkg_size</strong> (<em>int</em><em>, </em><em>optional</em>) – Size of box to use for background estimation. If not set, will default to the width of the
+target pixel file.</p></li>
+<li><p><strong>do_pca</strong> (<em>bool</em><em>, </em><em>optional</em>) – If true, will return a PCA-corrected light curve.</p></li>
+<li><p><strong>do_psf</strong> (<em>bool</em><em>, </em><em>optional</em>) – If true, will return a light curve made with a simple PSF model.</p></li>
+<li><p><strong>cal_cadences</strong> (<em>tuple</em><em>, </em><em>optional</em>) – Start and end cadence numbers to use for optimal aperture selection.</p></li>
+<li><p><strong>try_load</strong> (<em>bool</em><em>, </em><em>optional</em>) – If true, will search hidden ~/.eleanor directory to see if TPF has already
+been created.</p></li>
+<li><p><strong>regressors</strong> (<em>numpy.ndarray</em><em> or </em><em>str</em>) – Extra data to regress against in the correction. Should be shape (len(data.time), N) or <cite>‘corner’</cite>.
+If <cite>‘corner’</cite> will use the four corner pixels of the TPF as extra information in the regression.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt id="eleanor.TargetData.header">
+<code class="sig-name descname">header</code><a class="headerlink" href="#eleanor.TargetData.header" title="Permalink to this definition">¶</a></dt>
+<dd><p>FITS header for saving/loading data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.source_info">
+<code class="sig-name descname">source_info</code><a class="headerlink" href="#eleanor.TargetData.source_info" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pointer to input source.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#eleanor.Source" title="eleanor.Source">eleanor.Source</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.aperture">
+<code class="sig-name descname">aperture</code><a class="headerlink" href="#eleanor.TargetData.aperture" title="Permalink to this definition">¶</a></dt>
+<dd><p>Aperture to use if overriding default. To use default, set to <cite>None</cite>.</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.tpf">
+<code class="sig-name descname">tpf</code><a class="headerlink" href="#eleanor.TargetData.tpf" title="Permalink to this definition">¶</a></dt>
+<dd><p>Target pixel file of fluxes; array with shape <cite>dimensions</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.time">
+<code class="sig-name descname">time</code><a class="headerlink" href="#eleanor.TargetData.time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Time series.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.post_obj">
+<code class="sig-name descname">post_obj</code><a class="headerlink" href="#eleanor.TargetData.post_obj" title="Permalink to this definition">¶</a></dt>
+<dd><p>Pointer to Postcard objects containing this TPF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="#eleanor.Postcard" title="eleanor.Postcard">eleanor.Postcard</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.pointing_model">
+<code class="sig-name descname">pointing_model</code><a class="headerlink" href="#eleanor.TargetData.pointing_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Table of matrices describing the transformation matrix from FFI default
+WCS and eleanor’s corrected pointing.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>astropy.table.Table</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.tpf_err">
+<code class="sig-name descname">tpf_err</code><a class="headerlink" href="#eleanor.TargetData.tpf_err" title="Permalink to this definition">¶</a></dt>
+<dd><p>Errors on fluxes in <cite>tpf</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.aperture_mode">
+<code class="sig-name descname">aperture_mode</code><a class="headerlink" href="#eleanor.TargetData.aperture_mode" title="Permalink to this definition">¶</a></dt>
+<dd><p>Integer corresponding to the used aperture mode as input by the user.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.centroid_xs">
+<code class="sig-name descname">centroid_xs</code><a class="headerlink" href="#eleanor.TargetData.centroid_xs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Position of the source in <cite>x</cite> inferred from pointing model; has same length as <cite>time</cite>.
+Position is relative to the pixel coordinate system of the postcard.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.centroid_ys">
+<code class="sig-name descname">centroid_ys</code><a class="headerlink" href="#eleanor.TargetData.centroid_ys" title="Permalink to this definition">¶</a></dt>
+<dd><p>Position of the source in <cite>y</cite> inferred from pointing model; has same length as <cite>time</cite>.
+Position is relative to the pixel coordinate system of the postcard.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.cen_x">
+<code class="sig-name descname">cen_x</code><a class="headerlink" href="#eleanor.TargetData.cen_x" title="Permalink to this definition">¶</a></dt>
+<dd><p>Median <cite>x</cite> position of the source.
+Position is relative to the pixel coordinate system of the postcard.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.cen_y">
+<code class="sig-name descname">cen_y</code><a class="headerlink" href="#eleanor.TargetData.cen_y" title="Permalink to this definition">¶</a></dt>
+<dd><p>Median <cite>y</cite> position of the source.
+Position is relative to the pixel coordinate system of the postcard.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.tpf_star_x">
+<code class="sig-name descname">tpf_star_x</code><a class="headerlink" href="#eleanor.TargetData.tpf_star_x" title="Permalink to this definition">¶</a></dt>
+<dd><p><cite>x</cite> position of the star on the TPF.
+Position is relative to the size of the TPF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.tpf_star_y">
+<code class="sig-name descname">tpf_star_y</code><a class="headerlink" href="#eleanor.TargetData.tpf_star_y" title="Permalink to this definition">¶</a></dt>
+<dd><p><cite>y</cite> position of the star on the TPF.
+Position is relative to the size of the TPF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.dimensions">
+<code class="sig-name descname">dimensions</code><a class="headerlink" href="#eleanor.TargetData.dimensions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Shape of <cite>tpf</cite>. Should be (<cite>time</cite>, <cite>height</cite>, <cite>width</cite>).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.all_apertures">
+<code class="sig-name descname">all_apertures</code><a class="headerlink" href="#eleanor.TargetData.all_apertures" title="Permalink to this definition">¶</a></dt>
+<dd><p>List of aperture objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="id16">
+<code class="sig-name descname">aperture</code><a class="headerlink" href="#id16" title="Permalink to this definition">¶</a></dt>
+<dd><p>Chosen aperture for producing <cite>raw_flux</cite> lightcurve. Format is array
+with shape (<cite>height</cite>, <cite>width</cite>). All entries are floats in range [0,1].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>array-like</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.all_flux_err">
+<code class="sig-name descname">all_flux_err</code><a class="headerlink" href="#eleanor.TargetData.all_flux_err" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimated uncertainties on <cite>all_raw_flux</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.all_raw_flux">
+<code class="sig-name descname">all_raw_flux</code><a class="headerlink" href="#eleanor.TargetData.all_raw_flux" title="Permalink to this definition">¶</a></dt>
+<dd><p>All lightcurves extracted using <cite>all_apertures</cite>.
+Has shape (N_apertures, N_time).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.all_corr_flux">
+<code class="sig-name descname">all_corr_flux</code><a class="headerlink" href="#eleanor.TargetData.all_corr_flux" title="Permalink to this definition">¶</a></dt>
+<dd><p>All systematics-corrected lightcurves. See <cite>all_raw_flux</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.best_ind">
+<code class="sig-name descname">best_ind</code><a class="headerlink" href="#eleanor.TargetData.best_ind" title="Permalink to this definition">¶</a></dt>
+<dd><p>Index into <cite>all_apertures</cite> producing the best (least noisy) lightcurve.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.corr_flux">
+<code class="sig-name descname">corr_flux</code><a class="headerlink" href="#eleanor.TargetData.corr_flux" title="Permalink to this definition">¶</a></dt>
+<dd><p>Systematics-corrected version of <cite>raw_flux</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.flux_err">
+<code class="sig-name descname">flux_err</code><a class="headerlink" href="#eleanor.TargetData.flux_err" title="Permalink to this definition">¶</a></dt>
+<dd><p>Estimated uncertainty on <cite>raw_flux</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.raw_flux">
+<code class="sig-name descname">raw_flux</code><a class="headerlink" href="#eleanor.TargetData.raw_flux" title="Permalink to this definition">¶</a></dt>
+<dd><p>Un-systematics-corrected lightcurve derived using <cite>aperture</cite> and <cite>tpf</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.x_com">
+<code class="sig-name descname">x_com</code><a class="headerlink" href="#eleanor.TargetData.x_com" title="Permalink to this definition">¶</a></dt>
+<dd><p>Position of the source in <cite>x</cite> inferred from TPF; has same length as <cite>time</cite>.
+Position is relative to the pixel coordinate system of the TPF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.y_com">
+<code class="sig-name descname">y_com</code><a class="headerlink" href="#eleanor.TargetData.y_com" title="Permalink to this definition">¶</a></dt>
+<dd><p>Position of the source in <cite>y</cite> inferred from TPF; has same length as <cite>time</cite>.
+Position is relative to the pixel coordinate system of the TPF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.TargetData.quality">
+<code class="sig-name descname">quality</code><a class="headerlink" href="#eleanor.TargetData.quality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Quality flag.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Notes</p>
+<p><cite>save()</cite> and <cite>load()</cite> methods write/read these data to a FITS file with format:</p>
+<p>Extension[0] = header</p>
+<p>Extension[1] = (N_time, height, width) TPF, where n is the number of cadences in an observing run</p>
+<p>Extension[2] = (3, N_time) time, raw flux, systematics corrected flux</p>
+<dl class="py method">
+<dt id="eleanor.TargetData.bkg_subtraction">
+<code class="sig-name descname">bkg_subtraction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">scope</span><span class="o">=</span><span class="default_value">'tpf'</span></em>, <em class="sig-param"><span class="n">sigma</span><span class="o">=</span><span class="default_value">2.5</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.bkg_subtraction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Subtracts background flux from target pixel file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>scope</strong> (<em>string</em><em>, </em><em>&quot;tpf&quot;</em><em> or </em><em>&quot;postcard&quot;</em>) – If <cite>tpf</cite>, will use data from the target pixel file only to estimate and remove the background.
+If <cite>postcard</cite>, will use data from the entire postcard region to estimate and remove the background.</p></li>
+<li><p><strong>sigma</strong> (<em>float</em>) – The standard deviation cut used to determine which pixels are representative of the background in each cadence.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.center_of_mass">
+<code class="sig-name descname">center_of_mass</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.center_of_mass" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculates the position of the source across all cadences using <cite>muchbettermoments</cite> and <cite>self.best_aperture</cite>.</p>
+<p>Finds the brightest pixel in a (<cite>height</cite>, <cite>width</cite>) region summed up over all cadence.
+Searches a smaller (3x3) region around this pixel at each cadence and uses <cite>muchbettermoments</cite> to find the maximum.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.corrected_flux">
+<code class="sig-name descname">corrected_flux</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">flux</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">skip</span><span class="o">=</span><span class="default_value">0.25</span></em>, <em class="sig-param"><span class="n">modes</span><span class="o">=</span><span class="default_value">3</span></em>, <em class="sig-param"><span class="n">pca</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">bkg</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">regressors</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.corrected_flux" title="Permalink to this definition">¶</a></dt>
+<dd><p>Corrects for jitter in the light curve by quadratically regressing with centroid position.
+:param skip: The length of time in days at the start of each orbit to skip in determining optimal model weights.</p>
+<blockquote>
+<div><p>Default is 0.62 days.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>modes</strong> (<em>int</em><em>, </em><em>optional</em>) – If doing a PCA-based correction, the number of cotrending basis vectors to regress against.
+Default is 3.</p></li>
+<li><p><strong>pca</strong> (<em>bool</em><em>, </em><em>optional</em>) – Allows users to decide whether or not to use PCA analysis. Default is False.</p></li>
+<li><p><strong>regressors</strong> (<em>numpy.ndarray</em><em> or </em><em>str</em>) – Extra data to regress against in the correction. Should be shape (len(data.time), N) or <cite>‘corner’</cite>.
+If <cite>‘corner’</cite> will use the four corner pixels of the TPF as extra information in the regression.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.create_apertures">
+<code class="sig-name descname">create_apertures</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">height</span></em>, <em class="sig-param"><span class="n">width</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.create_apertures" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a range of sizes and shapes of apertures to test.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.custom_aperture">
+<code class="sig-name descname">custom_aperture</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">shape</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">r</span><span class="o">=</span><span class="default_value">0.0</span></em>, <em class="sig-param"><span class="n">h</span><span class="o">=</span><span class="default_value">0.0</span></em>, <em class="sig-param"><span class="n">w</span><span class="o">=</span><span class="default_value">0.0</span></em>, <em class="sig-param"><span class="n">theta</span><span class="o">=</span><span class="default_value">0.0</span></em>, <em class="sig-param"><span class="n">pos</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">method</span><span class="o">=</span><span class="default_value">'exact'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.custom_aperture" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a custom circular or rectangular aperture of arbitrary size.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>shape</strong> (<em>str</em><em>, </em><em>optional</em>) – The shape of the aperture to be used. Must be either <cite>circle</cite> or <cite>rectangle.</cite></p></li>
+<li><p><strong>r</strong> (<em>float</em><em>, </em><em>optional</em>) – If shape is <cite>circle</cite> the radius of the circular aperture to be used.</p></li>
+<li><p><strong>h</strong> (<em>float</em><em>, </em><em>optional</em>) – If shape is <cite>rectangle</cite> the length of the rectangular aperture to be used.</p></li>
+<li><p><strong>w</strong> (<em>float</em><em>, </em><em>optional</em>) – If shape is <cite>rectangle</cite> the width of the rectangular aperture to be used.</p></li>
+<li><p><strong>theta</strong> (<em>float</em><em>, </em><em>optional</em>) – If shape is <cite>rectangle</cite> the rotation of the rectangle relative to detector coordinate.
+Uses units of radians.</p></li>
+<li><p><strong>pos</strong> (<em>tuple</em><em>, </em><em>optional</em>) – The center of the aperture, in TPF coordinates. If not set, defaults to the center of the TPF.</p></li>
+<li><p><strong>method</strong> (<em>str</em><em>, </em><em>optional</em>) – The method of producing a light curve to be used, either <cite>exact</cite>, <cite>center</cite>, or <cite>subpixel</cite>.
+Passed through to photutils and used as intended by that package.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.fetch_dir">
+<code class="sig-name descname">fetch_dir</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.fetch_dir" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns the default path to the directory where files will be saved
+or loaded.</p>
+<p>By default, this method will return “~/.eleanor” and create
+this directory if it does not exist.  If the directory cannot be
+access or created, then it returns the local directory (“.”).</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>download_dir</strong> – Path to location of <cite>ffi_dir</cite> where FFIs will be downloaded</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.get_cbvs">
+<code class="sig-name descname">get_cbvs</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.get_cbvs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Obtains the cotrending basis vectors (CBVs) as convolved down from the short-cadence targets.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.get_lightcurve">
+<code class="sig-name descname">get_lightcurve</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">aperture</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.get_lightcurve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Extracts a light curve using the given aperture and TPF.
+Can pass a user-defined aperture mask, otherwise determines which of a set of pre-determined apertures
+provides the lowest scatter in the light curve.
+Produces a mask, a numpy.ndarray object of the same shape as the target pixel file, which every pixel assigned
+a weight in the range [0, 1].</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>aperture</strong> (<em>numpy.ndarray</em>) – (<cite>height</cite>, <cite>width</cite>) array of floats in the range [0,1] with desired weights for each pixel to
+create a light curve. If not set, ideal aperture is inferred automatically. If set, uses this
+aperture at the expense of all other set apertures.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.get_time">
+<code class="sig-name descname">get_time</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">coords</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.get_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets time, including light travel time correction to solar system barycenter for object given location</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.get_tpf_from_postcard">
+<code class="sig-name descname">get_tpf_from_postcard</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">pos</span></em>, <em class="sig-param"><span class="n">postcard</span></em>, <em class="sig-param"><span class="n">height</span></em>, <em class="sig-param"><span class="n">width</span></em>, <em class="sig-param"><span class="n">bkg_size</span></em>, <em class="sig-param"><span class="n">save_postcard</span></em>, <em class="sig-param"><span class="n">source</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.get_tpf_from_postcard" title="Permalink to this definition">¶</a></dt>
+<dd><p>Gets TPF from postcard.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.k2_correction">
+<code class="sig-name descname">k2_correction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">flux</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.k2_correction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Remove any systematics that are correlated with spacecraft pointing, as inferred through telescope
+pointing model.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>flux</strong> (<em>numpy.ndarray</em>) – Flux array to which detrending applied.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.load">
+<code class="sig-name descname">load</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">directory</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">fn</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.load" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads in and sets all the attributes for a pre-created TPF file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>directory</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory to load file from.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.psf_lightcurve">
+<code class="sig-name descname">psf_lightcurve</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">data_arr</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">err_arr</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">bkg_arr</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">nstars</span><span class="o">=</span><span class="default_value">1</span></em>, <em class="sig-param"><span class="n">model</span><span class="o">=</span><span class="default_value">'gaussian'</span></em>, <em class="sig-param"><span class="n">likelihood</span><span class="o">=</span><span class="default_value">'gaussian'</span></em>, <em class="sig-param"><span class="n">xc</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">yc</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">verbose</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">err_method</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">ignore_pixels</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.psf_lightcurve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Performs PSF photometry for a selection of stars on a TPF.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>data_arr</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – Data array to fit with the PSF model. If None, will default to <cite>TargetData.tpf</cite>.</p></li>
+<li><p><strong>err_arr</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – Uncertainty array to fit with the PSF model. If None, will default to <cite>TargetData.tpf_flux_err</cite>.</p></li>
+<li><p><strong>bkg_arr</strong> (<em>numpy.ndarray</em><em>, </em><em>optional</em>) – List of background values to include as initial guesses for the background model. If None,
+will default to <cite>TargetData.flux_bkg</cite>.</p></li>
+<li><p><strong>nstars</strong> (<em>int</em><em>, </em><em>optional</em>) – Number of stars to be modeled on the TPF.</p></li>
+<li><p><strong>model</strong> (<em>string</em><em>, </em><em>optional</em>) – PSF model to be applied. Presently must be <cite>gaussian</cite>, which models a single Gaussian.
+Will be extended in the future once TESS PRF models are made publicly available.</p></li>
+<li><p><strong>likelihood</strong> (<em>string</em><em>, </em><em>optinal</em>) – The data statistics given the parameters. Options are: ‘gaussian’ and ‘poisson’.</p></li>
+<li><p><strong>xc</strong> (<em>list</em><em>, </em><em>optional</em>) – The x-coordinates of stars in the zeroth cadence. Must have length <cite>nstars</cite>.
+While the positions of stars will be fit in all cadences, the relative positions of
+stars will be fixed following the delta values from this list.</p></li>
+<li><p><strong>yc</strong> (<em>list</em><em>, </em><em>optional</em>) – The y-coordinates of stars in the zeroth cadence. Must have length <cite>nstars</cite>.
+While the positions of stars will be fit in all cadences, the relative positions of
+stars will be fixed following the delta values from this list.</p></li>
+<li><p><strong>verbose</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, return information about the shape of the PSF at every cadence as well as the
+PSF-inferred centroid shape.</p></li>
+<li><p><strong>err_method</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, use the photometric uncertainties for each pixel in the TPF as delivered by the
+TESS team. Otherwise, each pixel takes an equal uncertainty. If <cite>err_arr</cite> is passed
+through instead, this setting is ignored.</p></li>
+<li><p><strong>ignore_pixels</strong> (<em>int</em><em>, </em><em>optional</em>) – If not None, ignore a certain percentage of the brightest pixels away from the source
+target, effectively masking other nearby, bright stars. This strategy appears to do a
+reasonable job estimating the background more accurately in relatively crowded regions.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.save">
+<code class="sig-name descname">save</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">output_fn</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">directory</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">lite</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.save" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves a created TPF object to a FITS file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>output_fn</strong> (<em>str</em><em>, </em><em>optional</em>) – Filename to save output as. Overrides default naming.</p></li>
+<li><p><strong>directory</strong> (<em>str</em><em>, </em><em>optional</em>) – Directory to save file into.</p></li>
+<li><p><strong>lite</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to only save the light curve and not the target pixel data.
+Will reduce file size by a factor of ~19x by removing all pixel
+information and all light curves except the optimal one selected
+by eleanor.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.set_header">
+<code class="sig-name descname">set_header</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">lite</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.set_header" title="Permalink to this definition">¶</a></dt>
+<dd><p>Defines the header for the TPF.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.set_quality">
+<code class="sig-name descname">set_quality</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.set_quality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Reads in quality flags set in the postcard</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.stitch">
+<code class="sig-name descname">stitch</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">objects</span></em>, <em class="sig-param"><span class="n">flux</span><span class="o">=</span><span class="default_value">'corrected'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.stitch" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stitches together basic light curve information from different
+eleanor.TargetData objects.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>objects</strong> (<em>np.ndarray</em>) – An array of eleanor.TargetData objects.</p></li>
+<li><p><strong>flux</strong> (<em>str</em><em>, </em><em>optional</em>) – The keyword for which flux to stitch together
+and return. Sectors will be normalized by itself.
+Default is ‘corrected’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><ul class="simple">
+<li><p><strong>time</strong> (<em>np.ndarray</em>) – An array of stitched times.</p></li>
+<li><p><strong>flux</strong> (<em>np.ndarray</em>) – An array of stitched normalized fluxes.</p></li>
+<li><p><strong>quality</strong> (<em>np.ndarray</em>) – An array of stitched quality flags.</p></li>
+<li><p><strong>flux_err</strong> (<em>np.ndarray</em>) – An array of stitched flux errors.</p></li>
+</ul>
+</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.TargetData.to_lightkurve">
+<code class="sig-name descname">to_lightkurve</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">flux</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">quality_mask</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.TargetData.to_lightkurve" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a lightkurve.lightcurve.LightCurve() object with eleanor
+attributes. All inputs have been quality masked.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>flux</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – An array of flux. Default is
+eleanor.TargetData.corr_flux.</p></li>
+<li><p><strong>quality_mask</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – An array of quality flags. Default is
+eleanor.TargetData.quality.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>lightkurve.lightcurve.TessLightCurve object</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="eleanor.Postcard">
+<em class="property">class </em><code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">Postcard</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">filename</span></em>, <em class="sig-param"><span class="n">background</span></em>, <em class="sig-param"><span class="n">filepath</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Postcard" title="Permalink to this definition">¶</a></dt>
+<dd><p>TESS FFI data for one postcard across one sector.</p>
+<p>A postcard is an rectangular subsection cut out from the FFIs.
+It’s like a TPF, but bigger.
+The Postcard object contains a stack of these cutouts from all available
+FFIs during a given sector of TESS observations.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – Filename of the downloaded postcard.</p></li>
+<li><p><strong>location</strong> (<em>str</em><em>, </em><em>optional</em>) – Filepath to <cite>filename</cite>.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py attribute">
+<dt id="eleanor.Postcard.dimensions">
+<code class="sig-name descname">dimensions</code><a class="headerlink" href="#eleanor.Postcard.dimensions" title="Permalink to this definition">¶</a></dt>
+<dd><p>(<cite>x</cite>, <cite>y</cite>, <cite>time</cite>) dimensions of postcard.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt>
+<code class="sig-name descname">flux, flux_err</code></dt>
+<dd><p>Arrays of shape <cite>postcard.dimensions</cite> containing flux or error on flux
+for each pixel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>numpy.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Postcard.time">
+<code class="sig-name descname">time</code><a class="headerlink" href="#eleanor.Postcard.time" title="Permalink to this definition">¶</a></dt>
+<dd><p>?</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Postcard.header">
+<code class="sig-name descname">header</code><a class="headerlink" href="#eleanor.Postcard.header" title="Permalink to this definition">¶</a></dt>
+<dd><p>Stored header information for postcard file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Postcard.center_radec">
+<code class="sig-name descname">center_radec</code><a class="headerlink" href="#eleanor.Postcard.center_radec" title="Permalink to this definition">¶</a></dt>
+<dd><p>RA &amp; Dec coordinates of the postcard’s central pixel.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Postcard.center_xy">
+<code class="sig-name descname">center_xy</code><a class="headerlink" href="#eleanor.Postcard.center_xy" title="Permalink to this definition">¶</a></dt>
+<dd><p>(<cite>x</cite>, <cite>y</cite>) coordinates corresponding to the location of
+the postcard’s central pixel on the FFI.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Postcard.origin_xy">
+<code class="sig-name descname">origin_xy</code><a class="headerlink" href="#eleanor.Postcard.origin_xy" title="Permalink to this definition">¶</a></dt>
+<dd><p>(<cite>x</cite>, <cite>y</cite>) coordinates corresponding to the location of
+the postcard’s (0,0) pixel on the FFI.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Postcard.background2d">
+<code class="sig-name descname">background2d</code><a class="headerlink" href="#eleanor.Postcard.background2d" title="Permalink to this definition">¶</a></dt>
+<dd><p>The 2D modeled background array.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Postcard.find_sources">
+<code class="sig-name descname">find_sources</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Postcard.find_sources" title="Permalink to this definition">¶</a></dt>
+<dd><p>Finds the cataloged sources in the postcard and returns a table.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p><strong>result</strong> – All the sources in a postcard with TIC IDs or Gaia IDs.</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>astropy.table.Table</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Postcard.plot">
+<code class="sig-name descname">plot</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">frame</span><span class="o">=</span><span class="default_value">0</span></em>, <em class="sig-param"><span class="n">ax</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">scale</span><span class="o">=</span><span class="default_value">'linear'</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Postcard.plot" title="Permalink to this definition">¶</a></dt>
+<dd><p>Plots a single frame of a postcard.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>frame</strong> (<em>int</em><em>, </em><em>optional</em>) – Index of frame. Default 0.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes.Axes</em><em>, </em><em>optional</em>) – Axes on which to plot. Creates a new object by default.</p></li>
+<li><p><strong>scale</strong> (<em>str</em>) – Scaling for colorbar; acceptable inputs are ‘linear’ or ‘log’.
+Default ‘linear’.</p></li>
+<li><p><strong>**kwargs</strong> (<em>passed to matplotlib.pyplot.imshow</em>) – </p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>ax</strong></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>matplotlib.axes.Axes</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="eleanor.Visualize">
+<em class="property">class </em><code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">Visualize</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">object</span></em>, <em class="sig-param"><span class="n">obj_type</span><span class="o">=</span><span class="default_value">'tpf'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Visualize" title="Permalink to this definition">¶</a></dt>
+<dd><p>The main class for creating figures, movies, and interactive plots.
+Allows the user to have a grand ole time playing with their data!</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>obj</strong> – Object must have minimum attributes of 2D array of flux.
+Will allow for plotting of both postcards &amp; tpfs.</p></li>
+<li><p><strong>obj_type</strong> – Object type can be set to “tpf” or “postcard”. Default is “tpf”.</p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="eleanor.Visualize.aperture_contour">
+<code class="sig-name descname">aperture_contour</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">aperture</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">ap_color</span><span class="o">=</span><span class="default_value">'w'</span></em>, <em class="sig-param"><span class="n">ap_linewidth</span><span class="o">=</span><span class="default_value">4</span></em>, <em class="sig-param"><span class="n">ax</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="o">**</span><span class="n">kwargs</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Visualize.aperture_contour" title="Permalink to this definition">¶</a></dt>
+<dd><p>Overplots the countour of an aperture on a target pixel file.
+Contribution from Gijs Mulders.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>aperture</strong> (<em>np.2darray</em><em>, </em><em>optional</em>) – A 2D mask the same size as the target pixel file. Default
+is the eleanor default aperture.</p></li>
+<li><p><strong>ap_color</strong> (<em>str</em><em>, </em><em>optional</em>) – The color of the aperture contour. Takes a matplotlib color.
+Default is red.</p></li>
+<li><p><strong>ap_linewidth</strong> (<em>int</em><em>, </em><em>optional</em>) – The linewidth of the aperture contour. Default is 4.</p></li>
+<li><p><strong>ax</strong> (<em>matplotlib.axes._subplots.AxesSubplot</em><em>, </em><em>optional</em>) – Axes to plot on.</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Visualize.pixel_by_pixel">
+<code class="sig-name descname">pixel_by_pixel</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">colrange</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">rowrange</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">cmap</span><span class="o">=</span><span class="default_value">'viridis'</span></em>, <em class="sig-param"><span class="n">data_type</span><span class="o">=</span><span class="default_value">'corrected'</span></em>, <em class="sig-param"><span class="n">mask</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">xlim</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">ylim</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">color_by_pixel</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">color_by_aperture</span><span class="o">=</span><span class="default_value">True</span></em>, <em class="sig-param"><span class="n">freq_range</span><span class="o">=</span><span class="default_value">[0.05, 10.0]</span></em>, <em class="sig-param"><span class="n">aperture</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">ap_color</span><span class="o">=</span><span class="default_value">'r'</span></em>, <em class="sig-param"><span class="n">ap_linewidth</span><span class="o">=</span><span class="default_value">2</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Visualize.pixel_by_pixel" title="Permalink to this definition">¶</a></dt>
+<dd><p>Creates a pixel-by-pixel light curve using the corrected flux.
+Contribution from Oliver Hall.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>colrange</strong> (<em>np.array</em><em>, </em><em>optional</em>) – A list of start column and end column you’re interested in
+zooming in on.</p></li>
+<li><p><strong>rowrange</strong> (<em>np.array</em><em>, </em><em>optional</em>) – A list of start row and end row you’re interested in zooming
+in on.</p></li>
+<li><p><strong>cmap</strong> (<em>str</em><em>, </em><em>optional</em>) – Name of a matplotlib colormap. Default is ‘viridis’.</p></li>
+<li><p><strong>data_type</strong> (<em>str</em><em>, </em><em>optional</em>) – The type of flux used. Either: ‘raw’, ‘corrected’, ‘amplitude’,
+or ‘periodogram’. If not, default set to ‘corrected’.</p></li>
+<li><p><strong>mask</strong> (<em>np.array</em><em>, </em><em>optional</em>) – Specifies the cadences used in the light curve. If not, default
+set to good quality cadences.</p></li>
+<li><p><strong>xlim</strong> (<em>np.array</em><em>, </em><em>optional</em>) – Specifies the xlim on the subplots. If not, default is set to
+the entire light curve.</p></li>
+<li><p><strong>ylim</strong> (<em>np.array</em><em>, </em><em>optional</em>) – Specifies the ylim on the subplots, If not, default is set to
+the entire light curve flux range.</p></li>
+<li><p><strong>color_by_pixel</strong> (<em>bool</em><em>, </em><em>optional</em>) – Colors the light curve given the color of the pixel. If not,
+default is set to False.</p></li>
+<li><p><strong>freq_range</strong> (<em>list</em><em>, </em><em>optional</em>) – List of minimum and maximum frequency to search in Lomb Scargle
+periodogram. Only used if data_type = ‘periodogram’. If None,
+default = [1/20., 1/0.1].</p></li>
+</ul>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Visualize.plot_gaia_overlay">
+<code class="sig-name descname">plot_gaia_overlay</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tic</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">tpf</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">magnitude_limit</span><span class="o">=</span><span class="default_value">18</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Visualize.plot_gaia_overlay" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check if the source is contaminated.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Visualize.tess_the_movie">
+<code class="sig-name descname">tess_the_movie</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Visualize.tess_the_movie" title="Permalink to this definition">¶</a></dt>
+<dd><p>Opens the link to Ethan Kruse’s TESS: The Movie YouTube videos for
+the sector your target is observed in.</p>
+<dl class="py attribute">
+<dt id="eleanor.Visualize.movie_url">
+<code class="sig-name descname">movie_url</code><a class="headerlink" href="#eleanor.Visualize.movie_url" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="eleanor.Crossmatch">
+<em class="property">class </em><code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">Crossmatch</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">object</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Crossmatch" title="Permalink to this definition">¶</a></dt>
+<dd><p>This class can be used to find the same light curve from different
+pipelines. The current available light curves are from the
+TESS Asteroseismic Science Consortium (TASC) and Oelkers &amp; Stassun (2019).
+Oelkers &amp; Stassun light curves are only available through Sector 5.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>obj</strong> – Object must be an eleanor.TargetData object.</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="eleanor.Crossmatch.oelkers_lc">
+<code class="sig-name descname">oelkers_lc</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Crossmatch.oelkers_lc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Grabs the Oelkers &amp; Stassun (2019) associated light curve.</p>
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.time">
+<code class="sig-name descname">time</code><a class="headerlink" href="#eleanor.Crossmatch.time" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.mag">
+<code class="sig-name descname">mag</code><a class="headerlink" href="#eleanor.Crossmatch.mag" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.mag_err">
+<code class="sig-name descname">mag_err</code><a class="headerlink" href="#eleanor.Crossmatch.mag_err" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Crossmatch.tasoc_lc">
+<code class="sig-name descname">tasoc_lc</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Crossmatch.tasoc_lc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Grabs the T’DA available light curves for your target.
+For more information, see the TASOC light curve documentation: <a class="reference external" href="https://tasoc.dk/code/">https://tasoc.dk/code/</a>.</p>
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_header">
+<code class="sig-name descname">tasoc_header</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_header" title="Permalink to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_tpf">
+<code class="sig-name descname">tasoc_tpf</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_tpf" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.2darray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_aperture">
+<code class="sig-name descname">tasoc_aperture</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_aperture" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.2darray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_time">
+<code class="sig-name descname">tasoc_time</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_time" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_quality">
+<code class="sig-name descname">tasoc_quality</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_quality" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_timecorr">
+<code class="sig-name descname">tasoc_timecorr</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_timecorr" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_cadenceno">
+<code class="sig-name descname">tasoc_cadenceno</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_cadenceno" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_flux_raw">
+<code class="sig-name descname">tasoc_flux_raw</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_flux_raw" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_flux_raw_err">
+<code class="sig-name descname">tasoc_flux_raw_err</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_flux_raw_err" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_flux_corr">
+<code class="sig-name descname">tasoc_flux_corr</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_flux_corr" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_flux_corr_err">
+<code class="sig-name descname">tasoc_flux_corr_err</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_flux_corr_err" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_flux_bkg">
+<code class="sig-name descname">tasoc_flux_bkg</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_flux_bkg" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_pixel_quality">
+<code class="sig-name descname">tasoc_pixel_quality</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_pixel_quality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Quality flags for the data; use these not <cite>tasoc_quality</cite>.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_pos_corr1">
+<code class="sig-name descname">tasoc_pos_corr1</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_pos_corr1" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_pos_corr2">
+<code class="sig-name descname">tasoc_pos_corr2</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_pos_corr2" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_mom_centr1">
+<code class="sig-name descname">tasoc_mom_centr1</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_mom_centr1" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt id="eleanor.Crossmatch.tasoc_mom_centr2">
+<code class="sig-name descname">tasoc_mom_centr2</code><a class="headerlink" href="#eleanor.Crossmatch.tasoc_mom_centr2" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.array</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.Crossmatch.two_minute">
+<code class="sig-name descname">two_minute</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">download</span><span class="o">=</span><span class="default_value">False</span></em>, <em class="sig-param"><span class="n">sectors</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.Crossmatch.two_minute" title="Permalink to this definition">¶</a></dt>
+<dd><p>Checks to see if short cadence data is available for your target.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>download</strong> (<em>str</em><em>, </em><em>optional</em>) – Allows the user to download the short cadence target pixel files.
+By default, downloads all sectors that are available.</p></li>
+<li><p><strong>sectors</strong> (<em>np.ndarray</em><em>, </em><em>optional</em>) – Allows the user to specify which sector to search for two-minute
+data. By default, downloads the sector assigned to the 30-minute
+data.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>sc</strong> – If download == True : Returns a list of lightkurve.lightcurve.TessLightCurve object(s).
+If download == False : Returns a lightkurve.search.SearchResult object.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt id="eleanor.ffi">
+<em class="property">class </em><code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">ffi</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">sector</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">camera</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">chip</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.ffi" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>This class allows the user to download all full-frame images for a given sector,</dt><dd><p>camera, and chip. It also allows the user to create their own pointing model
+based on each cadence for a given combination of sector, camera, and chip.</p>
+</dd>
+<dt>No individual user should have to download all of the full-frame images because</dt><dd><p>stacked postcards will be available for the user to download from MAST.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sector</strong> (<em>int</em><em>, </em><em>optional</em>) – </p></li>
+<li><p><strong>camera</strong> (<em>int</em><em>, </em><em>optional</em>) – </p></li>
+<li><p><strong>chip</strong> (<em>int</em><em>, </em><em>optional</em>) – </p></li>
+</ul>
+</dd>
+</dl>
+<dl class="py method">
+<dt id="eleanor.ffi.build_pointing_model">
+<code class="sig-name descname">build_pointing_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">pos_predicted</span></em>, <em class="sig-param"><span class="n">pos_inferred</span></em>, <em class="sig-param"><span class="n">outlier_removal</span><span class="o">=</span><span class="default_value">False</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.ffi.build_pointing_model" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Builds an affine transformation to correct the positions of stars</dt><dd><p>from a possibly incorrect WCS.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>pos_predicted</strong> (<em>tuple</em>) – Positions taken straight from the WCS; [[x,y],[x,y],…] format.</p></li>
+<li><p><strong>pos_inferred</strong> (<em>tuple</em>) – Positions taken using any centroiding method; [[x,y],[x,y],…] format.</p></li>
+<li><p><strong>outlier_removal</strong> (<em>bool</em><em>, </em><em>optional</em>) – Whether to clip 1-sigma outlier frames. Default <cite>False</cite>.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>xhat</strong> – (3, 3) affine transformation matrix between WCS positions
+and inferred positions.</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.ffi.download_ffis">
+<code class="sig-name descname">download_ffis</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">download_dir</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.ffi.download_ffis" title="Permalink to this definition">¶</a></dt>
+<dd><p>Downloads entire sector of data into FFI download directory.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>download_dir</strong> (<em>str</em>) – Location where the data files will be stored.
+Defaults to “~/.eleanor/sector_{}/ffis” if <cite>None</cite> is passed.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.ffi.pointing_model_per_cadence">
+<code class="sig-name descname">pointing_model_per_cadence</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">out_dir</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">n_sources</span><span class="o">=</span><span class="default_value">350</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.ffi.pointing_model_per_cadence" title="Permalink to this definition">¶</a></dt>
+<dd><p>Step through build_pointing_model for each cadence.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt id="eleanor.ffi.sort_by_date">
+<code class="sig-name descname">sort_by_date</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.ffi.sort_by_date" title="Permalink to this definition">¶</a></dt>
+<dd><p>Sorts FITS files by start date of observation.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt id="eleanor.use_pointing_model">
+<code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">use_pointing_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">coords</span></em>, <em class="sig-param"><span class="n">pointing_model</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.use_pointing_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Applies pointing model to correct the position of star(s) on postcard.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>coords</strong> (<em>tuple</em>) – (<cite>x</cite>, <cite>y</cite>) position of star(s).</p></li>
+<li><p><strong>pointing_model</strong> (<em>astropy.table.Table</em>) – pointing_model for ONE cadence.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p><strong>coords</strong> – Corrected position of star(s).</p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>tuple</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt id="eleanor.load_pointing_model">
+<code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">load_pointing_model</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">pm_dir</span></em>, <em class="sig-param"><span class="n">sector</span></em>, <em class="sig-param"><span class="n">camera</span></em>, <em class="sig-param"><span class="n">chip</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.load_pointing_model" title="Permalink to this definition">¶</a></dt>
+<dd><p>Loads in pointing model.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt id="eleanor.pm_quality">
+<code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">pm_quality</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">time</span></em>, <em class="sig-param"><span class="n">sector</span></em>, <em class="sig-param"><span class="n">camera</span></em>, <em class="sig-param"><span class="n">chip</span></em>, <em class="sig-param"><span class="n">pm</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.pm_quality" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fits a line to the centroid motions using the pointing model.
+A quality flag is set if the centroid is &gt; 2*sigma away from</p>
+<blockquote>
+<div><p>the majority of the centroids.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="py function">
+<dt id="eleanor.set_quality_flags">
+<code class="sig-prename descclassname">eleanor.</code><code class="sig-name descname">set_quality_flags</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">ffi_start</span></em>, <em class="sig-param"><span class="n">ffi_stop</span></em>, <em class="sig-param"><span class="n">shortCad_fn</span></em>, <em class="sig-param"><span class="n">sector</span></em>, <em class="sig-param"><span class="n">camera</span></em>, <em class="sig-param"><span class="n">chip</span></em>, <em class="sig-param"><span class="n">pm</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#eleanor.set_quality_flags" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Uses the quality flags in a 2-minute target to create quality flags</dt><dd><p>in the postcards.</p>
+</dd>
+</dl>
+<p>We create our own quality flag as well, using our pointing model.</p>
+</dd></dl>
+
+</div>
+
+
+           </div>
+          </div>
+          <footer>
+
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+
+
+        <a href="getting_started/faq.html" class="btn btn-neutral" title="Frequently Asked Questions" accesskey="p"><span class="fa fa-arrow-circle-left"></span> Previous</a>
+
+    </div>
+
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2018-2020, Adina D. Feinstein.
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+
+
+
+
+    <script type="text/javascript">
+        var DOCUMENTATION_OPTIONS = {
+            URL_ROOT:'./',
+            VERSION:'1.0.4',
+            COLLAPSE_INDEX:false,
+            FILE_SUFFIX:'.html',
+            HAS_SOURCE:  true
+        };
+    </script>
+      <script type="text/javascript" src="_static/jquery.js"></script>
+      <script type="text/javascript" src="_static/underscore.js"></script>
+      <script type="text/javascript" src="_static/doctools.js"></script>
+      <script type="text/javascript" src="_static/language_data.js"></script>
+      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+      <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+      <script type="text/javascript" src="None"></script>
+
+
+
+
+
+    <script type="text/javascript" src="_static/js/theme.js"></script>
+
+
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.StickyNav.enable();
+      });
+  </script>
+
+
+</body>
+</html>
