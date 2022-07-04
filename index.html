@@ -132,6 +132,12 @@
 		<li class="nav-item"><a class="nav-link" href="#idocs_changelog">Changelog</a>
 			<ul class="nav flex-column">
             <li class="nav-item"><a class="nav-link" href="#v2-0-5">v2.0.5</a></li>
+            <li class="nav-item"><a class="nav-link" href="#v2-0-2">v2.0.2</a></li>
+            <li class="nav-item"><a class="nav-link" href="#v2-0-1">v2.0.1</a></li>
+            <li class="nav-item"><a class="nav-link" href="#v2-0-0-rc1">v2.0.0rc1</a></li>
+            <li class="nav-item"><a class="nav-link" href="#v1-0-5">v1.0.5</a></li>
+            <li class="nav-item"><a class="nav-link" href="#v1-0-4">v1.0.4</a></li>
+            <li class="nav-item"><a class="nav-link" href="#v1-0-1">v1.0.1</a></li>
           </ul>
 		</li>
     </ul>
@@ -158,7 +164,7 @@
 			<div class="col-sm-6 col-lg-4">
 				<ul class="list-unstyled">
 					<li><strong class="font-weight-700">Created:</strong> 18 March, 2019</li>
-					<li><strong>Update:</strong> 3 July, 2022</li>
+					<li><strong>Update:</strong> 4 July, 2022</li>
 				</ul>
 			</div>
 		</div>
@@ -190,13 +196,25 @@
 		============================ -->
         <section id="idocs_installation">
           <h2>Installation</h2>
-          <p class="lead">We have two ways to install <code>eleanor</code></p>
+          <p class="lead">We have two primary ways to install <code>eleanor</code></p>
           <ol>
             <li>Install through the Python Package Index (PyPI)<br><code>pip install eleanor</code></li>
             <li>Install the developer's version on GitHub:<br>
               <code>git clone https://github.com/afeinstein20/eleanor<br>
                 cd eleanor<br>
-                python setup.py install</code></li>
+                python setup.py install</code>
+              </li>
+          </ol>
+          <p class="lead">
+            We recommend installing <code>eleanor</code> in an
+            <a href="https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html" target="_blank">Anaconda environment</a>
+            due to certain dependency versions. Here is how you can accomplish this:
+          <ol>
+            <li>Creating an Anaconda environment (non-Mac M1 users)
+            </li>
+
+            <li>Creating an Anaconda environment (Mac M1 users)
+            </li>
 
           </ol>
         </section>
@@ -2126,12 +2144,112 @@
         <a target="_blank" href="http://facebook.com/harnishdesign">@facebook</a> /
         <a target="_blank" href="http://twitter.com/harnishdesign">@twitter</a> /
         <a target="_blank" href="https://dribbble.com/harnishdesign">@Dribbble</a></p> -->
-
-		  <h3 id="v2-0-5">Version 2.0.5 <small class="text-muted">(3 July, 2022)</small></h3>
+      <h3 id="v2-0-5">Version 2.0.5 <small class="text-muted">(4 July, 2022)</small></h3>
       <ul class="changelog">
-        <li><span class="badge badge-info">Updated</span>Now supports Gaia DR3 IDs
-          (no longer supports Gaia DR2)</li>
+        <li><span class="badge badge-danger">Fixed</span>
+          Installing proper version of <code>TensorFlow</code> (since no longer on PyPI)
+          </li>
+        <li><span class="badge badge-success">Added</span>
+          Documentation for creating <code>eleanor</code> in a conda environment
+          </li>
+        <li><span class="badge badge-success">Added</span>
+          Documentation for creating <code>eleanor</code> in a conda environment (Mac M1 users)
+          </li>
+        <li><span class="badge badge-info">Updated</span>
+          Documentation page and favicon :3
+          </li>
       </ul>
+
+      <h3 id="v2-0-2">Version 2.0.2 <small class="text-muted">(5 February, 2021)</small></h3>
+      <ul class="changelog">
+        <li><span class="badge badge-danger">Fixed</span>
+          Bugs in setting download directory paths
+          </li>
+        <li><span class="badge badge-danger">Fixed</span>
+          Bugs for Windows users
+          </li>
+      </ul>
+
+      <h3 id="v2-0-1">Version 2.0.1 <small class="text-muted">(18 December, 2020)</small></h3>
+      <ul class="changelog">
+        <li><span class="badge badge-danger">Fixed</span>
+          Minor bug fixes
+          </li>
+      </ul>
+
+      <h3 id="v2-0-0-rc1">Version 2.0.0rc1 <small class="text-muted">(5 October, 2020)</small></h3>
+      <ul class="changelog">
+        <li><span class="badge badge-info">Updated</span>
+          Changing skip parameter in correction to be in unit of time rather than cadences to handle 10-minute FFIs
+          </li>
+        <li><span class="badge badge-danger">Fixed</span>
+          Bug where very faint stars had suboptimal corrections
+          </li>
+        <li><span class="badge badge-info">Updated</span>
+          Changed <code>crowded_field</code> to <code>aperture_mode</code> and added built-in mechanics for bright stars
+          </li>
+        <li><span class="badge badge-info">Updated</span>
+          Updated docs to include citation to 2019 paper
+          </li>
+        <li><span class="badge badge-danger">Fixed</span>
+          Bug in <code>eleanor.Visualize()</code> layout of aperture
+          </li>
+        <li><span class="badge badge-info">Updated</span>
+          Changes to handle format of 10-minute FFIs in <code>eleanor.Update()</code>
+          </li>
+        <li><span class="badge badge-info">Updated</span>
+          Significant speedups, especially when local postcards already exist and run with <code>local==True</code>
+          </li>
+      </ul>
+
+		  <h3 id="v1-0-5">Version 1.0.5 <small class="text-muted">(21 May, 2020)</small></h3>
+      <ul class="changelog">
+        <li><span class="badge badge-danger">Fixed</span>
+          Bug where some apertures were made twice and others not at all
+          </li>
+        <li><span class="badge badge-danger">Fixed</span>
+          Bug where mass centroids were off by a constant offset at all cadences
+          </li>
+        <li><span class="badge badge-danger">Fixed</span>
+          Bug that happens when data are all zeros at the start of a sector
+          </li>
+      </ul>
+
+      <h3 id="v1-0-4">Version 1.0.4 <small class="text-muted">(27 March, 2020)</small></h3>
+      <ul class="changelog">
+        <li><span class="badge badge-success">Added</span>
+          Pass in an array of regressors to use in calculating the corrected flux
+          </li>
+        <li><span class="badge badge-info">Updated</span>
+          Extreme short-term flux variability like eclipses ignored in corrections, which should improve detrending of these objects
+          </li>
+        <li><span class="badge badge-danger">Fixed</span>
+          Fixed bug where metadata could not be properly updated on linux clusters
+          </li>
+        <li><span class="badge badge-info">Updated</span>
+          Improvements to Gaia overlay of fields
+          </li>
+        <li><span class="badge badge-success">Added</span>
+          Ability to create light curves offline
+          </li>
+        <li><span class="badge badge-success">Added</span>
+          Ability to pass through a SIMBAD-resolvable name rather than TIC/Gaia ID or coordinates
+          </li>
+      </ul>
+
+      <h3 id="v1-0-1">Version 1.0.1 <small class="text-muted">(19 January, 2020)</small></h3>
+      <ul class="changelog">
+        <li><span class="badge badge-success">Added</span>
+          Ability to use local postcards
+        </li>
+        <li><span class="badge badge-info">Added</span>
+          Addition of <code>eleanor.Update()</code> for automatic sector updates
+        </li>
+        <li><span class="badge badge-info">Updated</span>
+          Significant speedups when TIC, Coords, and a Gaia ID are all provided
+        </li>
+      </ul>
+
           <!--<ul class="changelog">
             <li><span class="badge badge-success">Added</span> Your information here for added new feature</li>
             <li><span class="badge badge-danger">Fixed</span> Some minor bugs for browser compatibility</li>
