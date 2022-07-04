@@ -568,7 +568,7 @@
       <li><p><strong>sectors</strong> (<em>list</em><em> or </em><em>str</em>) – The list of sectors for which data should be returned, or <cite>‘all’</cite> to return all sectors
       for which there are data.</p></li>
       <li><p><strong>tic</strong> (<em>int</em><em>, </em><em>optional</em>) – The TIC ID of the source.</p></li>
-      <li><p><strong>gaia</strong> (<em>int</em><em>, </em><em>optional</em>) – The Gaia DR2 source_id.</p></li>
+      <li><p><strong>gaia</strong> (<em>int</em><em>, </em><em>optional</em>) – The Gaia DR3 source_id.</p></li>
       <li><p><strong>coords</strong> (<em>tuple</em><em>, </em><em>optional</em>) – The (RA, Dec) coords of the object in degrees.</p></li>
       <li><p><strong>tc</strong> (<em>bool</em><em>, </em><em>optional</em>) – If True, use a TessCut cutout to produce postcards rather than downloading the eleanor
       postcard data products.</p></li>
@@ -587,7 +587,7 @@
       <dt class="field-odd">Parameters</dt>
       <dd class="field-odd"><ul class="simple">
       <li><p><strong>tic</strong> (<em>int</em><em>, </em><em>optional</em>) – The TIC ID of the source.</p></li>
-      <li><p><strong>gaia</strong> (<em>int</em><em>, </em><em>optional</em>) – The Gaia DR2 source_id.</p></li>
+      <li><p><strong>gaia</strong> (<em>int</em><em>, </em><em>optional</em>) – The Gaia DR3 source_id.</p></li>
       <li><p><strong>coords</strong> (<em>tuple</em><em> or </em><em>astropy.coordinates.SkyCoord</em><em>, </em><em>optional</em>) – The (RA, Dec) coords of the object in degrees or an astropy SkyCoord object.</p></li>
       <li><p><strong>name</strong> (<em>str</em><em>, </em><em>optional</em>) – The name of your target (e.g. “HD#####” or “M31”).</p></li>
       <li><p><strong>fn</strong> (<em>str</em><em>, </em><em>optional</em>) – Filename of a TPF corresponding to the desired source.</p></li>
@@ -2128,6 +2128,10 @@
         <a target="_blank" href="https://dribbble.com/harnishdesign">@Dribbble</a></p> -->
 
 		  <h3 id="v2-0-5">Version 2.0.5 <small class="text-muted">(3 July, 2022)</small></h3>
+      <ul class="changelog">
+        <li><span class="badge badge-info">Updated</span>Now supports Gaia DR3 IDs
+          (no longer supports Gaia DR2)</li>
+      </ul>
           <!--<ul class="changelog">
             <li><span class="badge badge-success">Added</span> Your information here for added new feature</li>
             <li><span class="badge badge-danger">Fixed</span> Some minor bugs for browser compatibility</li>
