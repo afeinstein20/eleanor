@@ -1,9 +1,8 @@
 import math
-
+import tensorflow as tf
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
-#import tensorflow as tf
 
 # Vaneska models of Ze Vinicius
 
