@@ -35,7 +35,7 @@ class Gaussian(Model):
         return self.evaluate(*params)
 
     def evaluate(self, flux, xo, yo, a, b, c):
-
+        """
         Evaluate the Gaussian model
         Parameters
         ----------
@@ -49,6 +49,7 @@ class Gaussian(Model):
         References
         ----------
         https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
+        """
 
         dx = self.x - xo
         dy = self.y - yo
