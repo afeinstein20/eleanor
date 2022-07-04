@@ -3,7 +3,7 @@ import math
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
-import tensorflow as tf
+#import tensorflow as tf
 
 # Vaneska models of Ze Vinicius
 
@@ -29,13 +29,13 @@ class Model:
         s1, s2 = self.shape
         self.y, self.x = np.mgrid[r:r+s1-1:1j*s1, c:c+s2-1:1j*s2]
 
-
+"""
 class Gaussian(Model):
     def __call__(self, *params):
         return self.evaluate(*params)
 
     def evaluate(self, flux, xo, yo, a, b, c):
-        """
+
         Evaluate the Gaussian model
         Parameters
         ----------
@@ -49,7 +49,7 @@ class Gaussian(Model):
         References
         ----------
         https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
-        """
+
         dx = self.x - xo
         dy = self.y - yo
         psf = tf.exp(-(a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2))
@@ -67,4 +67,4 @@ class Moffat(Model):
         psf = tf.divide(1., tf.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
         psf_sum = tf.reduce_sum(psf)
         return flux * psf / psf_sum
-
+"""

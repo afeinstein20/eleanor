@@ -842,6 +842,7 @@ class TargetData(object):
     def psf_lightcurve(self, data_arr = None, err_arr = None, bkg_arr = None, nstars=1, model='gaussian', likelihood='gaussian',
                        xc=None, yc=None, verbose=True,
                        err_method=True, ignore_pixels=None):
+        return
         """
         Performs PSF photometry for a selection of stars on a TPF.
 
@@ -880,7 +881,7 @@ class TargetData(object):
             If not None, ignore a certain percentage of the brightest pixels away from the source
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
-        """
+
 
         import tensorflow as tf
         from .models import Gaussian, Moffat
@@ -1071,7 +1072,7 @@ class TargetData(object):
             if nstars > 1:
                 self.all_psf = fout
         return
-
+        """
 
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
