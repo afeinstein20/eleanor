@@ -2,7 +2,7 @@
   <img width = "600" src="./figures/eleanor.gif"/>
 </p>
 <p align="center">  
-  <a href="https://travis-ci.org/afeinstein20/eleanor/">
+  <a href="https://github.com/afeinstein20/eleanor/actions/workflows/python-package.yml">
   <img src="https://github.com/afeinstein20/eleanor/actions/workflows/python-package.yml/badge.svg?colorB=F9E84F"/></a>
   <a href="https://adina.feinste.in/eleanor">
   <img src="https://github.com/afeinstein20/eleanor/actions/workflows/pages/pages-build-deployment/badge.svg?colorB=F9E84F"></a>
