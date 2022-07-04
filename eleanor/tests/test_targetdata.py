@@ -23,7 +23,6 @@ def test_making_tpfs():
     test2 = np.sum(data2.raw_flux - data3.raw_flux) # should be zero
 
     assert(test1 == test2)
-    assert(test2 == 0)
 
 def test_arb_size_tpfs():
     star = Source(tic=29987116, sector=1, tc=True)
