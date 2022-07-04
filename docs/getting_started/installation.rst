@@ -4,9 +4,9 @@ Installation
 ============
 
 To install eleanor with pip::
-   	   
+
         pip install eleanor
-	 	
+
 
 Alternatively you can install the current development version of eleanor::
 
