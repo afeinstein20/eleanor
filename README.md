@@ -4,6 +4,8 @@
 <p align="center">  
   <a href="https://travis-ci.org/afeinstein20/eleanor/">
   <img src="https://github.com/afeinstein20/eleanor/actions/workflows/python-package.yml/badge.svg?colorB=F9E84F"/></a>
+  <a href="https://github.com/afeinstein20/eleanor/actions/workflows/pages/pages-build-deployment">
+  <img src="https://github.com/afeinstein20/eleanor/actions/workflows/pages/pages-build-deployment/badge.svg"></a>
   <a href="https://ui.adsabs.harvard.edu/abs/2019PASP..131i4502F/abstract"><img src="https://img.shields.io/badge/read-the_paper-4D827F.svg?style=flat"/></a>
   <a href="https://doi.org/10.5281/zenodo.2597620"><img src="https://zenodo.org/badge/DOI/10.5281/zenodo.2597620.svg?colorB=3C0650" alt="DOI"></a>
   <a href="https://pypi.org/project/eleanor/"><img alt="PyPI - Downloads" src="https://img.shields.io/pypi/dm/eleanor?color=F9E84F&logo=eleanor"></a>
