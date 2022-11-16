@@ -22,7 +22,6 @@ import os.path
 import warnings
 import pickle
 
-import tensorflow as tf
 from tqdm import tqdm
 
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
@@ -903,6 +902,8 @@ class TargetData(object):
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
+        import tensorflow as tf
+
         tf.logging.set_verbosity(tf.logging.ERROR)
 
         if data_arr is None:
