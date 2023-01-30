@@ -70,13 +70,13 @@ __all__ = ['Update', 'update_all', 'update_max_sector']
 
 def update_max_sector():
     baseurl = "https://archive.stsci.edu/missions/tess/ffi/"
-    
+
     page = urlopen(baseurl)
     read = page.read()
     html = read.decode('utf-8').split('href="')
     current_sectors = [i for i in html if 's00' in i]
     sectors = [int(i[1:5]) for i in current_sectors]
-    
+
     with open('maxsector.py', 'w') as tf:
         tf.write('maxsector = {0}'.format(int(np.nanmax(sectors))))
 
@@ -197,14 +197,18 @@ class Update(object):
             subdirects.append(file)
         subdirects = np.sort(subdirects)[1:-4]
 
+        cbv_ext = '_cbv.fits'
+        if self.sector > 55:
+            cbv_ext = '_fast-cbv.fits'
+
         for i in range(len(subdirects)):
-            file = listFD(subdirects[i], ext='_cbv.fits')[0]
+            file = listFD(subdirects[i], ext=cbv_ext)[0]
             os.system('curl -O -L {}'.format(file))
 
         time = self.cutout[1].data['TIME'] - self.cutout[1].data['TIMECORR']
 
         files = os.listdir('.')
-        files = [i for i in files if i.endswith('_cbv.fits') and
+        files = [i for i in files if i.endswith(cbv_ext) and
                  's{0:04d}'.format(self.sector) in i]
 
         for c in range(len(files)):
@@ -223,9 +227,11 @@ class Update(object):
                     index = 'VECTOR_{0}'.format(j+1)
                     if self.sector < 27:
                         cads = np.arange(g-7, g+8, 1)
-                    else:
+                    elif self.sector < 56:
                         # XXX: need to test when TESSCut becomes available
                         cads = np.arange(g-2, g+3, 1)
+                    else:
+                        cads = np.arange(g - 5, g + 5, 1)
                     convolved[i, j] = np.mean(cbv[1].data[index][cads])
             np.savetxt(new_fn, convolved)
             cbv.close()
@@ -244,8 +250,13 @@ class Update(object):
             f.close()
 
     def get_target(self):
-        filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_lc.sh'.
-                           format(self.sector))
+        if self.sector < 56:
+            filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_lc.sh'.
+                               format(self.sector))
+        else:
+            filelist = urlopen(
+                'https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_fast-lc.sh'.
+                format(self.sector))
         for line in filelist:
             if len(str(line)) > 30:
                 os.system(str(line)[2:-3])
@@ -261,10 +272,14 @@ class Update(object):
             # barycentric corrections on different cameras
             index_zeropoint = 12680
             index_t0 = 1491.625533688852
-        else:
+        elif self.sector < 56:
             # first FFI cadence of S27 from Cam 1, CCD 1
             index_zeropoint = 116470
             index_t0 = 2036.283350837239
+        else:
+            # first FFI cadence of S56 from Cam 1, CCD 1
+            index_zeropoint = 690247
+            index_t0 = 2825.252246759366
 
         times = np.array([], dtype=int)
         filelist = urlopen('https://archive.stsci.edu/missions/tess/download_scripts/sector/tesscurl_sector_{:d}_ffic.sh'.
@@ -283,8 +298,10 @@ class Update(object):
             tjd = date_to_jd(date.year, date.month, days) - 2457000
             if self.sector < 27:
                 cad = (tjd - index_t0)/(30./1440.)
-            else:
+            elif self.sector < 56:
                 cad = (tjd - index_t0)/(10./1440.)
+            else:
+                cad = (tjd - index_t0) / (200. / (1440.*60))
             outarr[i] = (int(np.round(cad))+index_zeropoint)
 
         np.savetxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(self.sector), outarr, fmt='%i')
@@ -295,7 +312,7 @@ class Update(object):
             in the postcards.
         """
 
-        ffi_time = self.cutout[1].data['TIME'] - self.cutout[1].data['TIMECORR']
+        ffi_time = self.cutout[1].data['TIME'] # - self.cutout[1].data['TIMECORR']
 
         shortCad_fn = eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector)
 
@@ -307,16 +324,21 @@ class Update(object):
 
         # Obtains information for 2-minute target
         twoMin     = fits.open(shortCad_fn)
-        twoMinTime = twoMin[1].data['TIME']-twoMin[1].data['TIMECORR']
-        finite     = np.isfinite(twoMinTime)
+        twoMinTime = twoMin[1].data['TIME'] # - twoMin[1].data['TIMECORR']
+        # finite     = np.isfinite(twoMinTime)
         twoMinQual = twoMin[1].data['QUALITY']
 
-        twoMinTime = twoMinTime[finite]
-        twoMinQual = twoMinQual[finite]
+        # if you only take the finite values, you're not guaranteeing
+        # that the twoMinQual[where - 2:where + 3] is getting 5 contiguous
+        # cadences that you expect. Some might have been removed, and you're
+        # applying quality flags to the wrong cadence.
+
+        # twoMinTime = twoMinTime[finite]
+        # twoMinQual = twoMinQual[finite]
 
         convolve_ffi = []
         for i in range(len(ffi_time)):
-            where = np.where(np.abs(ffi_time[i] - twoMinTime) == np.min(np.abs(ffi_time[i] - twoMinTime)))[0][0]
+            where = np.where(np.abs(ffi_time[i] - twoMinTime) == np.nanmin(np.abs(ffi_time[i] - twoMinTime)))[0][0]
 
             sflux = np.sum(self.cutout[1].data['FLUX'][i])
             nodata = 0
@@ -328,9 +350,11 @@ class Update(object):
 
             if self.sector < 27:
                 v = np.bitwise_or.reduce(twoMinQual[where-7:where+8])
-            else:
+            elif self.sector < 56:
                 # XXX: need to test when TESSCut is available in S27
                 v = np.bitwise_or.reduce(twoMinQual[where - 2:where + 3])
+            else:
+                v = np.bitwise_or.reduce(twoMinQual[where - 5:where + 5])
             convolve_ffi.append(np.bitwise_or(v, nodata))
 
         convolve_ffi = np.array(convolve_ffi)

@@ -1,5 +1,4 @@
 import math
-import tensorflow as tf
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
 import numpy as np
@@ -49,6 +48,7 @@ class Gaussian(Model):
         ----------
         https://en.wikipedia.org/wiki/Gaussian_function#Two-dimensional_Gaussian_function
         """
+        import tensorflow as tf
 
         dx = self.x - xo
         dy = self.y - yo
@@ -62,6 +62,8 @@ class Moffat(Model):
         return self.evaluate(*params)
 
     def evaluate(self, flux, xo, yo, a, b, c, beta):
+        import tensorflow as tf
+
         dx = self.x - xo
         dy = self.y - yo
         psf = tf.divide(1., tf.pow(1. + a * dx ** 2 + 2 * b * dx * dy + c * dy ** 2, beta))
