@@ -77,7 +77,8 @@ def update_max_sector():
     current_sectors = [i for i in html if 's00' in i]
     sectors = [int(i[1:5]) for i in current_sectors]
 
-    with open('maxsector.py', 'w') as tf:
+    codepath = os.path.dirname(__file__)
+    with open(codepath + '/maxsector.py', 'w') as tf:
         tf.write('maxsector = {0}'.format(int(np.nanmax(sectors))))
 
     print("Most recent sector available = ", int(np.nanmax(sectors)))
