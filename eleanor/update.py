@@ -128,11 +128,11 @@ class Update(object):
                                           unit=(u.hourangle, u.deg))
 
 
-        if self.sector < 14 or (self.sector > 26 and self.sector < 40):
+        if self.sector < 14 or (self.sector > 26 and self.sector < 40) or (self.sector > 60 and self.sector < 70):
             use_coords = self.south_coords
-        elif self.sector in [42, 43, 44]:
+        elif self.sector in [42, 43, 44, 70, 71]:
             use_coords = self.ecliptic_coords_a
-        elif self.sector in [45, 46]:
+        elif self.sector in [45, 46, 72]:
             use_coords = self.ecliptic_coords_b
         else:
             use_coords = self.north_coords
@@ -182,8 +182,12 @@ class Update(object):
             year = 2020
         elif self.sector <= 47:
             year = 2021
-        else:
+        elif self.sector <= 60:
             year = 2022
+        elif self.sector <= 73:
+            year = 2023
+        else:
+            year = 2024
 
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
