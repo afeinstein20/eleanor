@@ -121,21 +121,28 @@ class Update(object):
                                      unit=(u.hourangle, u.deg))
         self.south_coords = SkyCoord('04:35:50.330 -64:01:37.33',
                                      unit=(u.hourangle, u.deg))
-
+        self.south_coords_year5 = SkyCoord('04:35:50.330 -65:01:37.33',
+                                     unit=(u.hourangle, u.deg))
         self.ecliptic_coords_a = SkyCoord('04:00:00.000 +10:00:00.00',
                                           unit=(u.hourangle, u.deg))
         self.ecliptic_coords_b = SkyCoord('08:20:00.000 +12:00:00.00',
+                                          unit=(u.hourangle, u.deg))
+        self.north_coords_73 = SkyCoord('06:00:00.000 +32:00:00.00',
                                           unit=(u.hourangle, u.deg))
 
 
         if self.sector < 14 or (self.sector > 26 and self.sector < 40):
             use_coords = self.south_coords
-        elif self.sector in [42, 43, 44]:
+        elif (self.sector > 60) and (self.sector < 70):
+            use_coords = self.south_coords_year5
+        elif self.sector in [42, 43, 44, 70, 71]:
             use_coords = self.ecliptic_coords_a
-        elif self.sector in [45, 46]:
+        elif self.sector in [45, 46, 72]:
             use_coords = self.ecliptic_coords_b
+        elif self.sector in [73]:
+            use_coords = self.north_coords_73
         else:
-            use_coords = self.north_coords
+            use_coords = self.north_coords # this is good through sector 83
 
         try:
             manifest = Tesscut.download_cutouts(coordinates=use_coords, size=31, sector=self.sector)
@@ -182,8 +189,12 @@ class Update(object):
             year = 2020
         elif self.sector <= 47:
             year = 2021
-        else:
+        elif self.sector <= 61:
             year = 2022
+        elif self.sector <= 73:
+            year = 2023
+        else:
+            year = 2024
 
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
