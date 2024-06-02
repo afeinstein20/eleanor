@@ -189,7 +189,7 @@ class Update(object):
             year = 2020
         elif self.sector <= 47:
             year = 2021
-        elif self.sector <= 61:
+        elif self.sector <= 60:
             year = 2022
         elif self.sector <= 73:
             year = 2023
@@ -246,7 +246,7 @@ class Update(object):
                     convolved[i, j] = np.mean(cbv[1].data[index][cads])
             np.savetxt(new_fn, convolved)
             cbv.close()
-        files = [i for i in files if i.endswith('_cbv.fits') and
+        files = [i for i in files if i.endswith(cbv_ext) and
                  's{0:04d}'.format(self.sector) in i]
         for c in range(len(files)):
             os.remove(files[c])
