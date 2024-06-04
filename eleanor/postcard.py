@@ -331,6 +331,11 @@ class Postcard_tesscut(object):
         sector = self.header['SECTOR']
         eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
         A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
+        if sector == 65:
+            if self.header['CAMERA'] == 4:
+                if self.header['CCD'] == 4:
+                    A = np.append(A[:6448],A[7910:])
+
         return A
 
     @property
@@ -349,5 +354,9 @@ class Postcard_tesscut(object):
         sector = self.header['SECTOR']
         eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
         A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
+        if sector == 65:
+            if self.header['CAMERA'] == 4:
+                if self.header['CCD'] == 4:
+                    A = np.append(A[:6448],A[7910:])
         return A
 

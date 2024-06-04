@@ -800,6 +800,10 @@ class TargetData(object):
                                                                                     self.source_info.camera,
                                                                                     self.source_info.chip))
             cbvs = np.asarray(matrix_file)
+            if self.source_info.sector == 65:
+                if self.source_info.camera == 4:
+                    if self.source_info.chip == 4:
+                        cbvs = np.append(cbvs[:6448],cbvs[7910:])
             self.cbvs = np.reshape(cbvs, (len(self.time), 16))
 
         except:
