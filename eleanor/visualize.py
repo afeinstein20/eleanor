@@ -66,7 +66,8 @@ class Visualize(object):
         ax : matplotlib.axes._subplots.AxesSubplot, optional
             Axes to plot on.
         """
-        if ax == None:
+        ax_given = ax
+        if ax is None:
             fig, ax = plt.subplots(nrows=1)
 
         if aperture is None:
@@ -85,7 +86,7 @@ class Visualize(object):
         ax.contour(Z, [0.05], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
 
-        if ax == None:
+        if ax_given is None:
             return fig
 
 
@@ -128,9 +129,9 @@ class Visualize(object):
              List of minimum and maximum frequency to search in Lomb Scargle
              periodogram. Only used if data_type = 'periodogram'. If None,
              default = [1/20., 1/0.1].
-        FAP: np.array, optional. 
+        FAP: np.array, optional.
              False Alarm Probability levels to include in periodogram.
-             Ensure that the values are < 1. 
+             Ensure that the values are < 1.
              For example: FAP = np.array([0.1, 0.01]), will plot the 10% and 1% FAP levels.
         """
         if self.obj.lite:
@@ -228,9 +229,9 @@ class Visualize(object):
                 x = 1/freq
 
                 if (FAP is not None):
-                    if np.all(FAP<1): # Ensure that the probabilities are all < 1 
+                    if np.all(FAP<1): # Ensure that the probabilities are all < 1
                         if type(FAP) == list: FAP = np.array(FAP)
-                        FAPlevel = LS.false_alarm_level(FAP, method='baluev') 
+                        FAPlevel = LS.false_alarm_level(FAP, method='baluev')
 
             if color_by_pixel is False:
                 color = 'k'
@@ -241,7 +242,7 @@ class Visualize(object):
             ax.plot(x, y, c=color)
 
             if (data_type.lower() == 'periodogram') & (FAP is not None):
-                if np.all(FAP<1): 
+                if np.all(FAP<1):
                     _ = [ax.axhline(f, color='k', ls='--', alpha=0.3) for f in FAPlevel]
 
 
