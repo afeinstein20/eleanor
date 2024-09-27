@@ -17,25 +17,25 @@ __all__ = ['Postcard']
 
 class Postcard(object):
     """TESS FFI data for one postcard across one sector.
-    
-    A postcard is an rectangular subsection cut out from the FFIs. 
-    It's like a TPF, but bigger. 
-    The Postcard object contains a stack of these cutouts from all available 
+
+    A postcard is an rectangular subsection cut out from the FFIs.
+    It's like a TPF, but bigger.
+    The Postcard object contains a stack of these cutouts from all available
     FFIs during a given sector of TESS observations.
-    
+
     Parameters
     ----------
     filename : str
         Filename of the downloaded postcard.
     location : str, optional
         Filepath to `filename`.
-    
+
     Attributes
     ----------
     dimensions : tuple
         (`x`, `y`, `time`) dimensions of postcard.
     flux, flux_err : numpy.ndarray
-        Arrays of shape `postcard.dimensions` containing flux or error on flux 
+        Arrays of shape `postcard.dimensions` containing flux or error on flux
         for each pixel.
     time : float
         ?
@@ -44,10 +44,10 @@ class Postcard(object):
     center_radec : tuple
         RA & Dec coordinates of the postcard's central pixel.
     center_xy : tuple
-        (`x`, `y`) coordinates corresponding to the location of 
+        (`x`, `y`) coordinates corresponding to the location of
         the postcard's central pixel on the FFI.
     origin_xy : tuple
-        (`x`, `y`) coordinates corresponding to the location of 
+        (`x`, `y`) coordinates corresponding to the location of
         the postcard's (0,0) pixel on the FFI.
     background2d : np.ndarray
         The 2D modeled background array.
@@ -63,21 +63,21 @@ class Postcard(object):
 
     def plot(self, frame=0, ax=None, scale='linear', **kwargs):
         """Plots a single frame of a postcard.
-        
+
         Parameters
         ----------
         frame : int, optional
             Index of frame. Default 0.
-        
+
         ax : matplotlib.axes.Axes, optional
             Axes on which to plot. Creates a new object by default.
-        
+
         scale : str
             Scaling for colorbar; acceptable inputs are 'linear' or 'log'.
             Default 'linear'.
-        
+
         **kwargs : passed to matplotlib.pyplot.imshow
-        
+
         Returns
         -------
         ax : matplotlib.axes.Axes
@@ -170,19 +170,19 @@ class Postcard(object):
     @property
     def bkg(self):
         return self.hdu[1].data['BKG']
-    
-    @property 
+
+    @property
     def barycorr(self):
         return self.hdu[1].data['BARYCORR']
-    
-    
+
+
     @property
     def ffiindex(self):
         return self.hdu[1].data['FFIINDEX']
-    
+
 class Postcard_tesscut(object):
     """TESS FFI data for one postcard across one sector.
-    
+
     TESSCut is a service from MAST to produce TPF cutouts from the TESS FFIs. If
     `eleanor.Source()` is called with `tc=True`, TESSCut is used to produce a large
     postcard-like cutout region rather than downlading a standard eleanor postcard.
@@ -193,13 +193,13 @@ class Postcard_tesscut(object):
         Filename of the downloaded postcard.
     location : str, optional
         Filepath to `filename`.
-    
+
     Attributes
     ----------
     dimensions : tuple
         (`x`, `y`, `time`) dimensions of postcard.
     flux, flux_err : numpy.ndarray
-        Arrays of shape `postcard.dimensions` containing flux or error on flux 
+        Arrays of shape `postcard.dimensions` containing flux or error on flux
         for each pixel.
     time : float
         ?
@@ -208,10 +208,10 @@ class Postcard_tesscut(object):
     center_radec : tuple
         RA & Dec coordinates of the postcard's central pixel.
     center_xy : tuple
-        (`x`, `y`) coordinates corresponding to the location of 
+        (`x`, `y`) coordinates corresponding to the location of
         the postcard's central pixel on the FFI.
     origin_xy : tuple
-        (`x`, `y`) coordinates corresponding to the location of 
+        (`x`, `y`) coordinates corresponding to the location of
         the postcard's (0,0) pixel on the FFI.
     """
     def __init__(self, cutout, location=None):
@@ -226,21 +226,21 @@ class Postcard_tesscut(object):
 
     def plot(self, frame=0, ax=None, scale='linear', **kwargs):
         """Plots a single frame of a postcard.
-        
+
         Parameters
         ----------
         frame : int, optional
             Index of frame. Default 0.
-        
+
         ax : matplotlib.axes.Axes, optional
             Axes on which to plot. Creates a new object by default.
-        
+
         scale : str
             Scaling for colorbar; acceptable inputs are 'linear' or 'log'.
             Default 'linear'.
-        
+
         **kwargs : passed to matplotlib.pyplot.imshow
-        
+
         Returns
         -------
         ax : matplotlib.axes.Axes
@@ -339,16 +339,27 @@ class Postcard_tesscut(object):
         return A
 
     @property
+    def quality_tc(self):
+        """Quality flags from Tesscut without eleanor processing.
+        Used by the workaround for the general problem of
+        https://github.com/afeinstein20/eleanor/issues/267
+        """
+        if 'QUALITY' in self.hdu[1].data.names:
+            return self.hdu[1].data['QUALITY']
+        else:
+            return None
+
+    @property
     def bkg(self):
         sigma_clip = SigmaClip(sigma=3.)
         bkg = MMMBackground(sigma_clip=sigma_clip)
         b = bkg.calc_background(self.flux, axis=(1,2))
         return b
-    
-    @property 
+
+    @property
     def barycorr(self):
         return self.hdu[1].data['TIMECORR']
-    
+
     @property
     def ffiindex(self):
         sector = self.header['SECTOR']

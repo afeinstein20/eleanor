@@ -190,6 +190,7 @@ class TargetData(object):
                 else:
                     self.post_obj = Postcard_tesscut(source.cutout)
 
+                ### print(f"DBGt __init__() - #.post_obj={self.post_obj.dimensions}, #.post_obj.quality={self.post_obj.quality.shape}")
                 self.ffiindex = self.post_obj.ffiindex
                 self.flux_bkg = self.post_obj.bkg
                 self.get_time(source.coords)
@@ -451,6 +452,8 @@ class TargetData(object):
 
 
         self.tpf = self.tpf
+
+        ### print(f"DBGt get_tpf_from_postcard() - #.tpf={self.tpf.shape}")
 
         if save_postcard == False:
             try:
@@ -854,7 +857,21 @@ class TargetData(object):
         """ Reads in quality flags set in the postcard
         """
         self.quality = np.array(self.post_obj.quality)
-
+        if len(self.post_obj.quality) != len(self.tpf):
+            # Workaround for general problem of
+            # https://github.com/afeinstein20/eleanor/issues/267
+            warn_msg_prefix = (
+                f"Num. of cadences mismatch between TPF ({len(self.tpf)})"
+                f" and sector-wide quality flags ({len(self.post_obj.quality)})."
+            )
+            if self.post_obj.quality_tc is None:
+                raise ValueError(warn_msg_prefix + " Cannot proceed.")
+            else:
+                self.quality = np.array(self.post_obj.quality_tc)
+                warnings.warn(
+                    warn_msg_prefix + " Use quality flags from TPF without eleanor processing."
+                )
+        ### print(f"DBGt set_quality() - #.quality={self.quality.shape} , #.tpf={self.tpf.shape}")
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
 
         bkgvar = np.nanstd(self.bkg_tpf, axis=(1,2))/(np.nansum(self.bkg_tpf, axis=(1,2)))
