@@ -339,17 +339,6 @@ class Postcard_tesscut(object):
         return A
 
     @property
-    def quality_tc(self):
-        """Quality flags from Tesscut without eleanor processing.
-        Used by the workaround for the general problem of
-        https://github.com/afeinstein20/eleanor/issues/267
-        """
-        if 'QUALITY' in self.hdu[1].data.names:
-            return self.hdu[1].data['QUALITY']
-        else:
-            return None
-
-    @property
     def bkg(self):
         sigma_clip = SigmaClip(sigma=3.)
         bkg = MMMBackground(sigma_clip=sigma_clip)
