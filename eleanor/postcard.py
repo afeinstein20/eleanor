@@ -335,7 +335,16 @@ class Postcard_tesscut(object):
             if self.header['CAMERA'] == 4:
                 if self.header['CCD'] == 4:
                     A = np.append(A[:6448],A[7910:])
-
+        if len(A) != len(self.flux):
+            # Workaround for general problem of
+            # https://github.com/afeinstein20/eleanor/issues/267
+            warnings.warn(
+                f"Num. of cadences mismatch between postcard TPF ({len(self.flux)})"
+                f" and sector-wide quality flags ({len(A)})"
+                f" for {source_id_str(self)}."
+                " Regenerate them."
+            )
+            A = calc_quality(self.hdu, sector)
         return A
 
     @property
@@ -360,3 +369,69 @@ class Postcard_tesscut(object):
                     A = np.append(A[:6448],A[7910:])
         return A
 
+
+def source_id_str(post_obj):
+    """Helper to return a short string describing the target's source."""
+    h = post_obj.header
+    # the post card does not have the TIC ID (at least not from TessCut)
+    return f"sector {h.get('SECTOR')}, camera {h.get('CAMERA')}, CCD {h.get('CCD')}"
+
+
+def calc_quality(ffi_hdu, sector):
+    """ Uses the quality flags in a 2-minute target to create quality flags
+        for the given postcard.
+    """
+
+    # Note: essentially the same code as Update.get_quality(),
+    # adapted to be used standalone.
+
+    ffi_time = ffi_hdu[1].data['TIME'] # - ffi_hdu[1].data['TIMECORR']
+
+    eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+    shortCad_fn = eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(sector)
+
+    # Binary string for values which apply to the FFIs
+    if sector > 26:
+        ffi_apply = int('100000000010101111', 2)
+    else:
+        ffi_apply = int('100010101111', 2)
+
+    # Obtains information for 2-minute target
+    twoMin     = fits.open(shortCad_fn)
+    twoMinTime = twoMin[1].data['TIME'] # - twoMin[1].data['TIMECORR']
+    # finite     = np.isfinite(twoMinTime)
+    twoMinQual = twoMin[1].data['QUALITY']
+
+    # if you only take the finite values, you're not guaranteeing
+    # that the twoMinQual[where - 2:where + 3] is getting 5 contiguous
+    # cadences that you expect. Some might have been removed, and you're
+    # applying quality flags to the wrong cadence.
+
+    # twoMinTime = twoMinTime[finite]
+    # twoMinQual = twoMinQual[finite]
+
+    convolve_ffi = []
+    for i in range(len(ffi_time)):
+        where = np.where(np.abs(ffi_time[i] - twoMinTime) == np.nanmin(np.abs(ffi_time[i] - twoMinTime)))[0][0]
+
+        sflux = np.sum(ffi_hdu[1].data['FLUX'][i])
+        nodata = 0
+        if sflux == 0:
+            nodata = 131072
+
+        if (ffi_time[i] > 1420) and (ffi_time[i] < 1424):
+            nodata = 131072
+
+        if sector < 27:
+            v = np.bitwise_or.reduce(twoMinQual[where-7:where+8])
+        elif sector < 56:
+            # XXX: need to test when TESSCut is available in S27
+            v = np.bitwise_or.reduce(twoMinQual[where - 2:where + 3])
+        else:
+            v = np.bitwise_or.reduce(twoMinQual[where - 5:where + 5])
+        convolve_ffi.append(np.bitwise_or(v, nodata))
+
+    convolve_ffi = np.array(convolve_ffi)
+
+    flags = np.bitwise_and(convolve_ffi, ffi_apply)
+    return flags
