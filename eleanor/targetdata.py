@@ -862,7 +862,8 @@ class TargetData(object):
             # https://github.com/afeinstein20/eleanor/issues/267
             warnings.warn(
                 f"Num. of cadences mismatch between TPF ({len(self.tpf)})"
-                f" and sector-wide quality flags ({len(self.post_obj.quality)})."
+                f" and sector-wide quality flags ({len(self.post_obj.quality)})"
+                f" for {source_id_str(self)}."
                 " Regnereate them."
             )
             self.quality = calc_quality(self.post_obj.hdu, self.source_info.sector)
@@ -1772,6 +1773,14 @@ def get_flattened_sigma(y, maxiter=100, window_size=51, nsigma=4):
             break
         n = m.sum()
     return sig
+
+
+def source_id_str(target):
+    """Helper to return a short string describing the target's source."""
+    return (
+        f"TIC {target.source_info.tic}, sector {target.source_info.sector}"
+        f" (camera {target.source_info.camera}, CCD {target.source_info.chip})"
+    )
 
 
 def calc_quality(ffi_hdu, sector):
