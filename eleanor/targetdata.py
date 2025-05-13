@@ -190,6 +190,7 @@ class TargetData(object):
                 else:
                     self.post_obj = Postcard_tesscut(source.cutout)
 
+                ### print(f"DBGt __init__() - #.post_obj={self.post_obj.dimensions}, #.post_obj.quality={self.post_obj.quality.shape}")
                 self.ffiindex = self.post_obj.ffiindex
                 self.flux_bkg = self.post_obj.bkg
                 self.get_time(source.coords)
@@ -451,6 +452,8 @@ class TargetData(object):
 
 
         self.tpf = self.tpf
+
+        ### print(f"DBGt get_tpf_from_postcard() - #.tpf={self.tpf.shape}")
 
         if save_postcard == False:
             try:
@@ -795,10 +798,26 @@ class TargetData(object):
         """
 
         try:
-            matrix_file = np.loadtxt(self.source_info.eleanorpath +
-            '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.source_info.sector,
-                                                                                    self.source_info.camera,
-                                                                                    self.source_info.chip))
+            cbvs_path = self.source_info.eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(
+                self.source_info.sector,
+                self.source_info.camera,
+                self.source_info.chip
+            )
+            matrix_file = np.loadtxt(cbvs_path)
+            ### print("DBGt", len(matrix_file), len(self.tpf))
+            if len(matrix_file) != len(self.tpf):
+                # Workaround for general problem of
+                # https://github.com/afeinstein20/eleanor/issues/267
+                warnings.warn(
+                    f"Num. of cadences mismatch between postcard TPF ({len(self.tpf)})"
+                    f" and the CBV ({len(matrix_file)})"
+                    f" for sector {self.source_info.sector}, camera {self.source_info.camera}, CCD {self.source_info.chip}."
+                    " Regenerate it."
+                )
+                # re-create, save and reload the CBV using the cadences in the poscard
+                calc_n_save_cbvs(self.post_obj.hdu, self.source_info.sector, run_hdu_camera_ccd_only=True)
+                matrix_file = np.loadtxt(cbvs_path)
+
             cbvs = np.asarray(matrix_file)
             if self.source_info.sector == 65:
                 if self.source_info.camera == 4:
@@ -806,7 +825,13 @@ class TargetData(object):
                         cbvs = np.append(cbvs[:6448],cbvs[7910:])
             self.cbvs = np.reshape(cbvs, (len(self.time), 16))
 
-        except:
+        except Exception as e:
+            warnings.warn(
+                "Unexpected error in loading CBV"
+                f" for sector {self.source_info.sector}, camera {self.source_info.camera}, CCD {self.source_info.chip}."
+                " Use zeros for CBV."
+                f" {type(e).__name__}: {e}"
+            )
             self.cbvs = np.zeros((len(self.time), 16))
         return
 
@@ -854,7 +879,7 @@ class TargetData(object):
         """ Reads in quality flags set in the postcard
         """
         self.quality = np.array(self.post_obj.quality)
-
+        ### print(f"DBGt set_quality() - #.quality={self.quality.shape} , #.tpf={self.tpf.shape}")
         self.quality[np.nansum(self.tpf, axis=(1,2)) == 0] = 128
 
         bkgvar = np.nanstd(self.bkg_tpf, axis=(1,2))/(np.nansum(self.bkg_tpf, axis=(1,2)))
@@ -1760,3 +1785,91 @@ def get_flattened_sigma(y, maxiter=100, window_size=51, nsigma=4):
             break
         n = m.sum()
     return sig
+
+
+def calc_n_save_cbvs(ffi_hdu, sector, run_hdu_camera_ccd_only=False):
+
+    # Note: essentially the same code as Update.get_cbvs(),
+    # adapted
+    # 1. to be used standalone,
+    # 2. run for a specific camera/ccd only
+
+    from .update import listFD, eleanorpath
+
+    if sector <= 6:
+        year = 2018
+    elif sector <= 20:
+        year = 2019
+    elif sector <= 33:
+        year = 2020
+    elif sector <= 47:
+        year = 2021
+    elif sector <= 60:
+        year = 2022
+    elif sector <= 73:
+        year = 2023
+    else:
+        year = 2024
+
+    url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(sector, year)
+
+    directs = []
+    for file in listFD(url):
+        directs.append(file)
+    directs = np.sort(directs)[1::]
+
+    subdirects = []
+    for file in listFD(directs[0]):
+        subdirects.append(file)
+    subdirects = np.sort(subdirects)[1:-4]
+    if run_hdu_camera_ccd_only:
+        # the camera ccd suffix in the subdir path
+        camera_ccd_suffix = "/{}-{}/".format(ffi_hdu[0].header['CAMERA'], ffi_hdu[0].header['CCD'])
+        subdirects = [s for s in subdirects if s.endswith(camera_ccd_suffix)]
+    ### print("DBGu subdirects=", subdirects)
+
+    cbv_ext = '_cbv.fits'
+    if sector > 55:
+        cbv_ext = '_fast-cbv.fits'
+
+    for i in range(len(subdirects)):
+        file = listFD(subdirects[i], ext=cbv_ext)[0]
+        os.system('curl -O -L {}'.format(file))
+
+    time = ffi_hdu[1].data['TIME'] - ffi_hdu[1].data['TIMECORR']
+
+    files = os.listdir('.')
+    files = [i for i in files if i.endswith(cbv_ext) and
+                's{0:04d}'.format(sector) in i]
+
+    ### print("DBGu files=", files)
+    ### print("DBGu len(files)=", len(files))
+    for c in range(len(files)):
+        # memmap=False as wokaround for https://github.com/afeinstein20/eleanor/issues/204
+        cbv      = fits.open(files[c], memmap=False)
+        camera   = cbv[1].header['CAMERA']
+        ccd      = cbv[1].header['CCD']
+        cbv_time = cbv[1].data['Time']
+
+        new_fn = eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(sector, camera, ccd)
+
+        convolved = np.zeros((len(time), 16))
+        for i in range(len(time)):
+            g = np.argmin(np.abs(time[i] - cbv_time))
+            for j in range(16):
+                index = 'VECTOR_{0}'.format(j+1)
+                if sector < 27:
+                    cads = np.arange(g-7, g+8, 1)
+                elif sector < 56:
+                    # XXX: need to test when TESSCut becomes available
+                    cads = np.arange(g-2, g+3, 1)
+                else:
+                    cads = np.arange(g - 5, g + 5, 1)
+                convolved[i, j] = np.mean(cbv[1].data[index][cads])
+        ### print("DBGu   saved new_fn=", new_fn);
+        np.savetxt(new_fn, convolved)
+        cbv.close()
+    files = [i for i in files if i.endswith(cbv_ext) and
+                's{0:04d}'.format(sector) in i]
+    for c in range(len(files)):
+        os.remove(files[c])
