@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.nddata import Cutout2D
-from photutils import CircularAperture, RectangularAperture, aperture_photometry
-from photutils import MMMBackground
+from photutils.aperture import CircularAperture, RectangularAperture, aperture_photometry
+from photutils.background import MMMBackground
 from lightkurve import lightcurve
 from lightkurve.correctors import SFFCorrector
 from scipy.optimize import minimize

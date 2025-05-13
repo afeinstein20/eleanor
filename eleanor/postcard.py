@@ -9,7 +9,7 @@ import warnings
 import pandas as pd
 import copy
 from astropy.stats import SigmaClip
-from photutils import MMMBackground
+from photutils.background import MMMBackground
 from .mast import crossmatch_by_position
 from urllib.request import urlopen
 
@@ -493,4 +493,3 @@ def calc_ffiindex(ffi_filelist, sector):
         outarr[i] = (int(np.round(cad))+index_zeropoint)
 
     return outarr
-
