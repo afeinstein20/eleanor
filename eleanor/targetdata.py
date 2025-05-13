@@ -1808,8 +1808,10 @@ def calc_n_save_cbvs(ffi_hdu, sector, run_hdu_camera_ccd_only=False):
         year = 2022
     elif sector <= 73:
         year = 2023
-    else:
+    elif sector <= 87:
         year = 2024
+    else:
+        year = 2025
 
     url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(sector, year)
 
