@@ -1,6 +1,6 @@
 nbsphinx
 ipykernel
-photutils
+photutils>=2.2.0
 tqdm
 lightkurve
 astropy>=3.2.3
