@@ -155,8 +155,8 @@ def coords_from_name(name):
     """ Finds the RA, Dec for a given target name."""
     from astroquery.simbad import Simbad
     result_table = Simbad.query_object(name)
-    coords = SkyCoord(Angle(result_table['RA'][0] + ' hours'),
-                      Angle(result_table['DEC'][0] + ' degrees'))
+    coords = SkyCoord(Angle(result_table['ra'][0]*u.deg),
+                      Angle(result_table['dec'][0]*u.deg))
     return (coords.ra.deg, coords.dec.deg)
 
 def coords_from_gaia(gaia_id):
