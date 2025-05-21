@@ -378,8 +378,22 @@ class Visualize(object):
             tic = self.obj.source_info.tic
 
         if tpf is None:
-            tpf = lk.search_tesscut(f'TIC {tic}')[0].download(cutout_size=(self.obj.tpf.shape[1],
-                                                                           self.obj.tpf.shape[2]))
+            try:
+                search_result = lk.search_tesscut(f'TIC {tic}', sector=self.obj.source_info.sector)
+                if len(search_result) == 0:
+                    raise ValueError("lightkurve.search_tesscut() returned no results.")
+                tpf = search_result.download(cutout_size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]))
+            except:
+                # If lightkurve.search_tesscut() returns no result or raise an error,
+                # utilize astroquery.mast.TesscutClass.download_cutouts() instead.
+                from astroquery.mast import Tesscut
+                # Download to the same path as lightkurve.search_tesscut().downlaod() does.
+                tesscut_path = os.path.join(os.path.expanduser('~'), '.lightkurve-cache/tesscut')
+                tpf_path_table = Tesscut.download_cutouts(objectname=f'TIC {tic}',
+                                                          size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]),
+                                                          sector=self.obj.source_info.sector,
+                                                          path=tesscut_path)
+                tpf = lk.read(tpf_path_table['Local Path'].data[0])
 
         if ax is None:
             ax = tpf[cadence].plot(show_colorbar=False, title=f'TIC {tic}')
@@ -414,8 +428,22 @@ class Visualize(object):
             tic = self.obj.source_info.tic
 
         if tpf is None:
-            search_result = lk.search_tesscut(f'TIC {tic}', sector=self.obj.source_info.sector)
-            tpf = search_result.download(cutout_size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]))
+            try:
+                search_result = lk.search_tesscut(f'TIC {tic}', sector=self.obj.source_info.sector)
+                if len(search_result) == 0:
+                    raise ValueError("lightkurve.search_tesscut() returned no results.")
+                tpf = search_result.download(cutout_size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]))
+            except:
+                # If lightkurve.search_tesscut() returns no result or raise an error,
+                # utilize astroquery.mast.TesscutClass.download_cutouts() instead.
+                from astroquery.mast import Tesscut
+                # Download to the same path as lightkurve.search_tesscut().downlaod() does.
+                tesscut_path = os.path.join(os.path.expanduser('~'), '.lightkurve-cache/tesscut')
+                tpf_path_table = Tesscut.download_cutouts(objectname=f'TIC {tic}',
+                                                          size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]),
+                                                          sector=self.obj.source_info.sector,
+                                                          path=tesscut_path)
+                tpf = lk.read(tpf_path_table['Local Path'].data[0])
 
         # Get the positions of the Gaia sources
         c1 = SkyCoord(tpf.ra, tpf.dec, frame='icrs', unit='deg')
