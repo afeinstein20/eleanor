@@ -166,7 +166,9 @@ class Visualize(object):
         inner = gridspec.GridSpecFromSubplotSpec(ncols, nrows, hspace=0.1, wspace=0.1,
                                                  subplot_spec=outer[1])
 
-        i, j = rowrange[0], colrange[0]
+        # start from the highest row, to be consistent with the small pixel plot
+        # using `ax.imshow(plotflux, origin='lower', ...)` below
+        i, j = rowrange[1] - 1, colrange[0]
 
         if mask is None:
             q = self.obj.quality == 0
@@ -263,7 +265,7 @@ class Visualize(object):
 
             j += 1
             if j == colrange[1]:
-                i += 1
+                i -= 1
                 j  = colrange[0]
 
             if data_type.lower() != 'amplitude':
