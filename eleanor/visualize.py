@@ -48,7 +48,7 @@ class Visualize(object):
             self.dimensions = self.obj.dimensions
 
 
-    def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, ax=None, **kwargs):
+    def aperture_contour(self, aperture=None, cadence=0, ap_color='w', ap_linewidth=4, ax=None, **kwargs):
         """
         Overplots the countour of an aperture on a target pixel file.
         Contribution from Gijs Mulders.
@@ -58,6 +58,9 @@ class Visualize(object):
         aperture : np.2darray, optional
             A 2D mask the same size as the target pixel file. Default
             is the eleanor default aperture.
+        cadence : int, optional
+            Index of the cadence in the TPF to plot.
+            Default is 0 (the first cadence).
         ap_color : str, optional
             The color of the aperture contour. Takes a matplotlib color.
             Default is red.
@@ -73,7 +76,7 @@ class Visualize(object):
         if aperture is None:
             aperture = self.obj.aperture
 
-        ax.imshow(self.obj.tpf[0], origin='lower', **kwargs)
+        ax.imshow(self.obj.tpf[cadence], origin='lower', **kwargs)
 
         f = lambda x,y: aperture[int(y),int(x) ]
         g = np.vectorize(f)
