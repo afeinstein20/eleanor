@@ -66,7 +66,8 @@ class Visualize(object):
         ax : matplotlib.axes._subplots.AxesSubplot, optional
             Axes to plot on.
         """
-        if ax == None:
+        ax_given = ax
+        if ax is None:
             fig, ax = plt.subplots(nrows=1)
 
         if aperture is None:
@@ -85,7 +86,7 @@ class Visualize(object):
         ax.contour(Z, [0.05], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
 
-        if ax == None:
+        if ax_given is None:
             return fig
 
 
