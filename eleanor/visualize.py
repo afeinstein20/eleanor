@@ -97,7 +97,7 @@ class Visualize(object):
     def pixel_by_pixel(self, colrange=None, rowrange=None, cmap='viridis',
                        data_type="corrected", mask=None, xlim=None,
                        ylim=None, color_by_pixel=False, color_by_aperture=True,
-                       freq_range=[1/20., 1/0.1], FAP=None, aperture=None, ap_color='r',
+                       freq_range=[1/20., 1/0.1], view='frequency', FAP=None, aperture=None, ap_color='r',
                        ap_linewidth=2):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
@@ -132,7 +132,12 @@ class Visualize(object):
              List of minimum and maximum frequency to search in Lomb Scargle
              periodogram. Only used if data_type = 'periodogram'. If None,
              default = [1/20., 1/0.1].
-        FAP: np.array, optional. 
+        view : str, optional
+            The type of view, i.e., x-axis units for periodogram visualization.
+            Either 'frequency' or 'period'. If ‘frequency’, x-axis units will be
+            frequency. If ‘period’, the x-axis units will be period.
+            Only used if data_type = 'amplitude'. If None, default is 'frequency'.
+        FAP: np.array, optional.
              False Alarm Probability levels to include in periodogram.
              Ensure that the values are < 1. 
              For example: FAP = np.array([0.1, 0.01]), will plot the 10% and 1% FAP levels.
@@ -215,9 +220,8 @@ class Visualize(object):
 
             elif data_type.lower() == 'amplitude':
                 lc = lk.LightCurve(time=time, flux=corr_flux)
-                pg = lc.normalize().to_periodogram()
-                x = pg.frequency.value
-                y = pg.power.value
+                pg = lc.normalize().to_periodogram(minimum_frequency=freq_range[0],
+                                                                     maximum_frequency=freq_range[1])
 
             elif data_type.lower() == 'raw':
                 y = flux[q]/np.nanmedian(flux[q])
@@ -242,7 +246,10 @@ class Visualize(object):
                 rgb = c.cmap(c.norm(self.flux[100,i,j]))
                 color = matplotlib.colors.rgb2hex(rgb)
 
-            ax.plot(x, y, c=color)
+            if data_type.lower() == 'amplitude':
+                pg.plot(view=view, scale='log', ax=ax, c=color)
+            else:
+                ax.plot(x, y, c=color)
 
             if (data_type.lower() == 'periodogram') & (FAP is not None):
                 if np.all(FAP<1): 
@@ -259,23 +266,19 @@ class Visualize(object):
                 i += 1
                 j  = colrange[0]
 
-            if ylim is None:
-                ax.set_ylim(np.percentile(y, 1), np.percentile(y, 99))
-            else:
-                ax.set_ylim(ylim[0], ylim[1])
+            if data_type.lower() != 'amplitude':
+                if ylim is None:
+                    ax.set_ylim(np.percentile(y, 1), np.percentile(y, 99))
+                else:
+                    ax.set_ylim(ylim[0], ylim[1])
 
-            if xlim is None:
-                ax.set_xlim(np.min(x)-0.1, np.max(x)+0.1)
-            else:
-                ax.set_xlim(xlim[0], xlim[1])
+                if xlim is None:
+                    ax.set_xlim(np.min(x)-0.1, np.max(x)+0.1)
+                else:
+                    ax.set_xlim(xlim[0], xlim[1])
 
-            if data_type.lower() == 'amplitude':
-                ax.set_yscale('log')
-                ax.set_xscale('log')
-                ax.set_ylim(y.min(), y.max())
-                ax.set_xlim(np.min(x),
-                            np.max(x))
-
+            ax.xaxis.label.set_visible(False)
+            ax.yaxis.label.set_visible(False)
             ax.set_xticks([])
             ax.set_yticks([])
 
