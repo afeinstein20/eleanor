@@ -416,7 +416,16 @@ class Visualize(object):
         if len(result) == 0:
             raise no_targets_found_message
         radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
+
         coords = tpf.wcs.all_world2pix(radecs, 0)
+        # Correct the pixel coordinates when TPF is truncated to the border of the postcard and
+        # the star is not located in the center of the TPF
+        if ((self.obj.source_info.tc == False and individual) and
+                (self.obj.tpf_star_x != int(np.floor(self.obj.tpf.shape[1] / 2)) or
+                 self.obj.tpf_star_y != int(np.floor(self.obj.tpf.shape[2] / 2)))):
+            coords[:, 0] -= int(np.floor(self.obj.tpf.shape[1] / 2) + 1) - self.obj.tpf_star_x
+            coords[:, 1] -= int(np.floor(self.obj.tpf.shape[2] / 2) + 1) - self.obj.tpf_star_y
+
         try:
             year = ((tpf.time[0].jd - 2457206.375) * u.day).to(u.year)
         except:
@@ -430,7 +439,15 @@ class Visualize(object):
         sizes = 10000.0 / 2**(result['Gmag']/2)
 
         target = tpf.wcs.world_to_pixel(c1)
-        plt.scatter(target[0]+tpf.column, target[1]+tpf.row, s=50, zorder=1000, c='k', marker='x')
+        target_x = target[0]
+        target_y = target[1]
+        # Correct the pixel coordinates when TPF is truncated to the border of the postcard and
+        # the star is not located in the center of the TPF
+        if ((self.obj.source_info.tc == False and individual) and
+                (self.obj.tpf_star_x != int(np.floor(self.obj.tpf.shape[1] / 2)) or
+                 self.obj.tpf_star_y != int(np.floor(self.obj.tpf.shape[2] / 2)))):
+            target_x -= int(np.floor(self.obj.tpf.shape[1] / 2) + 1) - self.obj.tpf_star_x
+            target_y -= int(np.floor(self.obj.tpf.shape[2] / 2) + 1) - self.obj.tpf_star_y
 
         if isinstance(fig_or_ax, plt.Figure):
             ax = fig_or_ax.gca()
