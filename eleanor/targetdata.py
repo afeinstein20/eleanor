@@ -331,10 +331,10 @@ class TargetData(object):
         # Fixes the postage stamp if the user requests a size that is too big for the postcard
         if y_low_lim <= 0:
             y_low_lim = 0
-            y_upp_lim = med_y + width + y_low_lim
+            y_upp_lim = width + y_low_lim
         if x_low_lim <= 0:
             x_low_lim = 0
-            x_upp_lim = med_x + height + x_low_lim
+            x_upp_lim = height + x_low_lim
         if y_upp_lim  > post_y_upp:
             y_upp_lim = post_y_upp+1
             y_low_lim = med_y - width + (post_y_upp-med_y)
@@ -352,10 +352,10 @@ class TargetData(object):
 
         if y_low_bkg <= 0:
             y_low_bkg = 0
-            y_upp_bkg = med_y + width + y_low_bkg
+            y_upp_bkg = width + y_low_bkg
         if x_low_bkg <= 0:
             x_low_bkg = 0
-            x_upp_bkg = med_x + height + x_low_bkg
+            x_upp_bkg = height + x_low_bkg
         if y_upp_bkg  > post_y_upp:
             y_upp_bkg = post_y_upp+1
             y_low_bkg = med_y - width + (post_y_upp - med_y)

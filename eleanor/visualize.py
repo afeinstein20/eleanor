@@ -48,7 +48,7 @@ class Visualize(object):
             self.dimensions = self.obj.dimensions
 
 
-    def aperture_contour(self, aperture=None, ap_color='w', ap_linewidth=4, ax=None, **kwargs):
+    def aperture_contour(self, aperture=None, cadence=0, ap_color='w', ap_linewidth=4, ax=None, **kwargs):
         """
         Overplots the countour of an aperture on a target pixel file.
         Contribution from Gijs Mulders.
@@ -58,6 +58,9 @@ class Visualize(object):
         aperture : np.2darray, optional
             A 2D mask the same size as the target pixel file. Default
             is the eleanor default aperture.
+        cadence : int, optional
+            Index of the cadence in the TPF to plot.
+            Default is 0 (the first cadence).
         ap_color : str, optional
             The color of the aperture contour. Takes a matplotlib color.
             Default is red.
@@ -66,13 +69,14 @@ class Visualize(object):
         ax : matplotlib.axes._subplots.AxesSubplot, optional
             Axes to plot on.
         """
-        if ax == None:
+        ax_given = ax
+        if ax is None:
             fig, ax = plt.subplots(nrows=1)
 
         if aperture is None:
             aperture = self.obj.aperture
 
-        ax.imshow(self.obj.tpf[0], origin='lower', **kwargs)
+        ax.imshow(self.obj.tpf[cadence], origin='lower', **kwargs)
 
         f = lambda x,y: aperture[int(y),int(x) ]
         g = np.vectorize(f)
@@ -85,7 +89,7 @@ class Visualize(object):
         ax.contour(Z, [0.05], colors=ap_color, linewidths=[ap_linewidth],
                     extent=[0-0.5, x[:-1].max()-0.5,0-0.5, y[:-1].max()-0.5])
 
-        if ax == None:
+        if ax_given is None:
             return fig
 
 
@@ -93,7 +97,7 @@ class Visualize(object):
     def pixel_by_pixel(self, colrange=None, rowrange=None, cmap='viridis',
                        data_type="corrected", mask=None, xlim=None,
                        ylim=None, color_by_pixel=False, color_by_aperture=True,
-                       freq_range=[1/20., 1/0.1], FAP=None, aperture=None, ap_color='r',
+                       freq_range=[1/20., 1/0.1], view='frequency', FAP=None, aperture=None, ap_color='r',
                        ap_linewidth=2):
         """
         Creates a pixel-by-pixel light curve using the corrected flux.
@@ -128,7 +132,12 @@ class Visualize(object):
              List of minimum and maximum frequency to search in Lomb Scargle
              periodogram. Only used if data_type = 'periodogram'. If None,
              default = [1/20., 1/0.1].
-        FAP: np.array, optional. 
+        view : str, optional
+            The type of view, i.e., x-axis units for periodogram visualization.
+            Either 'frequency' or 'period'. If ‘frequency’, x-axis units will be
+            frequency. If ‘period’, the x-axis units will be period.
+            Only used if data_type = 'amplitude'. If None, default is 'frequency'.
+        FAP: np.array, optional.
              False Alarm Probability levels to include in periodogram.
              Ensure that the values are < 1. 
              For example: FAP = np.array([0.1, 0.01]), will plot the 10% and 1% FAP levels.
@@ -157,7 +166,9 @@ class Visualize(object):
         inner = gridspec.GridSpecFromSubplotSpec(ncols, nrows, hspace=0.1, wspace=0.1,
                                                  subplot_spec=outer[1])
 
-        i, j = rowrange[0], colrange[0]
+        # start from the highest row, to be consistent with the small pixel plot
+        # using `ax.imshow(plotflux, origin='lower', ...)` below
+        i, j = rowrange[1] - 1, colrange[0]
 
         if mask is None:
             q = self.obj.quality == 0
@@ -211,9 +222,8 @@ class Visualize(object):
 
             elif data_type.lower() == 'amplitude':
                 lc = lk.LightCurve(time=time, flux=corr_flux)
-                pg = lc.normalize().to_periodogram()
-                x = pg.frequency.value
-                y = pg.power.value
+                pg = lc.normalize().to_periodogram(minimum_frequency=freq_range[0],
+                                                                     maximum_frequency=freq_range[1])
 
             elif data_type.lower() == 'raw':
                 y = flux[q]/np.nanmedian(flux[q])
@@ -238,7 +248,10 @@ class Visualize(object):
                 rgb = c.cmap(c.norm(self.flux[100,i,j]))
                 color = matplotlib.colors.rgb2hex(rgb)
 
-            ax.plot(x, y, c=color)
+            if data_type.lower() == 'amplitude':
+                pg.plot(view=view, scale='log', ax=ax, c=color)
+            else:
+                ax.plot(x, y, c=color)
 
             if (data_type.lower() == 'periodogram') & (FAP is not None):
                 if np.all(FAP<1): 
@@ -252,26 +265,22 @@ class Visualize(object):
 
             j += 1
             if j == colrange[1]:
-                i += 1
+                i -= 1
                 j  = colrange[0]
 
-            if ylim is None:
-                ax.set_ylim(np.percentile(y, 1), np.percentile(y, 99))
-            else:
-                ax.set_ylim(ylim[0], ylim[1])
+            if data_type.lower() != 'amplitude':
+                if ylim is None:
+                    ax.set_ylim(np.percentile(y, 1), np.percentile(y, 99))
+                else:
+                    ax.set_ylim(ylim[0], ylim[1])
 
-            if xlim is None:
-                ax.set_xlim(np.min(x)-0.1, np.max(x)+0.1)
-            else:
-                ax.set_xlim(xlim[0], xlim[1])
+                if xlim is None:
+                    ax.set_xlim(np.min(x)-0.1, np.max(x)+0.1)
+                else:
+                    ax.set_xlim(xlim[0], xlim[1])
 
-            if data_type.lower() == 'amplitude':
-                ax.set_yscale('log')
-                ax.set_xscale('log')
-                ax.set_ylim(y.min(), y.max())
-                ax.set_xlim(np.min(x),
-                            np.max(x))
-
+            ax.xaxis.label.set_visible(False)
+            ax.yaxis.label.set_visible(False)
             ax.set_xticks([])
             ax.set_yticks([])
 
@@ -345,23 +354,97 @@ class Visualize(object):
             return
 
 
-    def plot_gaia_overlay(self, tic=None, tpf=None, magnitude_limit=18):
-        """Check if the source is contaminated."""
+    def plot_gaia_overlay(self, tic=None, tpf=None, cadence=0, ax=None, magnitude_limit=18):
+        """
+        Check if the source is contaminated.
 
+        Parameters
+        ----------
+        tic : int, optional
+            The TIC ID of the source.
+        tpf : lightkurve.TargetPixelFile, optional
+            Target Pixel File object. If None, searches and downloads TPF from MAST.
+            Default is None.
+        cadence : int, optional
+            Index of the cadence in the TPF to plot.
+            Default is 0 (the first cadence).
+        ax : matplotlib.axes._subplots.AxesSubplot, optional
+            Axes to plot on.
+        magnitude_limit : float, optional
+            The Gaia G magnitude limit for the Gaia sources to be plotted.
+            Default is 18.
+        """
         if tic is None:
             tic = self.obj.source_info.tic
 
         if tpf is None:
-            tpf = lk.search_tesscut(f'TIC {tic}')[0].download(cutout_size=(self.obj.tpf.shape[1],
-                                                                           self.obj.tpf.shape[2]))
+            try:
+                search_result = lk.search_tesscut(f'TIC {tic}', sector=self.obj.source_info.sector)
+                if len(search_result) == 0:
+                    raise ValueError("lightkurve.search_tesscut() returned no results.")
+                tpf = search_result.download(cutout_size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]))
+            except:
+                # If lightkurve.search_tesscut() returns no result or raise an error,
+                # utilize astroquery.mast.TesscutClass.download_cutouts() instead.
+                from astroquery.mast import Tesscut
+                # Download to the same path as lightkurve.search_tesscut().downlaod() does.
+                tesscut_path = os.path.join(os.path.expanduser('~'), '.lightkurve-cache/tesscut')
+                tpf_path_table = Tesscut.download_cutouts(objectname=f'TIC {tic}',
+                                                          size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]),
+                                                          sector=self.obj.source_info.sector,
+                                                          path=tesscut_path)
+                tpf = lk.read(tpf_path_table['Local Path'].data[0])
 
-        fig = tpf.plot(show_colorbar=False, title='TIC {0}'.format(tic))
-        fig = self._add_gaia_figure_elements(tpf, fig, magnitude_limit=magnitude_limit)
+        if ax is None:
+            ax = tpf[cadence].plot(show_colorbar=False, title=f'TIC {tic}')
+        else:
+            ax = tpf[cadence].plot(ax=ax, show_colorbar=False, title=f'TIC {tic}')
 
-        return fig
+        ax = self.add_gaia_figure_elements(fig_or_ax=ax, individual=False, tpf=tpf, magnitude_limit=magnitude_limit)
+        return ax
 
-    def _add_gaia_figure_elements(self, tpf, fig, magnitude_limit=18):
-        """Make the Gaia Figure Elements"""
+    def add_gaia_figure_elements(self, fig_or_ax, individual=True, tic=None, tpf=None, magnitude_limit=18):
+        """
+        Make the Gaia Figure Elements
+
+        Parameters
+        ----------
+        fig_or_ax : matplotlib.figure.Figure or matplotlib.axes._subplots.AxesSubplot
+            Figure or Axes to overlay Gaia sources on.
+        individual: bool, optional
+            Whether the add_gaia_figure_elements() method is applied individually
+            (i.e., not being called as a helper function of the plot_gaia_overlay() method).
+            Default is True.
+        tic : int, optional
+            The TIC ID of the source.
+        tpf : lightkurve.TargetPixelFile, optional
+            Target Pixel File object. If None, searches and downloads TPF from MAST.
+            Default is None.
+        magnitude_limit : float, optional
+            The Gaia G magnitude limit for the Gaia sources to be plotted.
+            Default is 18.
+        """
+        if tic is None:
+            tic = self.obj.source_info.tic
+
+        if tpf is None:
+            try:
+                search_result = lk.search_tesscut(f'TIC {tic}', sector=self.obj.source_info.sector)
+                if len(search_result) == 0:
+                    raise ValueError("lightkurve.search_tesscut() returned no results.")
+                tpf = search_result.download(cutout_size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]))
+            except:
+                # If lightkurve.search_tesscut() returns no result or raise an error,
+                # utilize astroquery.mast.TesscutClass.download_cutouts() instead.
+                from astroquery.mast import Tesscut
+                # Download to the same path as lightkurve.search_tesscut().downlaod() does.
+                tesscut_path = os.path.join(os.path.expanduser('~'), '.lightkurve-cache/tesscut')
+                tpf_path_table = Tesscut.download_cutouts(objectname=f'TIC {tic}',
+                                                          size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]),
+                                                          sector=self.obj.source_info.sector,
+                                                          path=tesscut_path)
+                tpf = lk.read(tpf_path_table['Local Path'].data[0])
+
         # Get the positions of the Gaia sources
         c1 = SkyCoord(tpf.ra, tpf.dec, frame='icrs', unit='deg')
         # Use pixel scale for query size
@@ -383,7 +466,16 @@ class Visualize(object):
         if len(result) == 0:
             raise no_targets_found_message
         radecs = np.vstack([result['RA_ICRS'], result['DE_ICRS']]).T
+
         coords = tpf.wcs.all_world2pix(radecs, 0)
+        # Correct the pixel coordinates when TPF is truncated to the border of the postcard and
+        # the star is not located in the center of the TPF
+        if ((self.obj.source_info.tc == False and individual) and
+                (self.obj.tpf_star_x != int(np.floor(self.obj.tpf.shape[1] / 2)) or
+                 self.obj.tpf_star_y != int(np.floor(self.obj.tpf.shape[2] / 2)))):
+            coords[:, 0] -= int(np.floor(self.obj.tpf.shape[1] / 2) + 1) - self.obj.tpf_star_x
+            coords[:, 1] -= int(np.floor(self.obj.tpf.shape[2] / 2) + 1) - self.obj.tpf_star_y
+
         try:
             year = ((tpf.time[0].jd - 2457206.375) * u.day).to(u.year)
         except:
@@ -397,12 +489,38 @@ class Visualize(object):
         sizes = 10000.0 / 2**(result['Gmag']/2)
 
         target = tpf.wcs.world_to_pixel(c1)
-        plt.scatter(target[0]+tpf.column, target[1]+tpf.row, s=50, zorder=1000, c='k', marker='x')
+        target_x = target[0]
+        target_y = target[1]
+        # Correct the pixel coordinates when TPF is truncated to the border of the postcard and
+        # the star is not located in the center of the TPF
+        if ((self.obj.source_info.tc == False and individual) and
+                (self.obj.tpf_star_x != int(np.floor(self.obj.tpf.shape[1] / 2)) or
+                 self.obj.tpf_star_y != int(np.floor(self.obj.tpf.shape[2] / 2)))):
+            target_x -= int(np.floor(self.obj.tpf.shape[1] / 2) + 1) - self.obj.tpf_star_x
+            target_y -= int(np.floor(self.obj.tpf.shape[2] / 2) + 1) - self.obj.tpf_star_y
 
-        plt.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
-        plt.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='None', edgecolors='r', s=sizes)
-        plt.xlim([tpf.column-0.5, tpf.column+tpf.shape[1]-0.5])
-        plt.ylim([tpf.row-0.5, tpf.row+tpf.shape[2]-0.5])
+        if isinstance(fig_or_ax, plt.Figure):
+            ax = fig_or_ax.gca()
+        elif isinstance(fig_or_ax, plt.Axes):
+            ax = fig_or_ax
+        else:
+            raise ValueError("'fig_or_ax' must be a matplotlib Figure or Axes object.")
 
-        return fig
+        if individual:
+            ax.scatter(target_x, target_y, s=50, zorder=1000, c='k', marker='x')
+
+            ax.scatter(coords[:, 0], coords[:, 1], c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
+            ax.scatter(coords[:, 0], coords[:, 1], c='None', edgecolors='r', s=sizes)
+            ax.set_xlim([-0.5, tpf.shape[1]-0.5])
+            ax.set_ylim([-0.5, tpf.shape[2]-0.5])
+
+        else:
+            ax.scatter(target_x+tpf.column, target_y+tpf.row, s=50, zorder=1000, c='k', marker='x')
+
+            ax.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
+            ax.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='None', edgecolors='r', s=sizes)
+            ax.set_xlim([tpf.column-0.5, tpf.column+tpf.shape[1]-0.5])
+            ax.set_ylim([tpf.row-0.5, tpf.row+tpf.shape[2]-0.5])
+
+        return fig_or_ax
 
