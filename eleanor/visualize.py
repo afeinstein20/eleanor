@@ -354,9 +354,26 @@ class Visualize(object):
             return
 
 
-    def plot_gaia_overlay(self, tic=None, tpf=None, magnitude_limit=18):
-        """Check if the source is contaminated."""
+    def plot_gaia_overlay(self, tic=None, tpf=None, cadence=0, ax=None, magnitude_limit=18):
+        """
+        Check if the source is contaminated.
 
+        Parameters
+        ----------
+        tic : int, optional
+            The TIC ID of the source.
+        tpf : lightkurve.TargetPixelFile, optional
+            Target Pixel File object. If None, searches and downloads TPF from MAST.
+            Default is None.
+        cadence : int, optional
+            Index of the cadence in the TPF to plot.
+            Default is 0 (the first cadence).
+        ax : matplotlib.axes._subplots.AxesSubplot, optional
+            Axes to plot on.
+        magnitude_limit : float, optional
+            The Gaia G magnitude limit for the Gaia sources to be plotted.
+            Default is 18.
+        """
         if tic is None:
             tic = self.obj.source_info.tic
 
@@ -364,8 +381,13 @@ class Visualize(object):
             tpf = lk.search_tesscut(f'TIC {tic}')[0].download(cutout_size=(self.obj.tpf.shape[1],
                                                                            self.obj.tpf.shape[2]))
 
-        fig = tpf.plot(show_colorbar=False, title='TIC {0}'.format(tic))
-        fig = self._add_gaia_figure_elements(tpf, fig, magnitude_limit=magnitude_limit)
+        if ax is None:
+            ax = tpf[cadence].plot(show_colorbar=False, title=f'TIC {tic}')
+        else:
+            ax = tpf[cadence].plot(ax=ax, show_colorbar=False, title=f'TIC {tic}')
+
+        ax = self.add_gaia_figure_elements(fig_or_ax=ax, individual=False, tpf=tpf, magnitude_limit=magnitude_limit)
+        return ax
 
     def add_gaia_figure_elements(self, fig_or_ax, individual=True, tic=None, tpf=None, magnitude_limit=18):
         """
