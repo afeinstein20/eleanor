@@ -367,10 +367,34 @@ class Visualize(object):
         fig = tpf.plot(show_colorbar=False, title='TIC {0}'.format(tic))
         fig = self._add_gaia_figure_elements(tpf, fig, magnitude_limit=magnitude_limit)
 
-        return fig
+    def add_gaia_figure_elements(self, fig_or_ax, individual=True, tic=None, tpf=None, magnitude_limit=18):
+        """
+        Make the Gaia Figure Elements
 
-    def _add_gaia_figure_elements(self, tpf, fig, magnitude_limit=18):
-        """Make the Gaia Figure Elements"""
+        Parameters
+        ----------
+        fig_or_ax : matplotlib.figure.Figure or matplotlib.axes._subplots.AxesSubplot
+            Figure or Axes to overlay Gaia sources on.
+        individual: bool, optional
+            Whether the add_gaia_figure_elements() method is applied individually
+            (i.e., not being called as a helper function of the plot_gaia_overlay() method).
+            Default is True.
+        tic : int, optional
+            The TIC ID of the source.
+        tpf : lightkurve.TargetPixelFile, optional
+            Target Pixel File object. If None, searches and downloads TPF from MAST.
+            Default is None.
+        magnitude_limit : float, optional
+            The Gaia G magnitude limit for the Gaia sources to be plotted.
+            Default is 18.
+        """
+        if tic is None:
+            tic = self.obj.source_info.tic
+
+        if tpf is None:
+            search_result = lk.search_tesscut(f'TIC {tic}', sector=self.obj.source_info.sector)
+            tpf = search_result.download(cutout_size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]))
+
         # Get the positions of the Gaia sources
         c1 = SkyCoord(tpf.ra, tpf.dec, frame='icrs', unit='deg')
         # Use pixel scale for query size
@@ -408,10 +432,28 @@ class Visualize(object):
         target = tpf.wcs.world_to_pixel(c1)
         plt.scatter(target[0]+tpf.column, target[1]+tpf.row, s=50, zorder=1000, c='k', marker='x')
 
-        plt.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
-        plt.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='None', edgecolors='r', s=sizes)
-        plt.xlim([tpf.column-0.5, tpf.column+tpf.shape[1]-0.5])
-        plt.ylim([tpf.row-0.5, tpf.row+tpf.shape[2]-0.5])
+        if isinstance(fig_or_ax, plt.Figure):
+            ax = fig_or_ax.gca()
+        elif isinstance(fig_or_ax, plt.Axes):
+            ax = fig_or_ax
+        else:
+            raise ValueError("'fig_or_ax' must be a matplotlib Figure or Axes object.")
 
-        return fig
+        if individual:
+            ax.scatter(target_x, target_y, s=50, zorder=1000, c='k', marker='x')
+
+            ax.scatter(coords[:, 0], coords[:, 1], c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
+            ax.scatter(coords[:, 0], coords[:, 1], c='None', edgecolors='r', s=sizes)
+            ax.set_xlim([-0.5, tpf.shape[1]-0.5])
+            ax.set_ylim([-0.5, tpf.shape[2]-0.5])
+
+        else:
+            ax.scatter(target_x+tpf.column, target_y+tpf.row, s=50, zorder=1000, c='k', marker='x')
+
+            ax.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='firebrick', alpha=0.5, edgecolors='r', s=sizes)
+            ax.scatter(coords[:, 0]+tpf.column, coords[:, 1]+tpf.row, c='None', edgecolors='r', s=sizes)
+            ax.set_xlim([tpf.column-0.5, tpf.column+tpf.shape[1]-0.5])
+            ax.set_ylim([tpf.row-0.5, tpf.row+tpf.shape[2]-0.5])
+
+        return fig_or_ax
 
