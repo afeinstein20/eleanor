@@ -188,7 +188,8 @@ class TargetData(object):
                     self.post_obj = Postcard(source.postcard, source.postcard_bkg,
                                              source.postcard_path)
                 else:
-                    self.post_obj = Postcard_tesscut(source.cutout)
+                    location_path = os.path.join(source.metadata_path, 'tesscut')
+                    self.post_obj = Postcard_tesscut(source.cutout, location=location_path, eleanorpath=source.metadata_path)
 
                 ### print(f"DBGt __init__() - #.post_obj={self.post_obj.dimensions}, #.post_obj.quality={self.post_obj.quality.shape}")
                 self.ffiindex = self.post_obj.ffiindex

@@ -215,12 +215,18 @@ class Postcard_tesscut(object):
         (`x`, `y`) coordinates corresponding to the location of
         the postcard's (0,0) pixel on the FFI.
     """
-    def __init__(self, cutout, location=None):
+    def __init__(self, cutout, location=None, eleanorpath=None):
+
+        if eleanorpath is None:
+            self.eleanor_path = os.path.join(os.path.expanduser('~'), '.eleanor')
+        else:
+            self.eleanor_path = eleanorpath
 
         if location is None:
-            self.local_path = os.path.join(os.path.expanduser('~'), '.eleanor/tesscut')
+            self.local_path = os.path.join(self.eleanor_path, 'tesscut')
         else:
             self.local_path = location
+
 
         self.hdu = cutout
 
@@ -330,8 +336,7 @@ class Postcard_tesscut(object):
     @property
     def quality(self):
         sector = self.header['SECTOR']
-        eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
-        A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
+        A = np.loadtxt(self.eleanor_path + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(sector))
         if sector == 65:
             if self.header['CAMERA'] == 4:
                 if self.header['CCD'] == 4:
@@ -345,7 +350,7 @@ class Postcard_tesscut(object):
                 f" for {source_id_str(self)}."
                 " Regenerate them."
             )
-            A = calc_quality(self.hdu, sector)
+            A = calc_quality(self.hdu, sector, eleanorpath=self.eleanor_path)
         return A
 
     @property
@@ -362,8 +367,7 @@ class Postcard_tesscut(object):
     @property
     def ffiindex(self):
         sector = self.header['SECTOR']
-        eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
-        A = np.loadtxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
+        A = np.loadtxt(self.eleanor_path + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(sector))
         if sector == 65:
             if self.header['CAMERA'] == 4:
                 if self.header['CCD'] == 4:
@@ -389,7 +393,7 @@ def source_id_str(post_obj):
     return f"sector {h.get('SECTOR')}, camera {h.get('CAMERA')}, CCD {h.get('CCD')}"
 
 
-def calc_quality(ffi_hdu, sector):
+def calc_quality(ffi_hdu, sector, eleanorpath=None):
     """ Uses the quality flags in a 2-minute target to create quality flags
         for the given postcard.
     """
@@ -399,7 +403,8 @@ def calc_quality(ffi_hdu, sector):
 
     ffi_time = ffi_hdu[1].data['TIME'] # - ffi_hdu[1].data['TIMECORR']
 
-    eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+    if eleanorpath is None:
+        eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
     shortCad_fn = eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(sector)
 
     # Binary string for values which apply to the FFIs

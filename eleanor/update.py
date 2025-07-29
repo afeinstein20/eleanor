@@ -12,12 +12,6 @@ import requests
 from bs4 import BeautifulSoup
 import shutil
 
-eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
-if not os.path.exists(eleanorpath):
-    try:
-        os.mkdir(eleanorpath)
-    except OSError:
-        eleanorpath = os.path.dirname(__file__)
 
 
 def hmsm_to_days(hour=0, min=0, sec=0, micro=0):
@@ -96,20 +90,24 @@ def update_all():
 
 
 class Update(object):
-    def __init__(self, sector=None):
+    def __init__(self, sector=None, eleanor_metadata_path=None):
+
+        if eleanor_metadata_path is None:
+            eleanor_metadata_path = os.path.join(os.path.expanduser('~'), '.eleanor')
+
 
         if sector is None:
             print('Please pass a sector into eleanor.Update().')
             return
 
-        if not os.path.exists(eleanorpath + '/metadata'):
-            os.mkdir(eleanorpath + '/metadata')
+        if not os.path.exists(eleanor_metadata_path + '/metadata'):
+            os.mkdir(eleanor_metadata_path + '/metadata')
 
         # Updates max sector file first
         update_max_sector()
 
         self.sector = sector
-        self.metadata_path = os.path.join(eleanorpath, 'metadata/s{0:04d}'.format(self.sector))
+        self.metadata_path = os.path.join(eleanor_metadata_path, 'metadata/s{0:04d}'.format(self.sector))
         lastfile = 'cbv_components_s{0:04d}_0004_0004.txt'.format(self.sector)
 
         # Checks to see if directory contains all necessary files first
@@ -234,7 +232,7 @@ class Update(object):
             ccd      = cbv[1].header['CCD']
             cbv_time = cbv[1].data['Time']
 
-            new_fn = eleanorpath + '/metadata/s{0:04d}/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.sector, camera, ccd)
+            new_fn = self.metadata_path + '/cbv_components_s{0:04d}_{1:04d}_{2:04d}.txt'.format(self.sector, camera, ccd)
 
             convolved = np.zeros((len(time), 16))
             for i in range(len(time)):
@@ -277,7 +275,7 @@ class Update(object):
             if len(str(line)) > 30:
                 os.system(str(line)[2:-3])
                 fn = str(line)[2:-3].split()[5]
-                shutil.move(fn, eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector))
+                shutil.move(fn, self.metadata_path + '/target_s{0:04d}.fits'.format(self.sector))
                 break
         return
 
@@ -320,7 +318,7 @@ class Update(object):
                 cad = (tjd - index_t0) / (200. / (1440.*60))
             outarr[i] = (int(np.round(cad))+index_zeropoint)
 
-        np.savetxt(eleanorpath + '/metadata/s{0:04d}/cadences_s{0:04d}.txt'.format(self.sector), outarr, fmt='%i')
+        np.savetxt(self.metadata_path + '/cadences_s{0:04d}.txt'.format(self.sector), outarr, fmt='%i')
         return
 
     def get_quality(self):
@@ -330,7 +328,7 @@ class Update(object):
 
         ffi_time = self.cutout[1].data['TIME'] # - self.cutout[1].data['TIMECORR']
 
-        shortCad_fn = eleanorpath + '/metadata/s{0:04d}/target_s{0:04d}.fits'.format(self.sector)
+        shortCad_fn = self.metadata_path + '/target_s{0:04d}.fits'.format(self.sector)
 
         # Binary string for values which apply to the FFIs
         if self.sector > 26:
@@ -377,4 +375,4 @@ class Update(object):
 
         flags = np.bitwise_and(convolve_ffi, ffi_apply)
 
-        np.savetxt(eleanorpath + '/metadata/s{0:04d}/quality_s{0:04d}.txt'.format(self.sector), flags, fmt='%i')
+        np.savetxt(self.metadata_path + '/quality_s{0:04d}.txt'.format(self.sector), flags, fmt='%i')

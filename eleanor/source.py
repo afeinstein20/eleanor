@@ -169,18 +169,18 @@ class Source(object):
         else:
             self.fn_dir  = fn_dir
 
-        self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+        # self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 
         if metadata_path is None:
-            self.metadata_path = self.eleanorpath
+            self.metadata_path = os.path.join(os.path.expanduser('~'), '.eleanor')
         else:
             self.metadata_path = metadata_path
 
-        if not os.path.exists(self.eleanorpath):
+        if not os.path.exists(self.metadata_path):
             try:
-                os.mkdir(self.eleanorpath)
+                os.mkdir(self.metadata_path)
             except OSError:
-                self.eleanorpath = os.path.dirname(__file__)
+                self.metadata_path = os.path.dirname(__file__)
 
         if not os.path.exists(self.metadata_path + '/metadata'):
             os.mkdir(self.metadata_path + '/metadata')
@@ -263,7 +263,7 @@ class Source(object):
             self.tesscut_size = tesscut_size
 
             if not os.path.isdir(self.metadata_path + '/metadata/s{:04d}'.format(self.sector)):
-                Update(sector=self.sector)
+                Update(sector=self.sector, eleanor_metadata_path=self.metadata_path)
 
             if tc == False:
                 self.locate_postcard(local)
