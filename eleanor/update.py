@@ -90,11 +90,9 @@ def update_all():
 
 
 class Update(object):
-    def __init__(self, sector=None, eleanor_metadata_path=None):
+    def __init__(self, sector=None):
 
-        if eleanor_metadata_path is None:
-            eleanor_metadata_path = os.path.join(os.path.expanduser('~'), '.eleanor')
-
+        eleanor_metadata_path = os.path.join(os.path.expanduser('~'), '.eleanor')
 
         if sector is None:
             print('Please pass a sector into eleanor.Update().')
