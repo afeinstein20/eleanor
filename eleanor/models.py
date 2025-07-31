@@ -1,7 +1,7 @@
 import math
+import numpy as np
 from astropy.io import fits as pyfits
 from lightkurve.utils import channel_to_module_output
-import numpy as np
 
 # Vaneska models of Ze Vinicius
 

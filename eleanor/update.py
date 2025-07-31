@@ -1,16 +1,16 @@
 import os
-from urllib.request import urlopen
-from datetime import datetime
-import math
-from astropy.coordinates import SkyCoord
-from astropy import units as u
-from astroquery.mast import Tesscut
-from astropy.io import fits
-import numpy as np
 import sys
-import requests
-from bs4 import BeautifulSoup
+import math
 import shutil
+import requests
+import numpy as np
+from astropy.io import fits
+from datetime import datetime
+from bs4 import BeautifulSoup
+from astropy import units as u
+from urllib.request import urlopen
+from astroquery.mast import Tesscut
+from astropy.coordinates import SkyCoord
 
 from .assignments import assign_year, assign_target
 

@@ -1,17 +1,17 @@
-import numpy as np
-from astropy.wcs import WCS
-from astropy.table import Table
-from astropy import units as u
-from astropy.coordinates import SkyCoord
-from astropy.io import fits
 import re
 import os
 import sys
-from os.path import join, abspath
-from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
 import warnings
+import numpy as np
+from astropy.wcs import WCS
+from astropy.io import fits
+from astropy import units as u
+from astropy.table import Table
+from os.path import join, abspath
 from astroquery.mast import Tesscut
+from astropy.coordinates import SkyCoord
 from astroquery.mast import Observations
+from tess_stars2px import tess_stars2px_function_entry as tess_stars2px
 
 from . import PACKAGEDIR
 

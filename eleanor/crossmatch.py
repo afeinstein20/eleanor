@@ -1,10 +1,10 @@
-import numpy as np
-import urllib
 import os
 import socket
+import urllib
+import numpy as np
 import pandas as pd
-from astroquery.mast import Observations
 from astropy.io import fits
+from astroquery.mast import Observations
 from lightkurve.search import search_targetpixelfile
 
 from .utils import *
@@ -14,7 +14,7 @@ __all__ = ['Crossmatch']
 class Crossmatch(object):
     """
     This class can be used to find the same light curve from different
-    pipelines. The current available light curves are from the 
+    pipelines. The current available light curves are from the
     TESS Asteroseismic Science Consortium (TASC) and Oelkers & Stassun (2019).
     Oelkers & Stassun light curves are only available through Sector 5.
 
@@ -35,9 +35,9 @@ class Crossmatch(object):
     def two_minute(self, download=False, sectors=None):
         """
         Checks to see if short cadence data is available for your target.
-        
+
         Parameters
-        ---------- 
+        ----------
         download : str, optional
              Allows the user to download the short cadence target pixel files.
              By default, downloads all sectors that are available.
@@ -46,7 +46,7 @@ class Crossmatch(object):
              data. By default, downloads the sector assigned to the 30-minute
              data.
         Returns
-        ---------- 
+        ----------
         sc : np.ndarray
              If download == True : Returns a list of lightkurve.lightcurve.TessLightCurve object(s).
              If download == False : Returns a lightkurve.search.SearchResult object.
@@ -54,7 +54,7 @@ class Crossmatch(object):
         if sectors is None:
             sectors = self.sector
 
-        stpf = search_targetpixelfile('tic'+str(self.tic), mission='TESS', 
+        stpf = search_targetpixelfile('tic'+str(self.tic), mission='TESS',
                                       sector=sectors)
         if len(stpf) == 0:
             return
@@ -78,7 +78,7 @@ class Crossmatch(object):
 
         Attributes
         ----------
-        tasoc_header : 
+        tasoc_header :
         tasoc_tpf : np.2darray
         tasoc_aperture : np.2darray
         tasoc_time : np.array
@@ -100,7 +100,7 @@ class Crossmatch(object):
         products = Observations.query_object(objectname="TIC"+str(self.tic))
 
         column = np.where( (products['provenance_name'] == 'TASOC') &
-                           (products['target_name'] == str(self.tic)) & 
+                           (products['target_name'] == str(self.tic)) &
                            (products['sequence_number'] == self.sector) )[0]
 
         if len(column) > 0:
@@ -139,7 +139,7 @@ class Crossmatch(object):
 
         Parameters
         ----------
-        
+
         Attributes
         ----------
         time : np.array
@@ -151,7 +151,7 @@ class Crossmatch(object):
                                                    self.camera, self.chip)
         oelkers_url = "http://astro.phy.vanderbilt.edu/~oelkerrj/tess_ffi/sector{0:02d}/clean/{1}".format(self.sector,
                                                                                                           fn)
-        
+
         dne = True # Does Not Exist
         try:
             urllib.request.urlopen(oelkers_url, timeout=3)
@@ -165,4 +165,3 @@ class Crossmatch(object):
             self.os_time    = tab[0].values
             self.os_mag     = tab[1].values
             self.os_mag_err = tab[2].values
-

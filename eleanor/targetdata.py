@@ -1,28 +1,28 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from astropy.nddata import Cutout2D
-from photutils.aperture import CircularAperture, RectangularAperture, aperture_photometry
-from photutils.background import MMMBackground
-from lightkurve import lightcurve
-from lightkurve.correctors import SFFCorrector
-from scipy.optimize import minimize
-from astropy import time, coordinates as coord, units as u
-from astropy.coordinates import SkyCoord, Angle
-from astropy.table import Table, Column
-from astropy.wcs import WCS
-from astropy.stats import SigmaClip, sigma_clip
-from time import strftime
-from astropy.io import fits
-from scipy.stats import mode
-from scipy.signal import savgol_filter
-from scipy.interpolate import griddata
-from urllib.request import urlopen
-import os, sys, copy
+import pickle
 import os.path
 import warnings
-import pickle
-
+import numpy as np
+import os, sys, copy
 from tqdm import tqdm
+from time import strftime
+from astropy.io import fits
+from astropy.wcs import WCS
+from scipy.stats import mode
+import matplotlib.pyplot as plt
+from lightkurve import lightcurve
+from urllib.request import urlopen
+from astropy.nddata import Cutout2D
+from scipy.optimize import minimize
+from scipy.signal import savgol_filter
+from scipy.interpolate import griddata
+from astropy.table import Table, Column
+from photutils.background import MMMBackground
+from lightkurve.correctors import SFFCorrector
+from astropy.coordinates import SkyCoord, Angle
+from astropy.stats import SigmaClip, sigma_clip
+from astropy import time, coordinates as coord, units as u
+from photutils.aperture import CircularAperture, RectangularAperture, aperture_photometry
+
 
 from .ffi import use_pointing_model, load_pointing_model, centroid_quadratic
 from .postcard import Postcard, Postcard_tesscut

@@ -1,12 +1,12 @@
-import os, sys, re, json, time
 import requests
 import numpy as np
 import astropy.units as u
-from astropy.coordinates import SkyCoord, Angle
+from astropy.wcs import WCS
+import os, sys, re, json, time
 from astroquery.vizier import Vizier
 from astroquery.mast import Catalogs
 from astropy.table import Table, Column, Row
-from astropy.wcs import WCS
+from astropy.coordinates import SkyCoord, Angle
 
 
 try: # Python 3.x
