@@ -12,6 +12,8 @@ import requests
 from bs4 import BeautifulSoup
 import shutil
 
+from .assignments import assign_year, assign_target
+
 eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 if not os.path.exists(eleanorpath):
     try:
@@ -118,36 +120,8 @@ class Update(object):
                 print('This directory already exists!')
                 return
 
-        self.north_coords = SkyCoord('16:35:50.667 +63:54:39.87',
-                                     unit=(u.hourangle, u.deg))
-        self.south_coords = SkyCoord('04:35:50.330 -64:01:37.33',
-                                     unit=(u.hourangle, u.deg))
-        self.south_coords_year5 = SkyCoord('04:35:50.330 -65:01:37.33',
-                                     unit=(u.hourangle, u.deg))
-        self.south_coords_65 = SkyCoord('06:00:00.000 -60:00:00.00',
-                                     unit=(u.hourangle, u.deg))
-        self.ecliptic_coords_a = SkyCoord('04:00:00.000 +10:00:00.00',
-                                          unit=(u.hourangle, u.deg))
-        self.ecliptic_coords_b = SkyCoord('08:20:00.000 +12:00:00.00',
-                                          unit=(u.hourangle, u.deg))
-        self.north_coords_73 = SkyCoord('06:00:00.000 +32:00:00.00',
-                                          unit=(u.hourangle, u.deg))
-
-
-        if self.sector < 14 or (self.sector > 26 and self.sector < 40):
-            use_coords = self.south_coords
-        elif (self.sector > 60) and (self.sector < 70) and (self.sector != 65):
-            use_coords = self.south_coords_year5
-        elif self.sector == 65:
-            use_coords = self.south_coords_65
-        elif self.sector in [42, 43, 44, 70, 71]:
-            use_coords = self.ecliptic_coords_a
-        elif self.sector in [45, 46, 72]:
-            use_coords = self.ecliptic_coords_b
-        elif self.sector in [73]:
-            use_coords = self.north_coords_73
-        else:
-            use_coords = self.north_coords # this is good through sector 83
+        # New function to update when selecting a target for calibrating a new sector
+        use_coords = assign_target(self.sector)
 
         try:
             manifest = Tesscut.download_cutouts(coordinates=use_coords, size=31, sector=self.sector)
@@ -186,20 +160,9 @@ class Update(object):
         self.try_next_sector()
 
     def get_cbvs(self):
-        if self.sector <= 6:
-            year = 2018
-        elif self.sector <= 20:
-            year = 2019
-        elif self.sector <= 33:
-            year = 2020
-        elif self.sector <= 47:
-            year = 2021
-        elif self.sector <= 60:
-            year = 2022
-        elif self.sector <= 73:
-            year = 2023
-        else:
-            year = 2024
+
+        # Function to grab what year observations happened
+        year = assign_year(self.sector)
 
         url = 'https://archive.stsci.edu/missions/tess/ffi/s{0:04d}/{1}/'.format(self.sector, year)
 
