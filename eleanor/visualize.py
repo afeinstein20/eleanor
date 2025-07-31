@@ -1,17 +1,18 @@
 import sys
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import numpy as np
-import warnings, os, requests
-import lightkurve as lk
-from bs4 import BeautifulSoup
 from pylab import *
-from astropy.timeseries import LombScargle
-from astropy.wcs import WCS
+import lightkurve as lk
+import matplotlib as mpl
 import astropy.units as u
+from astropy.wcs import WCS
+from bs4 import BeautifulSoup
+import warnings, os, requests
+import matplotlib.pyplot as plt
+from astroquery.mast import Tesscut
+import matplotlib.gridspec as gridspec
+from astropy.timeseries import LombScargle
 from astropy.coordinates import SkyCoord, Angle
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from .ffi import use_pointing_model, load_pointing_model
 from .mast import *
@@ -139,7 +140,7 @@ class Visualize(object):
             Only used if data_type = 'amplitude'. If None, default is 'frequency'.
         FAP: np.array, optional.
              False Alarm Probability levels to include in periodogram.
-             Ensure that the values are < 1. 
+             Ensure that the values are < 1.
              For example: FAP = np.array([0.1, 0.01]), will plot the 10% and 1% FAP levels.
         """
         if self.obj.lite:
@@ -238,9 +239,9 @@ class Visualize(object):
                 x = 1/freq
 
                 if (FAP is not None):
-                    if np.all(FAP<1): # Ensure that the probabilities are all < 1 
+                    if np.all(FAP<1): # Ensure that the probabilities are all < 1
                         if type(FAP) == list: FAP = np.array(FAP)
-                        FAPlevel = LS.false_alarm_level(FAP, method='baluev') 
+                        FAPlevel = LS.false_alarm_level(FAP, method='baluev')
 
             if color_by_pixel is False:
                 color = 'k'
@@ -254,7 +255,7 @@ class Visualize(object):
                 ax.plot(x, y, c=color)
 
             if (data_type.lower() == 'periodogram') & (FAP is not None):
-                if np.all(FAP<1): 
+                if np.all(FAP<1):
                     _ = [ax.axhline(f, color='k', ls='--', alpha=0.3) for f in FAPlevel]
 
 
@@ -353,6 +354,22 @@ class Visualize(object):
             print('No movie is available yet.')
             return
 
+    def download_tpf(self, tic=None):
+        """
+        Downloads the Target Pixel File (TPF) if None is passed in to
+        plot_gaia_overlay or add_gaia_figure_elements.
+
+        Utilizes astroquery.mast.TesscutClass.download_cutouts() instead of lightkurve.
+        Downloads to the same path as lightkurve.search_tesscut().downlaod() does.
+        """
+        tesscut_path = os.path.join(os.path.expanduser('~'), '.lightkurve-cache/tesscut')
+        tpf_path_table = Tesscut.download_cutouts(objectname=f'TIC {tic}',
+                                                  size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]),
+                                                  sector=self.obj.source_info.sector,
+                                                  path=tesscut_path)
+        tpf = lk.read(tpf_path_table['Local Path'].data[0])
+        return tpf
+
 
     def plot_gaia_overlay(self, tic=None, tpf=None, cadence=0, ax=None, magnitude_limit=18):
         """
@@ -378,22 +395,7 @@ class Visualize(object):
             tic = self.obj.source_info.tic
 
         if tpf is None:
-            try:
-                search_result = lk.search_tesscut(f'TIC {tic}', sector=self.obj.source_info.sector)
-                if len(search_result) == 0:
-                    raise ValueError("lightkurve.search_tesscut() returned no results.")
-                tpf = search_result.download(cutout_size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]))
-            except:
-                # If lightkurve.search_tesscut() returns no result or raise an error,
-                # utilize astroquery.mast.TesscutClass.download_cutouts() instead.
-                from astroquery.mast import Tesscut
-                # Download to the same path as lightkurve.search_tesscut().downlaod() does.
-                tesscut_path = os.path.join(os.path.expanduser('~'), '.lightkurve-cache/tesscut')
-                tpf_path_table = Tesscut.download_cutouts(objectname=f'TIC {tic}',
-                                                          size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]),
-                                                          sector=self.obj.source_info.sector,
-                                                          path=tesscut_path)
-                tpf = lk.read(tpf_path_table['Local Path'].data[0])
+            tpf = self.download_tpf(tic)
 
         if ax is None:
             ax = tpf[cadence].plot(show_colorbar=False, title=f'TIC {tic}')
@@ -428,22 +430,7 @@ class Visualize(object):
             tic = self.obj.source_info.tic
 
         if tpf is None:
-            try:
-                search_result = lk.search_tesscut(f'TIC {tic}', sector=self.obj.source_info.sector)
-                if len(search_result) == 0:
-                    raise ValueError("lightkurve.search_tesscut() returned no results.")
-                tpf = search_result.download(cutout_size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]))
-            except:
-                # If lightkurve.search_tesscut() returns no result or raise an error,
-                # utilize astroquery.mast.TesscutClass.download_cutouts() instead.
-                from astroquery.mast import Tesscut
-                # Download to the same path as lightkurve.search_tesscut().downlaod() does.
-                tesscut_path = os.path.join(os.path.expanduser('~'), '.lightkurve-cache/tesscut')
-                tpf_path_table = Tesscut.download_cutouts(objectname=f'TIC {tic}',
-                                                          size=(self.obj.tpf.shape[1], self.obj.tpf.shape[2]),
-                                                          sector=self.obj.source_info.sector,
-                                                          path=tesscut_path)
-                tpf = lk.read(tpf_path_table['Local Path'].data[0])
+            tpf = self.download_tpf(tic)
 
         # Get the positions of the Gaia sources
         c1 = SkyCoord(tpf.ra, tpf.dec, frame='icrs', unit='deg')
@@ -523,4 +510,3 @@ class Visualize(object):
             ax.set_ylim([tpf.row-0.5, tpf.row+tpf.shape[2]-0.5])
 
         return fig_or_ax
-
