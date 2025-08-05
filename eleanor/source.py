@@ -263,7 +263,7 @@ class Source(object):
             self.tesscut_size = tesscut_size
 
             if not os.path.isdir(self.metadata_path + '/metadata/s{:04d}'.format(self.sector)):
-                Update(sector=self.sector, eleanor_metadata_path=self.metadata_path)
+                Update(sector=self.sector)
 
             if tc == False:
                 self.locate_postcard(local)
