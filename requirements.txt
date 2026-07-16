@@ -1,3 +1,4 @@
+jax
 nbsphinx
 ipykernel
 tqdm
