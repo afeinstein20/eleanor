@@ -30,7 +30,7 @@ MAX_SECTOR = max_sector()
 
 
 def multi_sectors(sectors, tic=None, gaia=None,
-                  coords=None, name=None, tc=False, local=False,
+                  coords=None, name=None, tc=True, local=False,
                   post_dir=None, pm_dir=None,
                   metadata_path=None, tesscut_size=31):
     """Obtain a list of Source objects for a single target, for each of
@@ -137,7 +137,7 @@ class Source(object):
         Names of all postcards where the source appears.
     """
     def __init__(self, tic=None, gaia=None, coords=None, name=None, fn=None,
-                 sector=None, fn_dir=None, tc=False, local=False, post_dir=None, pm_dir=None,
+                 sector=None, fn_dir=None, tc=True, local=False, post_dir=None, pm_dir=None,
                  metadata_path=None, tesscut_size=31, tm=None):
         self.tic       = tic
         self.gaia      = gaia
@@ -152,8 +152,6 @@ class Source(object):
         self.pm_dir = pm_dir
         self.local = local
         self.tess_mag = tm
-
-
 
         if self.pm_dir is None:
            self.pm_dir = self.postcard_path
@@ -173,7 +171,7 @@ class Source(object):
         else:
             self.fn_dir  = fn_dir
 
-        # self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+        #self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 
         if metadata_path is None:
             self.metadata_path = os.path.join(os.path.expanduser('~'), '.eleanor')
@@ -209,15 +207,15 @@ class Source(object):
 
             if local == True:
 
-                if self.tc is True:
-                    post_dir = self.tesscut_dir()
-                    self.postcard_path = os.path.join(post_dir, self.postcard)
-                    # workaround to address #137
-                    # - both self.postcard  and tesscut_dir() contains tesscut, resulting in incorrect path
-                    self.postcard_path = re.sub(r'tesscut[/\\]tesscut', 'tesscut', self.postcard_path)
-                    self.cutout = fits.open(self.postcard_path)
+                #if self.tc is True:
+                post_dir = self.tesscut_dir()
+                self.postcard_path = os.path.join(post_dir, self.postcard)
+                # workaround to address #137
+                # - both self.postcard  and tesscut_dir() contains tesscut, resulting in incorrect path
+                self.postcard_path = re.sub(r'tesscut[/\\]tesscut', 'tesscut', self.postcard_path)
+                self.cutout = fits.open(self.postcard_path)
 
-                    self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
+                self.position_on_chip = (hdr['CHIPPOS1'], hdr['CHIPPOS2'])
 
             else:
                 self.cutout = None
@@ -269,10 +267,10 @@ class Source(object):
             if not os.path.isdir(self.metadata_path + '/metadata/s{:04d}'.format(self.sector)):
                 Update(sector=self.sector)
 
-            if tc == False:
-                self.locate_postcard(local)
-            if tc == True:
-                self.locate_with_tesscut() # sets sector, camera, chip, postcard,
+            #if tc == False:
+            #    self.locate_postcard(local)
+            #if tc == True:
+            self.locate_with_tesscut() # sets sector, camera, chip, postcard,
                                   # position_on_chip, position_on_postcard
 
 
