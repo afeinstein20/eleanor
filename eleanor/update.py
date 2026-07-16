@@ -15,7 +15,6 @@ from astropy.coordinates import SkyCoord
 from .assignments import assign_year, assign_target
 
 
-
 def hmsm_to_days(hour=0, min=0, sec=0, micro=0):
     days = sec + (micro / 1.e6)
     days = min + (days / 60.)
@@ -62,23 +61,7 @@ def listFD(url, ext=''):
             node.get('href').endswith(ext)]
 
 
-__all__ = ['Update', 'update_all', 'update_max_sector']
-
-def update_max_sector():
-    baseurl = "https://archive.stsci.edu/missions/tess/ffi/"
-
-    page = urlopen(baseurl)
-    read = page.read()
-    html = read.decode('utf-8').split('href="')
-    current_sectors = [i for i in html if 's00' in i]
-    sectors = [int(i[1:5]) for i in current_sectors]
-
-    codepath = os.path.dirname(__file__)
-    with open(codepath + '/maxsector.py', 'w') as tf:
-        tf.write('maxsector = {0}'.format(int(np.nanmax(sectors))))
-
-    print("Most recent sector available = ", int(np.nanmax(sectors)))
-
+__all__ = ['Update', 'update_all']
 
 def update_all():
     sector = 1
@@ -153,7 +136,6 @@ class Update(object):
         print('Success! Sector {:2d} now available.'.format(self.sector))
         self.cutout.close()
         os.remove(manifest['Local Path'][0])
-        self.try_next_sector()
 
     def get_cbvs(self):
 
@@ -214,15 +196,6 @@ class Update(object):
                  's{0:04d}'.format(self.sector) in i]
         for c in range(len(files)):
             os.remove(files[c])
-
-    def try_next_sector(self):
-        codepath = os.path.dirname(__file__)
-        f1 = open(codepath + '/maxsector.py', 'r')
-        oldmax = float(f1.readline().split('=')[-1])
-        if self.sector > oldmax:
-            f = open(codepath + '/maxsector.py', 'w')
-            f.write('maxsector = {:2d}'.format(self.sector))
-            f.close()
 
     def get_target(self):
         if self.sector < 56:
