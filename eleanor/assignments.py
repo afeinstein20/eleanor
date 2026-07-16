@@ -24,8 +24,10 @@ def assign_year(sector):
         year = 2024
     elif sector <= 98:
         year = 2025
-    else:
+    elif sector <= 112:
         year = 2026
+    else:
+        year = 2027
 
     return year
 
