@@ -16,8 +16,12 @@ def test_making_tpfs():
     star3 = Source(tic=25155310, sector=1, tc=True)
 
     data1 = TargetData(star1)
+
     data2 = TargetData(star2)
+    data2.get_lightcurve(aperture=data1.aperture)
+
     data3 = TargetData(star3)
+    data3.get_lightcurve(aperture=data1.aperture)
 
     test1 = np.sum(data1.raw_flux - data2.raw_flux) # should be exactly zero
     test2 = np.sum(data2.raw_flux - data3.raw_flux) # should be zero
