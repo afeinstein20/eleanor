@@ -39,16 +39,17 @@ def upcoming_sectors():
     return new_sectors
 
 
-def max_sector():
+def max_sector(date=None):
     """
     Automatically determines the max sector from the available survey strategy.
     """
-    today = datetime.datetime.now()
+    if date == None:
+        date = datetime.datetime.now()
 
     available_sectors = upcoming_sectors()
     sector_end_dates  = np.array(list(available_sectors.keys()))
 
-    latest = np.where(sector_end_dates < today)[0][-1]
+    latest = np.where(sector_end_dates < date)[0][-1]
     max_sector = available_sectors[sector_end_dates[latest]]
 
     return max_sector
