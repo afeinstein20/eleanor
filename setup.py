@@ -27,8 +27,6 @@ Read the documentation at https://adina.feinste.in/eleanor
 with open('requirements.txt') as f:
     install_reqs = f.read().splitlines()
 
-extras_require = {'psf': ["tensorflow"]}
-
 setup(
     name='eleanor',
     version=__version__,
@@ -52,5 +50,4 @@ setup(
         'Operating System :: OS Independent',
         'Programming Language :: Python :: 3.0',
         ],
-    extras_require=extras_require
     )

@@ -1,9 +1,11 @@
+import jax
 import pickle
 import os.path
 import warnings
 import numpy as np
 import os, sys, copy
 from tqdm import tqdm
+import jax.numpy as jnp
 from time import strftime
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -199,7 +201,6 @@ class TargetData(object):
                 if bkg_size is None:
                     bkg_size = width
 
-
                 # Uses the contamination ratio for crowded field if available and
                 # not already set by the user
                 if aperture_mode.lower() == 'large':
@@ -229,7 +230,9 @@ class TargetData(object):
                 except:
                     self.pointing_model = None
 
-                self.get_tpf_from_postcard(source.coords, source.postcard, height, width, bkg_size, save_postcard, source)
+                self.get_tpf_from_postcard(source.coords, source.postcard,
+                                           height, width, bkg_size, save_postcard,
+                                           source)
                 self.set_quality()
                 self.get_cbvs()
 
@@ -448,9 +451,6 @@ class TargetData(object):
             if self.source_info.contratio is not None:
                 if self.source_info.contratio > 0.15:
                     self.aperture_mode = 1
-
-
-
 
         self.tpf = self.tpf
 
@@ -851,7 +851,7 @@ class TargetData(object):
         self.y_com = []
 
         summed_pixels = np.nansum(self.aperture * self.tpf, axis=0)
-        brightest = np.where(summed_pixels == np.max(summed_pixels))
+        brightest = np.where(summed_pixels == np.nanmax(summed_pixels))
         cen = [brightest[0][0], brightest[1][0]]
 
         if cen[0] < 3.0:
@@ -932,18 +932,16 @@ class TargetData(object):
             target, effectively masking other nearby, bright stars. This strategy appears to do a
             reasonable job estimating the background more accurately in relatively crowded regions.
         """
-        import tensorflow as tf
-
-        tf.logging.set_verbosity(tf.logging.ERROR)
-
         if data_arr is None:
             data_arr = self.tpf + 0.0
             data_arr[np.isnan(data_arr)] = 0.0
+
         if err_arr is None:
             if err_method == True:
                 err_arr = (self.tpf_err + 0.0) ** 2
             else:
                 err_arr = np.ones_like(data_arr)
+
         if bkg_arr is None:
             bkg_arr = self.flux_bkg + 0.0
 
@@ -952,8 +950,16 @@ class TargetData(object):
         if xc is None:
             xc = 0.5 * np.ones(nstars) * np.shape(data_arr[0])[0]
 
+        # Determining where to mask
         dsum = np.nansum(data_arr, axis=(0))
-        modepix = np.where(dsum == mode(dsum, axis=None)[0][0])
+
+        res = mode(dsum, axis=None, keepdims=True)
+        if hasattr(res, 'mode'):
+            mode_val = res.mode.item()
+        else:
+            mode_val = res[0][0]
+        modepix = np.where(dsum == mode_val)
+
         if len(modepix[0]) > 2.5:
             for i in range(len(bkg_arr)):
                 err_arr[i][modepix] = np.inf
@@ -969,127 +975,94 @@ class TargetData(object):
         if len(yc) != nstars:
             raise ValueError('yc must have length nstars')
 
-        flux = tf.Variable(np.ones(nstars)*np.max(data_arr[0]), dtype=tf.float64)
-        bkg = tf.Variable(bkg_arr[0], dtype=tf.float64)
-        xshift = tf.Variable(0.0, dtype=tf.float64)
-        yshift = tf.Variable(0.0, dtype=tf.float64)
+        # Defining the model object
+        if model.lower() == 'gaussian':
+            model_obj = Gaussian(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
 
-        if (model == 'gaussian'):
+        elif model.lower() == 'moffat':
+            model_obj = Moffat(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
 
-            gaussian = Gaussian(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
+        @jax.jit
+        def nll_func(p, data, err, bkg_val):
+            #jax.debug.print("Evaluating NLL for flux {f}", f=p[0]) # Uncomment to test
+            # Scale flux back up if you applied normalization earlier
+            flux = p[:nstars]
+            xsh, ysh, a, b, c = p[nstars:nstars+5]
+            bkg = p[-1]
 
-            a = tf.Variable(initial_value=1., dtype=tf.float64)
-            b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
-
-
-            if nstars == 1:
-                mean = gaussian(flux, xc[0]+xshift, yc[0]+yshift, a, b, c)
+            if model.lower() == 'moffat':
+                args = (p[nstars+5],)
             else:
-                mean = [gaussian(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
+                args = ()
 
-            var_list = [flux, xshift, yshift, a, b, c, bkg]
+            # Calculate the mean
+            means = [model_obj(flux[j], xc[j]+xsh, yc[j]+ysh, a, b, c, *args) for j in range(nstars)]
+            mean = jnp.nansum(jnp.array(means), axis=0) + bkg
 
-            var_to_bounds = {flux: (0, np.infty),
-                             xshift: (-1.0, 1.0),
-                             yshift: (-1.0, 1.0),
-                             a: (0, np.infty),
-                             b: (-0.5, 0.5),
-                             c: (0, np.infty)
-                            }
+            eps = 1e-10
 
-        elif model == 'moffat':
+            # Use jax.lax.cond for efficient branching inside JIT
+            def gaussian_likelihood():
+                return jnp.nansum((mean - data)**2.0 / (err + eps))
 
-            moffat = Moffat(shape=data_arr.shape[1:], col_ref=0, row_ref=0)
+            def poisson_likelihood():
+                # FIXED: Ensure jnp.log is used, and add eps for numerical stability
+                return jnp.nansum((mean + bkg_val) - (data + bkg_val) * jnp.log(mean + bkg_val + eps))
 
-            a = tf.Variable(initial_value=1., dtype=tf.float64)
-            b = tf.Variable(initial_value=0., dtype=tf.float64)
-            c = tf.Variable(initial_value=1., dtype=tf.float64)
-            beta = tf.Variable(initial_value=1, dtype=tf.float64)
+            return jax.lax.cond(likelihood.lower() == 'gaussian',
+                                gaussian_likelihood,
+                                poisson_likelihood)
 
-
-            if nstars == 1:
-                mean = moffat(flux, xc[0]+xshift, yc[0]+yshift, a, b, c, beta)
-            else:
-                mean = [moffat(flux[j], xc[j]+xshift, yc[j]+yshift, a, b, c, beta) for j in range(nstars)]
-                mean = np.sum(mean, axis=0)
-
-            var_list = [flux, xshift, yshift, a, b, c, beta, bkg]
-
-            var_to_bounds = {flux: (0, np.infty),
-                             xshift: (-2.0, 2.0),
-                             yshift: (-2.0, 2.0),
-                             a: (0, 3.0),
-                             b: (-0.5, 0.5),
-                             c: (0, 3.0),
-                             beta: (0, 10)
-                            }
-
-            betaout = np.zeros(len(data_arr))
-
-        else:
-            raise ValueError('This model is not incorporated yet!') # we probably want this to be a warning actually,
-                                                                    # and a gentle return
-
-        aout = np.zeros(len(data_arr))
-        bout = np.zeros(len(data_arr))
-        cout = np.zeros(len(data_arr))
-        xout = np.zeros(len(data_arr))
-        yout = np.zeros(len(data_arr))
-
-        mean += bkg
-
-        data = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
-        derr = tf.placeholder(dtype=tf.float64, shape=data_arr[0].shape)
-        bkgval = tf.placeholder(dtype=tf.float64)
-
-        if likelihood == 'gaussian':
-            nll = tf.reduce_sum(tf.truediv(tf.squared_difference(mean, data), derr))
-        elif likelihood == 'poisson':
-            nll = tf.reduce_sum(tf.subtract(mean+bkgval, tf.multiply(data+bkgval, tf.log(mean+bkgval))))
-        else:
-            raise ValueError("likelihood argument {0} not supported".format(likelihood))
-
-        grad = tf.gradients(nll, var_list)
-
-        sess = tf.Session(config=tf.ConfigProto(device_count={'GPU': 0}))
-        sess.run(tf.global_variables_initializer())
-
-        optimizer = tf.contrib.opt.ScipyOptimizerInterface(nll, var_list, method='TNC', tol=1e-4, var_to_bounds=var_to_bounds)
-
-        fout = np.zeros((len(data_arr), nstars))
+        # optimization loop
+        fout   = np.zeros((len(data_arr), nstars))
         bkgout = np.zeros(len(data_arr))
+        llout  = np.zeros(len(data_arr))
 
-        llout = np.zeros(len(data_arr))
+        # array for best-fit output parameters
+        aout, bout, cout, xout, yout = [np.zeros(len(data_arr)) for _ in range(5)]
+
+        p0 = [np.nanmax(data_arr), 0.0, 0.0, 1.0, 0.0, 1.0, np.nanmedian(bkg_arr)]
+
+        if model.lower() == 'moffat':
+            p0.append(1.0)
+            betaout = np.zeros(len(data_arr))
+            bounds  = ((0.0, np.inf),
+                       (-2.0, 2.0), # xshift
+                       (-2.0, 2.0), # yshift
+                       (0, 3.0),    # a
+                       (-0.5, 0.5), # b
+                       (0.0, 3.0),  # c
+                       (0.0, 10.0), # beta
+                       (None, None) # background
+                      )
+        else:
+            betaout = None
+            bounds  = ((0.0, np.inf),
+                       (-1.0, 1.0), # xshift
+                       (-1.0, 1.0), # yshift
+                       (0.0, np.inf), # a
+                       (-0.5, 0.5), # b
+                       (0.0, np.inf), # c
+                       (None, None) # background
+                      )
 
         for i in tqdm(range(len(data_arr))):
-            optim = optimizer.minimize(session=sess, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]}) # we could also pass a pointing model here
-                                                                           # and just fit a single offset in all frames
 
-            fout[i] = sess.run(flux)
-            bkgout[i] = sess.run(bkg)
+            p0[0]  = np.nanmax(data_arr[i])
+            p0[-1] = np.nanmedian(bkg_arr[i])
 
-            if model == 'gaussian':
-                aout[i] = sess.run(a)
-                bout[i] = sess.run(b)
-                cout[i] = sess.run(c)
-                xout[i] = sess.run(xshift)
-                yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
+            res = minimize(lambda p: np.array(nll_func(p, data_arr[i], err_arr[i], bkg_arr[i])),
+                           x0=p0, method='L-BFGS-B', tol=1e-9, bounds=bounds)
 
-            if model == 'moffat':
-                aout[i] = sess.run(a)
-                bout[i] = sess.run(b)
-                cout[i] = sess.run(c)
-                xout[i] = sess.run(xshift)
-                yout[i] = sess.run(yshift)
-                llout[i] = sess.run(nll, feed_dict={data:data_arr[i], derr:err_arr[i], bkgval:bkg_arr[i]})
-                betaout[i] = sess.run(beta)
+            fout[i], bkgout[i], llout[i] = res.x[:nstars], res.x[-1], res.fun
+            aout[i], bout[i], cout[i], xout[i], yout[i] = res.x[nstars:nstars+5]
 
-        sess.close()
+            if betaout is not None:
+                betaout[i] = res.x[nstars+5]
+            p0 = res.x
 
-        self.psf_flux = fout[:,0]
+        # assigning the attributes
+        self.psf_flux = fout[:, 0]
 
         if self.language == 'Australian':
             self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
@@ -1097,23 +1070,14 @@ class TargetData(object):
         self.psf_bkg = bkgout
 
         if verbose:
-            if model == 'gaussian':
-                self.psf_a = aout
-                self.psf_b = bout
-                self.psf_c = cout
-                self.psf_x = xout
-                self.psf_y = yout
-                self.psf_ll = llout
+            self.psf_a, self.psf_b, self.psf_c = aout, bout, cout
+            self.psf_x, self.psf_y, self.psf_ll = xout, yout, llout
+
             if model == 'moffat':
-                self.psf_a = aout
-                self.psf_b = bout
-                self.psf_c = cout
-                self.psf_x = xout
-                self.psf_y = yout
-                self.psf_ll = llout
                 self.psf_beta = betaout
             if nstars > 1:
                 self.all_psf = fout
+
         return
 
     def custom_aperture(self, shape=None, r=0.0, h=0.0, w=0.0, theta=0.0, pos=None, method='exact'):
@@ -1170,7 +1134,7 @@ class TargetData(object):
 
     def find_break(self):
         t   = np.diff(self.time)
-        ind = np.where( t == np.max(t))[0][0]
+        ind = np.where( t == np.nanmax(t))[0][0]
         return ind + 1
 
 

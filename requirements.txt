@@ -10,3 +10,4 @@ tess-point
 astroquery
 setuptools>=41.0.0
 beautifulsoup4>=4.6.0
+jax
