@@ -19,10 +19,14 @@ import urllib
 from .ffi import check_pointing
 from .mast import *
 from .utils import *
-from .maxsector import maxsector
+from .maxsector import max_sector
 from .update import *
 
 __all__ = ['Source', 'multi_sectors']
+
+
+global MAX_SECTOR
+MAX_SECTOR = max_sector()
 
 
 def multi_sectors(sectors, tic=None, gaia=None,
@@ -65,7 +69,7 @@ def multi_sectors(sectors, tic=None, gaia=None,
             if type(coords) is SkyCoord:
                 coords = (coords.ra.degree, coords.dec.degree)
             result = tess_stars2px(8675309, coords[0], coords[1])
-            sector = result[3][result[3] < maxsector + 0.5]
+            sector = result[3][result[3] <= MAX_SECTOR]
             sectors = sector.tolist()
 
         if len(sectors) == 0 or sectors[0] < 0:
@@ -288,11 +292,11 @@ class Source(object):
             self.usr_sec = 'recent'
 
         result = tess_stars2px(self.tic, self.coords[0], self.coords[1])
-        cameras = result[4][result[3] <= maxsector]
-        chips = result[5][result[3] <= maxsector]
-        cols = result[6][result[3] <= maxsector]
-        rows = result[7][result[3] <= maxsector]
-        sectors = result[3][result[3] <= maxsector]
+        cameras = result[4][result[3] <= MAX_SECTOR]
+        chips = result[5][result[3] <= MAX_SECTOR]
+        cols = result[6][result[3] <= MAX_SECTOR]
+        rows = result[7][result[3] <= MAX_SECTOR]
+        sectors = result[3][result[3] <= MAX_SECTOR]
 
         # tess_stars2px returns array [-1] when star not observed yet
         if len(sectors) < 1 or sectors[0] == np.array([-1]):
