@@ -273,7 +273,7 @@ class ffi:
         """
 
         def findAllFFIs():
-            nonlocal url
+            #nonlocal url
             sub_paths = []
             subsub_paths = []
             calFiles, urlPaths = [], []
