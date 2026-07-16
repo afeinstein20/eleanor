@@ -19,9 +19,24 @@ before_install:
   - sudo pip3 install requests
 
 install:
-  - pip install --upgrade pip
-  - pip install .
-  - pip install pytest pytest-cov codecov
+  - pip install tornado==5.1.1
+  - pip install lightkurve
+  - pip install tensorflow
+  - pip install astropy
+  - pip install astroquery
+  - pip install tqdm
+  - pip install sphinx
+  - pip install nbsphinx
+  - pip install cython
+  - pip install codecov
+  - pip install coverage
+  - pip install pytest
+  - pip install pytest-cov
+  - pip install beautifulsoup4>=4.6.0
+  - pip install lxml
+  - pip install tess-point
+  - pip install pybind11
+  - python setup.py install
 
 script:
   - pytest eleanor/tests/* --cov=eleanor/
