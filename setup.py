@@ -12,6 +12,26 @@ sys.path.insert(0, "eleanor")
 from version import __version__
 
 
+# define the dependencies
+install_reqs = [
+    "nbsphinx"
+    "ipykernel"
+    "tqdm"
+    "lightkurve"
+    "astropy>=3.2.3"
+    "astroquery"
+    "pandas"
+    "tess-point"
+    "astroquery"
+    "setuptools>=41.0.0"
+    "beautifulsoup4>=4.6.0"
+    "jax"
+    # photutils will change depending on the python version
+    "photutils=1.11.0; python_version < 3.10"
+    "photutils=2.0.2; python_verson == 3.10"
+    "photutils=3.0.0; python_version >= 3.12"
+]
+
 long_description = \
     """
 eleanor is a python package to extract target pixel files from
@@ -23,9 +43,6 @@ accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
 
 """
-
-with open('requirements.txt') as f:
-    install_reqs = f.read().splitlines()
 
 setup(
     name='eleanor',
