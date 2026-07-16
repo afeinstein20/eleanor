@@ -454,8 +454,6 @@ class TargetData(object):
 
         self.tpf = self.tpf
 
-        ### print(f"DBGt get_tpf_from_postcard() - #.tpf={self.tpf.shape}")
-
         if save_postcard == False:
             try:
                 if self.source_info.tc == False:
@@ -589,7 +587,6 @@ class TargetData(object):
         else:
             return tpf_flux_bkg
 
-
     def get_lightcurve(self, aperture=None):
         """Extracts a light curve using the given aperture and TPF.
         Can pass a user-defined aperture mask, otherwise determines which of a
@@ -608,7 +605,6 @@ class TargetData(object):
             automatically. If set, uses this
             aperture at the expense of all other set apertures.
         """
-
         def apply_mask(mask):
             lc     = np.zeros(len(self.tpf))
             lc_err = np.zeros(len(self.tpf))
@@ -623,10 +619,6 @@ class TargetData(object):
         self.flux_err = None
         if aperture is not None:
             self.aperture = aperture
-
-        if self.language == 'Australian':
-            print("G'day Mate! ʕ •ᴥ•ʔ Your light curves are being translated ...")
-
 
         if self.aperture is not None:
             if np.shape(self.all_apertures[0]) != np.shape(self.aperture):
@@ -690,7 +682,6 @@ class TargetData(object):
                 if self.source_info.tc == False:
                     all_corr_lc_tpf_2d_sub[a] = self.corrected_flux(flux=all_raw_lc_tpf_2d_sub[a]/np.nanmedian(np.abs(all_raw_lc_tpf_2d_sub[a])),
                                                                     bkg=np.nansum(self.bkg_tpf*self.all_apertures[a], axis=(1,2)))
-
 
             except IndexError:
                 continue
@@ -768,14 +759,6 @@ class TargetData(object):
             self.all_raw_flux  = np.array(all_raw_lc_tpf_2d_sub)
             self.all_corr_flux = np.array(all_corr_lc_tpf_2d_sub)
             self.flux_bkg = np.array(np.nansum(self.bkg_tpf*self.all_apertures[best_ind], axis=(1,2)))
-
-        if self.language == 'Australian':
-            for i in range(len(self.all_raw_flux)):
-                med = np.nanmedian(self.all_raw_flux[i])
-                self.all_raw_flux[i] = (med-self.all_raw_flux[i]) + med
-
-                med = np.nanmedian(self.all_corr_flux[i])
-                self.all_corr_flux[i] = (med-self.all_corr_flux[i]) + med
 
         self.all_flux_err    = np.array(all_lc_err)
 
@@ -1063,9 +1046,6 @@ class TargetData(object):
 
         # assigning the attributes
         self.psf_flux = fout[:, 0]
-
-        if self.language == 'Australian':
-            self.psf_flux = (np.nanmedian(self.psf_flux) - self.psf_flux) + np.nanmedian(self.psf_flux)
 
         self.psf_bkg = bkgout
 
@@ -1388,9 +1368,6 @@ class TargetData(object):
             by eleanor.
         """
         import eleanor
-
-        if self.language == 'Australian':
-            raise ValueError("These light curves are upside down. Please don't save them ...")
 
         self.set_header(lite=lite)
 
