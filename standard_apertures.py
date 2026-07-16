@@ -1,5 +1,5 @@
 import numpy as np
-from photutils import CircularAperture, RectangularAperture
+from photutils.aperture import CircularAperture, RectangularAperture
 import matplotlib.pyplot as plt
 import sys, pickle
 
@@ -28,14 +28,17 @@ t3 = (center[0]+delta, center[1]+delta, t_l, t_w, np.pi/4)
 t4 = (center[0]+delta, center[1]-delta, t_w, t_l, np.pi/4)
 
 t = np.array([t4, t3, t2, t1])
+
 degrees = [0, 90, 180, 270]
 types = []
 all_apertures = []
+
 for i in range(len(di_center)):
     ap  = rectangle( (di_center[i][0], di_center[i][1]), di_center[i][2], di_center[i][3], 0.0)
     tAp = rectangle( (t[i][0],t[i][1]),t[i][2], t[i][3], t[i][4])
-    mask  = ap.to_mask(method='center')[0].to_image(shape=(size, size))
-    tMask = tAp.to_mask(method='center')[0].to_image(shape=(size, size))
+
+    mask  = ap.to_mask(method='center').to_image(shape=(size, size))
+    tMask = tAp.to_mask(method='center').to_image(shape=(size, size))
 
     all_apertures.append(mask)
     all_apertures.append(tMask)
@@ -48,8 +51,8 @@ for i in range(len(r_list)):
     ap_circ = circle( center, c_list[i] )
     ap_rect = rectangle( center, r_list[i], r_list[i], theta[i])
     for method in ['center', 'exact']:
-        circ_mask = ap_circ.to_mask(method=method)[0].to_image(shape=(size, size))
-        rect_mask = ap_rect.to_mask(method=method)[0].to_image(shape=(size, size))
+        circ_mask = ap_circ.to_mask(method=method).to_image(shape=(size, size))
+        rect_mask = ap_rect.to_mask(method=method).to_image(shape=(size, size))
         all_apertures.append(circ_mask)
         all_apertures.append(rect_mask)
         types.append('{}_circle_{}'.format(c_list[i], method))
@@ -65,4 +68,3 @@ fn = "default_apertures.pickle"
 pickle_out = open(fn, "wb")
 pickle.dump(dict, pickle_out)
 pickle_out.close()
-
