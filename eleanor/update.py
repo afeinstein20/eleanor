@@ -86,9 +86,6 @@ class Update(object):
         if not os.path.exists(eleanor_metadata_path + '/metadata'):
             os.mkdir(eleanor_metadata_path + '/metadata')
 
-        # Updates max sector file first
-        update_max_sector()
-
         self.sector = sector
         self.metadata_path = os.path.join(eleanor_metadata_path, 'metadata/s{0:04d}'.format(self.sector))
         lastfile = 'cbv_components_s{0:04d}_0004_0004.txt'.format(self.sector)
