@@ -1,15 +1,16 @@
-dist: trusty
+dist: focal
 
 language: python
-python: 3.6
+python:
+  - "3.8"
+  - "3.9"
+  - "3.10"
+  - "3.11"
+  - "3.12"
 
 matrix:
     include:
         - os: linux
-
-addons:
-  apt_packages:
-    - pandoc
 
 cache: pip
 
@@ -18,26 +19,11 @@ before_install:
   - sudo pip3 install requests
 
 install:
-  - pip install tornado==5.1.1
-  - pip install lightkurve
-  - pip install astropy
-  - pip install astroquery
-  - pip install tqdm
-  - pip install sphinx
-  - pip install nbsphinx
-  - pip install cython
-  - pip install codecov
-  - pip install coverage
-  - pip install pytest
-  - pip install pytest-cov
-  - pip install beautifulsoup4>=4.6.0
-  - pip install lxml
-  - pip install tess-point
-  - pip install pybind11
-  - python setup.py install
+  - pip install --upgrade pip
+  - pip install .
+  - pip install pytest pytest-cov codecov
 
 script:
-  - if [ "$TRAVIS_BRANCH" = "master" -a "$TRAVIS_PULL_REQUEST" = "false" ]; then source .ci/build-docs.sh; fi
   - pytest eleanor/tests/* --cov=eleanor/
 
 after_success:
