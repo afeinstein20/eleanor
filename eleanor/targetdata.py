@@ -1174,7 +1174,6 @@ class TargetData(object):
         tdelt = np.median(np.diff(self.time))
         skip = int(np.ceil(skip/tdelt))
 
-
         if type(regressors) == str:
             if regressors == 'corner':
                 self.regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
@@ -1184,7 +1183,6 @@ class TargetData(object):
             if self.regressors == 'corner':
                 self.regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
                 regressors = np.array([self.tpf[:,0,0], self.tpf[:,0,-1], self.tpf[:,-1,-1], self.tpf[:,-1,0]]).T
-
 
         if regressors is None:
             regressors = self.regressors
@@ -1225,14 +1223,10 @@ class TargetData(object):
             norm_l = norm(flux[mask], qm)
 
             #cx, cy = rotate_centroids(cx[mask], cy[mask])
-            cx = cx[mask]
-            cy = cy[mask]
-            cx -= np.median(cx)
-            cy -= np.median(cy)
+            cx = cx[mask] - np.nanmedian(cx[mask])
+            cy = cy[mask] - np.nanmedian(cy[mask])
 
-
-            bkg_use = bkg[mask]
-            bkg_use -= np.min(bkg_use)
+            bkg_use = bkg[mask] - np.nanmin(bkg[mask])
 
             vv = self.cbvs[mask][:,0:modes]
 
@@ -1243,7 +1237,6 @@ class TargetData(object):
                 if np.std(vv) > 1e-10:
                     cm = np.column_stack((cm, vv[qm][skip:]))
                     cm_full = np.column_stack((cm_full, vv))
-
 
                 if np.std(bkg) > 1e-10:
                     cm = np.column_stack((cm, bkg_use[qm][skip:]))
