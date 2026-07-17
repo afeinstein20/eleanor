@@ -15,6 +15,13 @@ from astropy.coordinates import SkyCoord
 from .assignments import assign_year, assign_target
 
 
+eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+if not os.path.exists(eleanorpath):
+    try:
+        os.mkdir(eleanorpath)
+    except OSError:
+        eleanorpath = os.path.dirname(__file__)
+
 def hmsm_to_days(hour=0, min=0, sec=0, micro=0):
     days = sec + (micro / 1.e6)
     days = min + (days / 60.)
@@ -77,17 +84,15 @@ def update_all():
 class Update(object):
     def __init__(self, sector=None):
 
-        eleanor_metadata_path = os.path.join(os.path.expanduser('~'), '.eleanor')
-
         if sector is None:
             print('Please pass a sector into eleanor.Update().')
             return
 
-        if not os.path.exists(eleanor_metadata_path + '/metadata'):
-            os.mkdir(eleanor_metadata_path + '/metadata')
+        if not os.path.exists(eleanorpath + '/metadata'):
+            os.mkdir(eleanorpath + '/metadata')
 
         self.sector = sector
-        self.metadata_path = os.path.join(eleanor_metadata_path, 'metadata/s{0:04d}'.format(self.sector))
+        self.metadata_path = os.path.join(eleanorpath, 'metadata/s{0:04d}'.format(self.sector))
         lastfile = 'cbv_components_s{0:04d}_0004_0004.txt'.format(self.sector)
 
         # Checks to see if directory contains all necessary files first

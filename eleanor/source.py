@@ -171,18 +171,15 @@ class Source(object):
         else:
             self.fn_dir  = fn_dir
 
-        #self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
+        self.eleanorpath = os.path.join(os.path.expanduser('~'), '.eleanor')
 
-        if metadata_path is None:
-            self.metadata_path = os.path.join(os.path.expanduser('~'), '.eleanor')
-        else:
-            self.metadata_path = metadata_path
+        self.metadata_path = metadata_path or self.eleanorpath
 
-        if not os.path.exists(self.metadata_path):
+        if not os.path.exists(self.eleanorpath):
             try:
-                os.mkdir(self.metadata_path)
+                os.mkdir(self.eleanorpath)
             except OSError:
-                self.metadata_path = os.path.dirname(__file__)
+                self.eleanorpath = os.path.dirname(__file__)
 
         if not os.path.exists(self.metadata_path + '/metadata'):
             os.mkdir(self.metadata_path + '/metadata')
