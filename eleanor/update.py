@@ -55,7 +55,7 @@ def date_to_jd(year, month, day):
 
 
 def listFD(url, ext=''):
-    page = requests.get(url).text
+    page = requests.get(url, timeout=30).text
     soup = BeautifulSoup(page, 'html.parser')
     return [url + node.get('href') for node in soup.find_all('a') if
             node.get('href').endswith(ext)]
