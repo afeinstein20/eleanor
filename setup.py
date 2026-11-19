@@ -14,26 +14,22 @@ from version import __version__
 
 # define the dependencies
 install_reqs = [
-    "nbsphinx",
-    "ipykernel",
+    "numpy",
+    "scipy",
+    "matplotlib",
     "tqdm",
     "lightkurve",
     "astropy>=3.2.3",
     "astroquery",
     "pandas",
     "tess-point",
-    "astroquery",
-    "setuptools>=41.0.0",
     "beautifulsoup4>=4.6.0",
+    "requests",
     "jax",
-    # photutils will change depending on the python version
-    'photutils==1.11.0; python_version < "3.10"',
-    'photutils==2.0.2; python_version == "3.10"',
-    'photutils==3.0.0; python_version >= "3.12"'
+    "photutils>=2,<4",
 ]
 
-long_description = \
-    """
+long_description = """
 eleanor is a python package to extract target pixel files from
 TESS Full Frame Images and produce systematics-corrected light curves
 for any star observed by the TESS mission. In its simplest form, eleanor
@@ -41,7 +37,6 @@ takes a TIC ID, a Gaia source ID, or (RA, Dec) coordinates of a star
 observed by TESS and returns, as a single object, a light curve and
 accompanying target pixel data.
 Read the documentation at https://adina.feinste.in/eleanor
-
 """
 
 setup(
