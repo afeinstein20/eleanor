@@ -13,19 +13,19 @@ from version import __version__
 
 # define the dependencies
 install_reqs = [
-    "numpy",
-    "scipy",
-    "matplotlib",
-    "tqdm",
-    "lightkurve",
     "astropy>=3.2.3",
     "astroquery",
-    "pandas",
-    "tess-point",
     "beautifulsoup4>=4.6.0",
-    "requests",
     "jax",
+    "lightkurve",
+    "matplotlib",
+    "numpy",
+    "pandas",
     "photutils>=2,<4",
+    "requests",
+    "scipy",
+    "tess-point",
+    "tqdm",
 ]
 
 long_description = """
