@@ -5,7 +5,6 @@ from __future__ import division, print_function
 
 import sys
 
-import setuptools
 from setuptools import setup
 
 sys.path.insert(0, "eleanor")
