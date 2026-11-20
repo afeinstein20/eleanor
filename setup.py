@@ -53,6 +53,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     package_data={'': ['README.md', 'LICENSE']},
+    python_requires=">=3.11",
     install_requires=install_reqs,
     classifiers=[
         'Development Status :: 5 - Production/Stable',
